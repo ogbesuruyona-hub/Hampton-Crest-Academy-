@@ -1,53 +1,107 @@
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
+import { ContentCard } from "../components/ContentCard";
+import { ContentEditorDialog } from "../components/ContentEditorDialog";
+import { AdminAction } from "../components/AdminActions";
+import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
+import { EDUCATION_TRACKS } from "../lib/content";
 import { GraduationCap } from "lucide-react";
 
-const TRACKS = [
-  { label: "Foundations of Value Investing", weeks: "8 weeks" },
-  { label: "Macro & Capital Cycles", weeks: "6 weeks" },
-  { label: "Portfolio Construction", weeks: "5 weeks" },
-  { label: "Behavioural Discipline", weeks: "4 weeks" },
-];
-
 export default function InvestmentEducation() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [track, setTrack] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      const { data } = await api.get("/education", { params });
+      const filtered = track ? data.filter((d) => d.track === track) : data;
+      setItems(filtered);
+    } finally {
+      setLoading(false);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
     <div data-testid="education-page">
       <PageHeader
         overline="Members Suite · Curriculum"
         title="Investment Education"
         description="A structured curriculum — from foundational frameworks to advanced practice — designed for serious capital allocators."
+        actions={
+          isAdmin && (
+            <AdminAction
+              label="New Module"
+              testid="new-education-button"
+              onClick={() => setEditorOpen(true)}
+            />
+          )
+        }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-        {TRACKS.map((t, i) => (
-          <div
-            key={t.label}
-            data-testid={`track-${i}`}
-            className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-6 hc-enter"
+      <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="education-tracks">
+        <button
+          onClick={() => setTrack("")}
+          data-testid="track-filter-all"
+          className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors ${
+            !track
+              ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
+              : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
+          }`}
+        >
+          All Tracks
+        </button>
+        {EDUCATION_TRACKS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTrack(t)}
+            className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
+              track === t
+                ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
+                : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
+            }`}
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="hc-overline mb-2">Track {String(i + 1).padStart(2, "0")}</div>
-                <div className="text-base font-medium tracking-tight text-[var(--hc-text)]">
-                  {t.label}
-                </div>
-                <div className="mt-1 text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  {t.weeks} · Members-only
-                </div>
-              </div>
-              <span className="text-[0.65rem] tracking-[0.18em] uppercase text-[var(--hc-gold)] border border-[var(--hc-gold)]/40 px-2 py-1">
-                Forthcoming
-              </span>
-            </div>
-          </div>
+            {t}
+          </button>
         ))}
       </div>
 
-      <EmptyState
-        icon={GraduationCap}
-        title="Curriculum modules in preparation"
-        description="Each track will unlock with reading lists, recorded sessions, problem sets, and analyst commentary."
+      {loading ? (
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={GraduationCap}
+          title="Curriculum in preparation"
+          description={
+            isAdmin
+              ? "Use “New Module” to publish curriculum content."
+              : "Modules will unlock with reading lists, recorded sessions, and analyst commentary."
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="education-list">
+          {items.map((it) => (
+            <ContentCard key={it.id} item={it} contentType="education" showStatus={isAdmin} />
+          ))}
+        </div>
+      )}
+
+      <ContentEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        contentType="education"
+        onSaved={load}
       />
     </div>
   );
