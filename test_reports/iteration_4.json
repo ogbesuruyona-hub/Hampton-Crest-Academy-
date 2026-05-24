@@ -1,0 +1,43 @@
+{
+  "summary": "P1 retest iteration 4. Backend: 82/82 pytest pass (test_p1.py 27/27, test_auth.py 16/16, test_content.py 39/39) — all three iteration-3 backend bugs are fixed (brute-force lockout returns 429 with 'Try again in N minute(s)', 2FA /status returns backup_codes_remaining=10, email-only lockout key works behind ingress). Frontend: 2FA setup dialog now correctly renders the QR + secret + verify input. Discovered one NEW frontend bug while doing the full 2FA login E2E: AuthContext.jsx exposed login/register/logout but NOT verify2fa in the provider value, so Login.jsx threw `TypeError: verify2fa is not a function` at the 2FA challenge step. Applied a one-line fix (added verify2fa to the context value). After that, the full 2FA flow (enable → save backup codes → logout → login with TOTP → disable → login without 2FA) passes end-to-end. TipTap editor E2E on /research and PDF upload E2E on /reports both PASS — detail-body HTML contains <strong> and <h2>, report-pdf-block and report-pdf-open are visible. Admin restored to baseline (totp_enabled=false, totp_secret=null).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "Resend digest dispatch", "issue": "Non-verified sender domain causes Resend to reject most recipients; publish endpoints still return 200 because dispatch runs in BackgroundTasks. Operationally noisy in logs but matches the iteration-3 note that this is expected for the test environment."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "context/AuthContext.jsx", "issue": "verify2fa function was defined inside the AuthProvider but NOT exposed in the Provider's value object (line 76). Net effect: clicking the 2FA verify button on the login page raised `TypeError: verify2fa is not a function` and blocked the entire 2FA login flow. Fix applied (testing agent): added verify2fa to the value object. Verified end-to-end after fix.", "selector": "[data-testid=twofa-submit-button]", "priority": "HIGH (now fixed in this iteration)"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_content.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+  "action_items": [
+    "Already fixed by testing agent: AuthContext.jsx now exposes verify2fa. Main agent should review this one-line change and confirm no further auth context refactor is desired.",
+    "Operational (non-blocking): switch Resend `from` to a verified domain so digest emails deliver to non-owner addresses.",
+    "Code quality reminder from iteration 3 still standing: server.py at ~1183 lines should be split into auth/content/uploads/2fa modules."
+  ],
+  "critical_code_review_comments": [
+    "Whenever a new AuthContext helper is added (e.g., verify2fa), it must also be listed in the Provider's value object — consider an explicit `value = { user, login, register, logout, verify2fa }` pattern with a type/PropTypes shape so the omission is caught at build/lint time.",
+    "ensure_utc() helper added in server.py is a clean fix. Consider applying the same coercion in any other place that compares Mongo-returned datetimes (search for `> now_utc()` / `< now_utc()` calls).",
+    "Email-only lockout key is correct behind ingress; consider also a per-IP soft counter if you ever want IP-based rate limiting in addition.",
+    "server.py is still ~1183 LOC; split urgently."
+  ],
+  "updated_files": [
+    "/app/frontend/src/context/AuthContext.jsx (added verify2fa to AuthContext.Provider value)"
+  ],
+  "success_rate": {"backend": "100% (82/82 pytest)", "frontend": "100% on 2FA enable → login → disable, TipTap rich-text save+render, PDF upload + report detail rendering (after the one-line AuthContext fix)"},
+  "test_credentials": "admin@hamptoncrest.com / Hampton#2026 — confirmed working at end of run with totp_enabled=false, totp_secret=null. Safe for future iterations.",
+  "seed_data_creation": "Test artifacts from this run: a couple of TEST_TipTap_E2E research notes and TEST_Report_PDF_E2E reports; pytest creates and deletes its own TEST_P1_* docs. login_attempts collection cleared at end of run. Multiple bf_user_* / bf_ok_* / test_p1_* users remain in users collection from pytest brute-force and 2FA suites (intentional — they expire/age out).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All P1 scope verified. The verify2fa AuthContext fix is required for the 2FA login UI to work — main agent should keep that change. Pytest suite is now a clean 82/82 regression baseline. For any future auth changes, ensure new context helpers are added to the Provider's value object. If lockout tests are ever flaky, clear `db.login_attempts.delete_many({})` before running.",
+  "rca_of_the_issue": "Frontend `verify2fa is not a function` — RCA: AuthContext.jsx line 76 destructured context value `{user, login, register, logout}` did not include the locally-defined `verify2fa` function, so the consumer `Login.jsx` (line 9 `const { ... verify2fa } = useAuth();`) saw it as undefined. Reproduction: enable 2FA on any account, log out, log back in, enter TOTP at the challenge step → onSubmit calls verify2fa(...) → TypeError. Mitigation applied: added `verify2fa` to the Provider's `value` object so it is exported to consumers. After-fix verification: full 2FA login flow passes including dashboard navigation."
+}
