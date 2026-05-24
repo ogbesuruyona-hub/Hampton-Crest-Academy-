@@ -1,0 +1,49 @@
+{
+  "summary": "P1 testing complete. Backend: 24/27 pytest passing. 3 failures expose 2 backend bugs (brute-force lockout TypeError on tz-aware/naive datetime compare; 2FA /status returns backup_codes_remaining=0 because backup_codes_hashed is in _REDACTED_KEYS). Frontend smoke: Settings testids (enable-2fa-button, digest-switch) and Reports/Research editor testids (editor-body, rte-bold, pdf-upload-button, pdf-file-input) all present, but the 2FA setup dialog renders 'Preparing…' indefinitely — QR + secret never appear, so the UI 2FA enable flow is BLOCKED. Admin credentials remain intact (2FA was never successfully enabled on admin).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login (brute-force path)", "issue": "After 5+ failed attempts the lockout check raises `TypeError: can't compare offset-naive and offset-aware datetimes` at server.py:500 → endpoint returns 500. Cause: `locked_until` written via `now_utc()` (tz-aware) is read back from Mongo as offset-naive datetime; the comparison `locked_until > now_utc()` in check_lockout crashes. Net effect: brute-force lockout is non-functional — users see 500 (or 401 when keying inconsistency hides the record) instead of 429.", "priority": "CRITICAL"},
+      {"endpoint": "GET /api/auth/2fa/status", "issue": "`backup_codes_remaining` is always 0 even when 2FA is enabled with 10 codes. Cause: in /auth/2fa/status (server.py ~545) the handler reads `current_user.get('backup_codes_hashed')`, but `current_user` is the public projection which strips `_REDACTED_KEYS = {'password_hash','totp_secret','totp_secret_pending','backup_codes_hashed'}`. The field is always absent → len=0. Fix: re-fetch the raw user doc inside the endpoint (like /auth/2fa/disable does).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/login (brute-force key)", "issue": "Lockout key is `request.client.host + email`. Behind the Kubernetes ingress / preview proxy the immediate client IP can vary across requests, so the per-(IP,email) counter can be split across multiple keys and never reach the 5-attempt threshold. Recommend keying on email only OR honoring X-Forwarded-For for the IP component."},
+      {"endpoint": "Resend digest dispatch", "issue": "Resend rejects all recipients except ogbesuruyona@gmail.com (test domain not verified) and also rate-limits at 5 req/sec. Publishing still returns 200 because dispatch runs in BackgroundTasks; logs show many 'Resend send failed' lines. Not blocking for tests but operationally noisy."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TwoFADialogs.jsx (setup dialog)", "issue": "Dialog opens and stays on 'Preparing…' forever; [data-testid=twofa-qr] and [data-testid=twofa-secret] never render even though POST /api/auth/2fa/setup succeeds in isolation (24/27 pytest including setup_returns_secret_uri_qr PASSED). The `api.post('/auth/2fa/setup')` promise either never resolves on this page or the response field name is being misread. Net effect: NO USER CAN ENABLE 2FA FROM THE UI. data-testid=twofa-setup-error is also empty so the failure is silent.", "selector": "[data-testid=twofa-setup-dialog]", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "2FA setup UI ↔ /api/auth/2fa/setup", "issue": "Frontend dialog never transitions step from 'loading' → 'setup'. Suspect: (a) auth token not attached to this specific axios call, or (b) request triggered before auth header injected. Network capture would confirm. Either way the UI flow described in the review (extract secret → pyotp → verify) cannot proceed.", "affected_selectors": ["[data-testid=twofa-setup-dialog]", "[data-testid=twofa-qr]", "[data-testid=twofa-secret]", "[data-testid=twofa-verify-input]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1.py",
+    "/app/test_reports/pytest/p1_results.xml"
+  ],
+  "action_items": [
+    "FIX: In server.py check_lockout, normalize `locked_until` to tz-aware before comparing (e.g. `if locked_until.tzinfo is None: locked_until = locked_until.replace(tzinfo=timezone.utc)`), or always store/read via the same utility. This unblocks brute-force lockout entirely.",
+    "FIX: In /auth/2fa/status, do `user = await db.users.find_one({_id: ObjectId(current_user['id'])})` and compute backup_codes_remaining from the raw doc (same pattern as /auth/2fa/disable).",
+    "FIX: Brute-force key — drop IP component (or read X-Forwarded-For) so 5 attempts behind the proxy actually count toward the same record.",
+    "FIX: TwoFADialogs.jsx — debug why /auth/2fa/setup never completes in browser; ensure the `api` axios instance attaches the bearer token and that errors are surfaced into [data-testid=twofa-setup-error] instead of leaving the user on 'Preparing…'.",
+    "Optional: switch Resend `from` to a verified domain so digest emails actually deliver to non-owner addresses."
+  ],
+  "critical_code_review_comments": [
+    "server.py now ~1183 lines — well past the 700-line soft limit flagged last iteration. Split modules urgently (auth, content, uploads, files, 2fa).",
+    "_REDACTED_KEYS strips sensitive fields globally on serialize_doc but multiple endpoints (/auth/2fa/status here) still try to read those fields from the redacted dict — needs a clear separation: 'authenticated_user_doc' (raw) vs 'public_user' (redacted).",
+    "Datetime handling is mixed: now_utc() is tz-aware but Mongo BSON datetimes come back tz-naive. Centralize with an ensure_utc(dt) helper and apply everywhere a comparison happens.",
+    "Brute-force per-IP keying is brittle behind ingress; consider also a global per-email counter regardless of IP for safety."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1.py (new — 27 P1 tests)"
+  ],
+  "success_rate": {"backend": "89% (24/27 P1; 0% on brute-force, 2/3 on 2FA status, 100% on 2FA setup/login/disable, PDF upload+serve, reports w/ PDF, digest)", "frontend": "Partial — Settings + editor testids OK, 2FA setup dialog non-functional so the UI E2E for 2FA could not be completed"},
+  "test_credentials": "admin@hamptoncrest.com / Hampton#2026 — still works (2FA was NEVER successfully enabled on admin because the UI dialog never reached the verify step; the pytest 2FA suite uses a fresh per-session user and disables 2FA at the end).",
+  "seed_data_creation": "Pytest creates TEST_P1_* research/education/reports and deletes them. A few BF_ users (bf_user_*, bf_ok_*) and one test_p1_* user remain in users collection plus their login_attempts records. login_attempts collection has several locked entries that will expire after 15 minutes.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_p1.py covers: brute-force (2 tests, both failing due to backend TypeError + IP-keying), 2FA setup/verify/login/backup-code/disable (7 tests, 6 passing — only status backup_codes_remaining fails), email prefs (3), pdf upload + 4xx variants + file serve via Bearer + ?auth= + unauthenticated (7), report-with-pdf persistence (3), digest dispatch endpoint success (3). For the UI 2FA flow, the setup dialog stays on 'Preparing…' — once the main agent fixes the frontend, re-run the Playwright block from this iteration to verify [data-testid=twofa-secret] appears, then test verify, backup-codes, disable. PDF upload UI and TipTap UI were not exercised end-to-end here because the 2FA bug took priority; the testids exist and look wired up so a quick retest is recommended after backend fixes land.",
+  "rca_of_the_issue": "1) Brute-force lockout: server.py:200-210 check_lockout compares Mongo-returned naive datetime to tz-aware now_utc(). Repro: register fresh user, POST /api/auth/login with wrong password 5x, then 6th attempt returns 500 (not 429). Mitigation: coerce naive → UTC before compare. 2) 2FA backup_codes_remaining: server.py:543-548 reads from the redacted current_user dict; the field is stripped by _REDACTED_KEYS. Repro: enable 2FA, GET /api/auth/2fa/status → enabled=true but backup_codes_remaining=0. Mitigation: load raw user doc in the endpoint. 3) Frontend 2FA dialog stuck on 'Preparing…': the POST in TwoFADialogs.jsx useEffect (line 34) never transitions step; needs browser network inspection — likely token attachment or unmounted-component cancel logic interfering."
+}

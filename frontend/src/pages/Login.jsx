@@ -6,12 +6,14 @@ const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
 
 export default function Login() {
-  const { user, login, register } = useAuth();
+  const { user, login, register, verify2fa } = useAuth();
   const location = useLocation();
-  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [mode, setMode] = useState("login"); // "login" | "register" | "2fa"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [tempToken, setTempToken] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,12 +26,32 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setSubmitting(true);
-    const res = mode === "login"
-      ? await login(email, password)
-      : await register(name, email, password);
+    if (mode === "2fa") {
+      const res = await verify2fa(tempToken, code);
+      setSubmitting(false);
+      if (!res.ok) setError(res.error);
+      return;
+    }
+    const res =
+      mode === "login"
+        ? await login(email, password)
+        : await register(name, email, password);
     setSubmitting(false);
-    if (!res.ok) setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    if (res.requires_2fa) {
+      setMode("2fa");
+      setTempToken(res.temp_token);
+    }
   };
+
+  const inputCls =
+    "w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
+
+  const isLogin = mode === "login";
+  const is2fa = mode === "2fa";
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--hc-bg)] text-[var(--hc-text)]">
@@ -92,67 +114,93 @@ export default function Login() {
 
         <div className="max-w-md w-full hc-enter">
           <div className="hc-overline mb-3">
-            {mode === "login" ? "Member Sign In" : "Charter Enrollment"}
+            {is2fa
+              ? "Two-Factor Verification"
+              : isLogin
+                ? "Member Sign In"
+                : "Charter Enrollment"}
           </div>
           <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] text-[var(--hc-text)]">
-            {mode === "login" ? "Access your suite" : "Establish your account"}
+            {is2fa ? "Enter your code" : isLogin ? "Access your suite" : "Establish your account"}
           </h1>
           <p className="mt-3 text-sm text-[var(--hc-text-secondary)] tracking-tight">
-            {mode === "login"
-              ? "Enter your credentials to continue."
-              : "Reserved for vetted academy members."}
+            {is2fa
+              ? "Open your authenticator app and enter the 6-digit code, or use a backup code."
+              : isLogin
+                ? "Enter your credentials to continue."
+                : "Reserved for vetted academy members."}
           </p>
 
           <div className="mt-8 hc-gold-rule" />
 
           <form onSubmit={onSubmit} className="mt-8 space-y-5" data-testid="auth-form">
-            {mode === "register" && (
+            {is2fa ? (
               <div>
-                <label className="hc-overline block mb-2">Full Name</label>
+                <label className="hc-overline block mb-2">6-digit code</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
                   required
-                  data-testid="register-name-input"
-                  className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
+                  autoFocus
+                  data-testid="twofa-code-input"
+                  className={`${inputCls} tracking-[0.4em] text-center text-lg`}
+                  placeholder="••••••"
                 />
               </div>
-            )}
-
-            <div>
-              <label className="hc-overline block mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                data-testid="auth-email-input"
-                className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="hc-overline">Password</label>
-                {mode === "login" && (
-                  <span className="text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
-                    8+ characters
-                  </span>
+            ) : (
+              <>
+                {mode === "register" && (
+                  <div>
+                    <label className="hc-overline block mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      data-testid="register-name-input"
+                      className={inputCls}
+                    />
+                  </div>
                 )}
-              </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                data-testid="auth-password-input"
-                className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
-              />
-            </div>
+
+                <div>
+                  <label className="hc-overline block mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    data-testid="auth-email-input"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="hc-overline">Password</label>
+                    {isLogin && (
+                      <span className="text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
+                        8+ characters
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    data-testid="auth-password-input"
+                    className={inputCls}
+                  />
+                </div>
+              </>
+            )}
 
             {error && (
               <div
@@ -171,44 +219,62 @@ export default function Login() {
             >
               {submitting
                 ? "Authenticating…"
-                : mode === "login"
-                  ? "Sign In"
-                  : "Create Account"}
+                : is2fa
+                  ? "Verify"
+                  : isLogin
+                    ? "Sign In"
+                    : "Create Account"}
             </button>
 
-            <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">
-              {mode === "login" ? (
-                <>
-                  New to Hampton Crest?{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("register");
-                      setError("");
-                    }}
-                    data-testid="switch-to-register"
-                    className="text-[var(--hc-gold)] hover:underline underline-offset-4"
-                  >
-                    Establish an account
-                  </button>
-                </>
-              ) : (
-                <>
-                  Existing member?{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("login");
-                      setError("");
-                    }}
-                    data-testid="switch-to-login"
-                    className="text-[var(--hc-gold)] hover:underline underline-offset-4"
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
-            </div>
+            {is2fa ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setCode("");
+                  setTempToken("");
+                  setError("");
+                }}
+                data-testid="twofa-back"
+                className="w-full text-xs tracking-tight text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] underline underline-offset-4 transition-colors"
+              >
+                Cancel and sign in again
+              </button>
+            ) : (
+              <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">
+                {isLogin ? (
+                  <>
+                    New to Hampton Crest?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("register");
+                        setError("");
+                      }}
+                      data-testid="switch-to-register"
+                      className="text-[var(--hc-gold)] hover:underline underline-offset-4"
+                    >
+                      Establish an account
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Existing member?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("login");
+                        setError("");
+                      }}
+                      data-testid="switch-to-login"
+                      className="text-[var(--hc-gold)] hover:underline underline-offset-4"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </form>
 
           <div className="mt-12 text-[0.65rem] text-[var(--hc-text-muted)] tracking-[0.18em] uppercase">

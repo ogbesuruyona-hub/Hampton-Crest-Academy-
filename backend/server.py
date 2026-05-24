@@ -8,13 +8,25 @@ import os
 import logging
 import uuid
 import re
+import io
+import base64
+import asyncio
+import hashlib
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Annotated, List
 
 import bcrypt
 import jwt
+import pyotp
+import qrcode
+import requests
+import resend
 from bson import ObjectId
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query
+from fastapi import (
+    FastAPI, APIRouter, HTTPException, Depends, Request, Query,
+    UploadFile, File, BackgroundTasks, Response, Header,
+)
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -24,6 +36,10 @@ from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
 # ---------------- Setup ----------------
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRES_MINUTES = 60 * 24  # 24h
+PENDING_2FA_TOKEN_EXPIRES_MINUTES = 5
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+PDF_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -42,8 +58,16 @@ CONTENT_COLLECTIONS = {
     "companies": "companies",
 }
 
+# Resend init
+resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
-# ---------------- Helpers ----------------
+# Object storage config
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+APP_NAME = os.environ.get("APP_NAME", "hampton-crest")
+_storage_key: Optional[str] = None
+
+
+# ---------------- Helpers: time/ids ----------------
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -52,9 +76,9 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
+# ---------------- Helpers: passwords / JWT ----------------
 def hash_password(password: str) -> str:
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -66,16 +90,28 @@ def get_jwt_secret() -> str:
 
 
 def create_access_token(user_id: str, email: str) -> str:
-    payload = {
-        "sub": user_id,
-        "email": email,
-        "exp": now_utc() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES),
-        "iat": now_utc(),
-        "type": "access",
-    }
-    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+    return jwt.encode(
+        {
+            "sub": user_id, "email": email, "type": "access",
+            "iat": now_utc(),
+            "exp": now_utc() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES),
+        },
+        get_jwt_secret(), algorithm=JWT_ALGORITHM,
+    )
 
 
+def create_pending_2fa_token(user_id: str, email: str) -> str:
+    return jwt.encode(
+        {
+            "sub": user_id, "email": email, "type": "2fa_pending",
+            "iat": now_utc(),
+            "exp": now_utc() + timedelta(minutes=PENDING_2FA_TOKEN_EXPIRES_MINUTES),
+        },
+        get_jwt_secret(), algorithm=JWT_ALGORITHM,
+    )
+
+
+# ---------------- Helpers: serialization ----------------
 def _serialize_value(v):
     if isinstance(v, datetime):
         return v.isoformat()
@@ -84,11 +120,16 @@ def _serialize_value(v):
     return v
 
 
+_REDACTED_KEYS = {"password_hash", "totp_secret", "totp_secret_pending", "backup_codes_hashed"}
+
+
 def serialize_doc(doc: Optional[dict]) -> Optional[dict]:
     if doc is None:
         return None
     out = {}
     for k, v in doc.items():
+        if k in _REDACTED_KEYS:
+            continue
         if k == "_id":
             out["id"] = str(v)
             continue
@@ -99,15 +140,14 @@ def serialize_doc(doc: Optional[dict]) -> Optional[dict]:
             ]
         else:
             out[k] = _serialize_value(v)
-    out.pop("password_hash", None)
     return out
 
 
 def serialize_user(doc: dict) -> dict:
-    out = serialize_doc(doc) or {}
-    return out
+    return serialize_doc(doc) or {}
 
 
+# ---------------- Auth dependencies ----------------
 def _validate_object_id(v):
     if isinstance(v, ObjectId):
         return str(v)
@@ -117,7 +157,6 @@ def _validate_object_id(v):
 
 
 PyObjectId = Annotated[str, BeforeValidator(_validate_object_id)]
-
 security = HTTPBearer(auto_error=False)
 
 
@@ -152,7 +191,227 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     return current_user
 
 
-# ---------------- Auth models & routes ----------------
+# ---------------- Helpers: brute-force ----------------
+def _attempts_id(request: Request, email: str) -> str:
+    ip = request.client.host if request.client else "unknown"
+    return f"{ip}:{email.lower().strip()}"
+
+
+async def check_lockout(request: Request, email: str):
+    rec = await db.login_attempts.find_one({"_id": _attempts_id(request, email)})
+    if not rec:
+        return
+    locked_until = rec.get("locked_until")
+    if locked_until and locked_until > now_utc():
+        remaining = int((locked_until - now_utc()).total_seconds() // 60) + 1
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts. Try again in {remaining} minute(s).",
+        )
+
+
+async def record_failure(request: Request, email: str):
+    ident = _attempts_id(request, email)
+    rec = await db.login_attempts.find_one({"_id": ident})
+    attempts = (rec.get("attempts") if rec else 0) + 1
+    update = {"attempts": attempts, "last_attempt": now_utc()}
+    if attempts >= MAX_FAILED_ATTEMPTS:
+        update["locked_until"] = now_utc() + timedelta(minutes=LOCKOUT_MINUTES)
+    await db.login_attempts.update_one({"_id": ident}, {"$set": update}, upsert=True)
+
+
+async def clear_attempts(request: Request, email: str):
+    await db.login_attempts.delete_one({"_id": _attempts_id(request, email)})
+
+
+# ---------------- Helpers: 2FA ----------------
+def _hash_backup_code(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def _generate_backup_codes(n: int = 10) -> List[str]:
+    return [f"{secrets.token_hex(4)}-{secrets.token_hex(4)}" for _ in range(n)]
+
+
+def _build_totp_uri(secret: str, email: str) -> str:
+    return pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="Hampton Crest Academy")
+
+
+def _qr_png_base64(uri: str) -> str:
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _verify_totp_or_backup(user: dict, code: str) -> bool:
+    code = (code or "").strip().replace(" ", "")
+    secret = user.get("totp_secret")
+    if secret and pyotp.TOTP(secret).verify(code, valid_window=1):
+        return True
+    hashed = _hash_backup_code(code)
+    backup = user.get("backup_codes_hashed") or []
+    if hashed in backup:
+        # consume the code
+        return True
+    return False
+
+
+async def _consume_backup_code_if_used(user_id: str, code: str):
+    hashed = _hash_backup_code((code or "").strip().replace(" ", ""))
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$pull": {"backup_codes_hashed": hashed}})
+
+
+# ---------------- Helpers: storage ----------------
+def _init_storage() -> Optional[str]:
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    key = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not key:
+        logger.warning("EMERGENT_LLM_KEY not set; object storage disabled")
+        return None
+    try:
+        r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": key}, timeout=30)
+        r.raise_for_status()
+        _storage_key = r.json()["storage_key"]
+        logger.info("Object storage initialised")
+        return _storage_key
+    except Exception as e:
+        logger.error("Storage init failed: %s", e)
+        return None
+
+
+def _put_object_sync(path: str, data: bytes, content_type: str) -> dict:
+    key = _init_storage()
+    if not key:
+        raise RuntimeError("Storage not initialised")
+    r = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def _get_object_sync(path: str) -> tuple[bytes, str]:
+    key = _init_storage()
+    if not key:
+        raise RuntimeError("Storage not initialised")
+    r = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60,
+    )
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "application/octet-stream")
+
+
+async def put_object(path: str, data: bytes, content_type: str) -> dict:
+    return await asyncio.to_thread(_put_object_sync, path, data, content_type)
+
+
+async def get_object(path: str) -> tuple[bytes, str]:
+    return await asyncio.to_thread(_get_object_sync, path)
+
+
+# ---------------- Helpers: email ----------------
+PUBLIC_URL = os.environ.get("APP_PUBLIC_URL", "")
+
+
+def _digest_html(*, title: str, summary: str, category: Optional[str], content_type_label: str, link: str) -> str:
+    summary_html = (summary or "").replace("<", "&lt;").replace(">", "&gt;")
+    cat_html = f'<span style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">{category}</span>' if category else ""
+    return f"""<!doctype html>
+<html><body style="margin:0;padding:0;background:#050914;font-family:Helvetica,Arial,sans-serif;color:#f4f6f8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050914;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0c1222;border:1px solid #212a3f;">
+        <tr><td style="padding:32px 36px 8px 36px;text-align:left;">
+          <div style="color:#d4af37;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;font-weight:600;">Hampton Crest</div>
+          <div style="color:#5b667a;font-size:10px;letter-spacing:0.4em;text-transform:uppercase;margin-top:2px;">Academy</div>
+        </td></tr>
+        <tr><td style="padding:24px 36px 0 36px;">
+          <div style="height:1px;background:linear-gradient(to right,transparent,#d4af37,transparent);opacity:0.6;"></div>
+        </td></tr>
+        <tr><td style="padding:28px 36px 8px 36px;">
+          <div style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:12px;">{content_type_label}</div>
+          {cat_html}
+          <h1 style="margin:8px 0 16px 0;color:#f4f6f8;font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;">{title}</h1>
+          <p style="color:#9aa4b6;font-size:14px;line-height:1.6;margin:0 0 24px 0;">{summary_html or 'A new piece has been added to the Hampton Crest members suite.'}</p>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;">
+          <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:12px 24px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:600;">Read on Hampton Crest</a>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+def _send_email_sync(to: str, subject: str, html: str) -> Optional[dict]:
+    if not resend.api_key:
+        logger.info("[email:dry-run] to=%s subject=%s (no RESEND_API_KEY)", to, subject)
+        return None
+    sender_email = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+    sender_name = os.environ.get("SENDER_NAME", "Hampton Crest Academy")
+    params = {
+        "from": f"{sender_name} <{sender_email}>",
+        "to": [to],
+        "subject": subject,
+        "html": html,
+    }
+    try:
+        return resend.Emails.send(params)
+    except Exception as e:
+        logger.error("Resend send failed for %s: %s", to, e)
+        return None
+
+
+async def send_email(to: str, subject: str, html: str):
+    return await asyncio.to_thread(_send_email_sync, to, subject, html)
+
+
+async def _digest_recipients() -> List[str]:
+    # All members opted-in (default True). Exclude admins to avoid noise unless they opt-in explicitly.
+    cursor = db.users.find({"email_digest_opt_in": {"$ne": False}}, {"email": 1, "role": 1})
+    out = []
+    async for u in cursor:
+        out.append(u["email"])
+    return out
+
+
+async def dispatch_content_digest(*, content_type: str, item: dict):
+    """Fire-and-forget digest for newly-published content."""
+    try:
+        labels = {
+            "research": "New Research Note",
+            "education": "New Education Module",
+            "reports": "New Monthly Report",
+        }
+        label = labels.get(content_type)
+        if not label:
+            return
+        title = item.get("title", "Untitled")
+        summary = item.get("summary", "") or ""
+        category = item.get("category") or item.get("track") or None
+        link = f"{PUBLIC_URL}/{content_type}/{item.get('id') or item.get('_id')}" if PUBLIC_URL else "#"
+        subject = f"{label}: {title}"
+        html = _digest_html(
+            title=title, summary=summary, category=category,
+            content_type_label=label, link=link,
+        )
+        recipients = await _digest_recipients()
+        for r in recipients:
+            await send_email(r, subject, html)
+    except Exception as e:
+        logger.error("digest dispatch failed: %s", e)
+
+
+# ---------------- Auth models ----------------
 class UserPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
     id: PyObjectId = Field(validation_alias="_id")
@@ -160,6 +419,8 @@ class UserPublic(BaseModel):
     name: str
     role: str = "member"
     created_at: Optional[datetime] = None
+    totp_enabled: bool = False
+    email_digest_opt_in: bool = True
 
 
 class RegisterRequest(BaseModel):
@@ -174,11 +435,32 @@ class LoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
-    user: UserPublic
+    user: Optional[UserPublic] = None
+    requires_2fa: bool = False
+    temp_token: Optional[str] = None
 
 
+class TwoFAVerify(BaseModel):
+    temp_token: str
+    code: str
+
+
+class TwoFAVerifySetup(BaseModel):
+    code: str
+
+
+class TwoFADisable(BaseModel):
+    password: str
+    code: str
+
+
+class EmailPrefsIn(BaseModel):
+    email_digest_opt_in: bool
+
+
+# ---------------- Routes: root/health ----------------
 @api_router.get("/")
 async def root():
     return {"service": "Hampton Crest Academy", "status": "ok"}
@@ -189,6 +471,7 @@ async def health():
     return {"status": "ok", "time": now_utc().isoformat()}
 
 
+# ---------------- Routes: auth ----------------
 @api_router.post("/auth/register", response_model=AuthResponse)
 async def register(payload: RegisterRequest):
     email = payload.email.lower().strip()
@@ -200,21 +483,50 @@ async def register(payload: RegisterRequest):
         "name": payload.name.strip(),
         "role": "member",
         "created_at": now_utc(),
+        "totp_enabled": False,
+        "email_digest_opt_in": True,
     }
     result = await db.users.insert_one(doc)
-    user_id = str(result.inserted_id)
-    token = create_access_token(user_id, email)
-    user_doc = {**doc, "_id": result.inserted_id}
-    return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user_doc)))
+    token = create_access_token(str(result.inserted_id), email)
+    return AuthResponse(
+        access_token=token,
+        user=UserPublic(**serialize_user({**doc, "_id": result.inserted_id})),
+    )
 
 
 @api_router.post("/auth/login", response_model=AuthResponse)
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, request: Request):
     email = payload.email.lower().strip()
+    await check_lockout(request, email)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(payload.password, user.get("password_hash", "")):
+        await record_failure(request, email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    await clear_attempts(request, email)
+    if user.get("totp_enabled"):
+        temp = create_pending_2fa_token(str(user["_id"]), email)
+        return AuthResponse(requires_2fa=True, temp_token=temp)
     token = create_access_token(str(user["_id"]), email)
+    return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
+
+
+@api_router.post("/auth/2fa/verify", response_model=AuthResponse)
+async def two_fa_verify(payload: TwoFAVerify):
+    try:
+        decoded = jwt.decode(payload.temp_token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        if decoded.get("type") != "2fa_pending":
+            raise HTTPException(401, "Invalid token")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Code expired. Please sign in again.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token")
+    user = await db.users.find_one({"_id": ObjectId(decoded["sub"])})
+    if not user or not user.get("totp_enabled"):
+        raise HTTPException(401, "Invalid state")
+    if not _verify_totp_or_backup(user, payload.code):
+        raise HTTPException(401, "Invalid 2FA code")
+    await _consume_backup_code_if_used(decoded["sub"], payload.code)
+    token = create_access_token(str(user["_id"]), user["email"])
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
 
@@ -226,6 +538,80 @@ async def me(current_user: dict = Depends(get_current_user)):
 @api_router.post("/auth/logout")
 async def logout(current_user: dict = Depends(get_current_user)):
     return {"ok": True}
+
+
+@api_router.get("/auth/2fa/status")
+async def two_fa_status(current_user: dict = Depends(get_current_user)):
+    return {
+        "enabled": bool(current_user.get("totp_enabled")),
+        "backup_codes_remaining": len(current_user.get("backup_codes_hashed") or []) if current_user.get("totp_enabled") else 0,
+    }
+
+
+@api_router.post("/auth/2fa/setup")
+async def two_fa_setup(current_user: dict = Depends(get_current_user)):
+    if current_user.get("totp_enabled"):
+        raise HTTPException(400, "2FA already enabled. Disable first to regenerate.")
+    secret = pyotp.random_base32()
+    uri = _build_totp_uri(secret, current_user["email"])
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": {"totp_secret_pending": secret}},
+    )
+    return {"secret": secret, "uri": uri, "qr_png_base64": _qr_png_base64(uri)}
+
+
+@api_router.post("/auth/2fa/verify-setup")
+async def two_fa_verify_setup(payload: TwoFAVerifySetup, current_user: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    pending = (user or {}).get("totp_secret_pending")
+    if not pending:
+        raise HTTPException(400, "No pending 2FA setup. Call /auth/2fa/setup first.")
+    if not pyotp.TOTP(pending).verify((payload.code or "").strip(), valid_window=1):
+        raise HTTPException(401, "Invalid code")
+    backup_codes = _generate_backup_codes()
+    hashed = [_hash_backup_code(c) for c in backup_codes]
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {
+            "$set": {
+                "totp_secret": pending,
+                "totp_enabled": True,
+                "backup_codes_hashed": hashed,
+            },
+            "$unset": {"totp_secret_pending": ""},
+        },
+    )
+    return {"enabled": True, "backup_codes": backup_codes}
+
+
+@api_router.post("/auth/2fa/disable")
+async def two_fa_disable(payload: TwoFADisable, current_user: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    if not user or not user.get("totp_enabled"):
+        raise HTTPException(400, "2FA is not enabled")
+    if not verify_password(payload.password, user.get("password_hash", "")):
+        raise HTTPException(401, "Invalid password")
+    if not _verify_totp_or_backup(user, payload.code):
+        raise HTTPException(401, "Invalid 2FA code")
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {
+            "$set": {"totp_enabled": False},
+            "$unset": {"totp_secret": "", "totp_secret_pending": "", "backup_codes_hashed": ""},
+        },
+    )
+    return {"enabled": False}
+
+
+@api_router.put("/auth/email-preferences", response_model=UserPublic)
+async def update_email_prefs(payload: EmailPrefsIn, current_user: dict = Depends(get_current_user)):
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": {"email_digest_opt_in": payload.email_digest_opt_in}},
+    )
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    return UserPublic(**serialize_user(user))
 
 
 # ---------------- Content models ----------------
@@ -245,7 +631,10 @@ class EducationIn(ResearchIn):
 
 
 class ReportIn(ResearchIn):
-    period: str = Field(pattern="^\\d{4}-(0[1-9]|1[0-2])$")  # YYYY-MM
+    period: str = Field(pattern="^\\d{4}-(0[1-9]|1[0-2])$")
+    pdf_url: Optional[str] = None
+    pdf_filename: Optional[str] = None
+    pdf_size: Optional[int] = None
 
 
 class KeyMetric(BaseModel):
@@ -280,7 +669,6 @@ def _author_stub(user: dict) -> dict:
 
 
 def _published_filter(current_user: dict, status: Optional[str]) -> dict:
-    """Members only see published content; admins can filter or see all."""
     if current_user.get("role") == "admin":
         return {"status": status} if status else {}
     return {"status": "published"}
@@ -290,18 +678,6 @@ def _apply_search(query: dict, q: Optional[str], fields: List[str]):
     if q:
         regex = {"$regex": re.escape(q), "$options": "i"}
         query["$or"] = [{f: regex} for f in fields]
-
-
-async def _list_generic(collection: str, current_user: dict, status, category, tag, q, search_fields, sort_field="created_at"):
-    query = _published_filter(current_user, status)
-    if category:
-        query["category"] = category
-    if tag:
-        query["tags"] = tag
-    _apply_search(query, q, search_fields)
-    cursor = db[collection].find(query).sort(sort_field, -1).limit(200)
-    docs = await cursor.to_list(200)
-    return [serialize_doc(d) for d in docs]
 
 
 async def _get_or_404(collection: str, content_id: str, current_user: dict):
@@ -325,8 +701,8 @@ def _build_content_doc(payload_dict: dict, user: dict) -> dict:
     }
 
 
-def _patch_update(update: dict, payload_dict: dict, existing: dict) -> dict:
-    update.update(payload_dict)
+def _patch_update(payload_dict: dict, existing: dict) -> dict:
+    update = dict(payload_dict)
     update["updated_at"] = now_utc()
     new_status = payload_dict.get("status", existing.get("status"))
     if new_status == "published" and not existing.get("published_at"):
@@ -334,7 +710,15 @@ def _patch_update(update: dict, payload_dict: dict, existing: dict) -> dict:
     return update
 
 
-# ---------------- Research ----------------
+async def _maybe_dispatch(bg: BackgroundTasks, *, content_type: str, before: Optional[dict], after: dict):
+    """Fire digest when a piece transitions to published."""
+    was_published = bool(before and before.get("status") == "published" and before.get("published_at"))
+    is_published_now = after.get("status") == "published"
+    if (not was_published) and is_published_now:
+        bg.add_task(dispatch_content_digest, content_type=content_type, item=serialize_doc(after))
+
+
+# ---------------- Routes: research ----------------
 @api_router.get("/research")
 async def list_research(
     current_user: dict = Depends(get_current_user),
@@ -343,30 +727,39 @@ async def list_research(
     tag: Optional[str] = None,
     q: Optional[str] = None,
 ):
-    return await _list_generic("research_notes", current_user, status, category, tag, q, ["title", "summary", "body"])
+    query = _published_filter(current_user, status)
+    if category:
+        query["category"] = category
+    if tag:
+        query["tags"] = tag
+    _apply_search(query, q, ["title", "summary", "body"])
+    docs = await db.research_notes.find(query).sort("created_at", -1).limit(200).to_list(200)
+    return [serialize_doc(d) for d in docs]
 
 
 @api_router.get("/research/{content_id}")
 async def get_research(content_id: str, current_user: dict = Depends(get_current_user)):
-    doc = await _get_or_404("research_notes", content_id, current_user)
-    return serialize_doc(doc)
+    return serialize_doc(await _get_or_404("research_notes", content_id, current_user))
 
 
 @api_router.post("/research")
-async def create_research(payload: ResearchIn, current_user: dict = Depends(require_admin)):
+async def create_research(payload: ResearchIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     doc = _build_content_doc(payload.model_dump(), current_user)
     await db.research_notes.insert_one(doc)
+    await _maybe_dispatch(bg, content_type="research", before=None, after=doc)
     return serialize_doc(doc)
 
 
 @api_router.put("/research/{content_id}")
-async def update_research(content_id: str, payload: ResearchIn, current_user: dict = Depends(require_admin)):
+async def update_research(content_id: str, payload: ResearchIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     existing = await db.research_notes.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")
-    update = _patch_update({}, payload.model_dump(), existing)
+    update = _patch_update(payload.model_dump(), existing)
     await db.research_notes.update_one({"_id": content_id}, {"$set": update})
-    return serialize_doc({**existing, **update})
+    merged = {**existing, **update}
+    await _maybe_dispatch(bg, content_type="research", before=existing, after=merged)
+    return serialize_doc(merged)
 
 
 @api_router.delete("/research/{content_id}")
@@ -375,7 +768,7 @@ async def delete_research(content_id: str, current_user: dict = Depends(require_
     return {"ok": True}
 
 
-# ---------------- Education ----------------
+# ---------------- Routes: education ----------------
 @api_router.get("/education")
 async def list_education(
     current_user: dict = Depends(get_current_user),
@@ -396,25 +789,27 @@ async def list_education(
 
 @api_router.get("/education/{content_id}")
 async def get_education(content_id: str, current_user: dict = Depends(get_current_user)):
-    doc = await _get_or_404("education_modules", content_id, current_user)
-    return serialize_doc(doc)
+    return serialize_doc(await _get_or_404("education_modules", content_id, current_user))
 
 
 @api_router.post("/education")
-async def create_education(payload: EducationIn, current_user: dict = Depends(require_admin)):
+async def create_education(payload: EducationIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     doc = _build_content_doc(payload.model_dump(), current_user)
     await db.education_modules.insert_one(doc)
+    await _maybe_dispatch(bg, content_type="education", before=None, after=doc)
     return serialize_doc(doc)
 
 
 @api_router.put("/education/{content_id}")
-async def update_education(content_id: str, payload: EducationIn, current_user: dict = Depends(require_admin)):
+async def update_education(content_id: str, payload: EducationIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     existing = await db.education_modules.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")
-    update = _patch_update({}, payload.model_dump(), existing)
+    update = _patch_update(payload.model_dump(), existing)
     await db.education_modules.update_one({"_id": content_id}, {"$set": update})
-    return serialize_doc({**existing, **update})
+    merged = {**existing, **update}
+    await _maybe_dispatch(bg, content_type="education", before=existing, after=merged)
+    return serialize_doc(merged)
 
 
 @api_router.delete("/education/{content_id}")
@@ -423,7 +818,7 @@ async def delete_education(content_id: str, current_user: dict = Depends(require
     return {"ok": True}
 
 
-# ---------------- Monthly reports ----------------
+# ---------------- Routes: reports ----------------
 @api_router.get("/reports")
 async def list_reports(
     current_user: dict = Depends(get_current_user),
@@ -441,34 +836,42 @@ async def list_reports(
 
 @api_router.get("/reports/{content_id}")
 async def get_report(content_id: str, current_user: dict = Depends(get_current_user)):
-    doc = await _get_or_404("monthly_reports", content_id, current_user)
-    return serialize_doc(doc)
+    return serialize_doc(await _get_or_404("monthly_reports", content_id, current_user))
 
 
 @api_router.post("/reports")
-async def create_report(payload: ReportIn, current_user: dict = Depends(require_admin)):
+async def create_report(payload: ReportIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     doc = _build_content_doc(payload.model_dump(), current_user)
     await db.monthly_reports.insert_one(doc)
+    await _maybe_dispatch(bg, content_type="reports", before=None, after=doc)
     return serialize_doc(doc)
 
 
 @api_router.put("/reports/{content_id}")
-async def update_report(content_id: str, payload: ReportIn, current_user: dict = Depends(require_admin)):
+async def update_report(content_id: str, payload: ReportIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     existing = await db.monthly_reports.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")
-    update = _patch_update({}, payload.model_dump(), existing)
+    update = _patch_update(payload.model_dump(), existing)
     await db.monthly_reports.update_one({"_id": content_id}, {"$set": update})
-    return serialize_doc({**existing, **update})
+    merged = {**existing, **update}
+    await _maybe_dispatch(bg, content_type="reports", before=existing, after=merged)
+    return serialize_doc(merged)
 
 
 @api_router.delete("/reports/{content_id}")
 async def delete_report(content_id: str, current_user: dict = Depends(require_admin)):
+    existing = await db.monthly_reports.find_one({"_id": content_id})
+    if existing and existing.get("pdf_storage_path"):
+        await db.uploads.update_one(
+            {"storage_path": existing["pdf_storage_path"]},
+            {"$set": {"is_deleted": True}},
+        )
     await db.monthly_reports.delete_one({"_id": content_id})
     return {"ok": True}
 
 
-# ---------------- Companies ----------------
+# ---------------- Routes: companies ----------------
 @api_router.get("/companies")
 async def list_companies(
     current_user: dict = Depends(get_current_user),
@@ -477,17 +880,12 @@ async def list_companies(
     q: Optional[str] = None,
 ):
     query: dict = {}
-    if current_user.get("role") != "admin":
-        # for companies, "status" is covered/watching/exited (not draft/published)
-        # all are visible to members
-        pass
     if status:
         query["status"] = status
     if sector:
         query["sector"] = sector
     _apply_search(query, q, ["ticker", "name", "thesis_summary"])
     docs = await db.companies.find(query).sort("ticker", 1).limit(500).to_list(500)
-    # Hide memos in list response (keep response light)
     cleaned = []
     for d in docs:
         s = serialize_doc(d)
@@ -574,7 +972,7 @@ async def delete_company_memo(company_id: str, memo_id: str, current_user: dict 
     return {"ok": True}
 
 
-# ---------------- Bookmarks ----------------
+# ---------------- Routes: bookmarks ----------------
 @api_router.get("/bookmarks")
 async def list_bookmarks(current_user: dict = Depends(get_current_user)):
     bms = await db.bookmarks.find({"user_id": current_user["id"]}).sort("created_at", -1).limit(500).to_list(500)
@@ -585,7 +983,6 @@ async def list_bookmarks(current_user: dict = Depends(get_current_user)):
             continue
         item = await db[coll].find_one({"_id": bm["content_id"]})
         if not item:
-            # orphan — skip
             continue
         if current_user.get("role") != "admin" and bm["content_type"] != "companies" and item.get("status") != "published":
             continue
@@ -618,7 +1015,6 @@ async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(get_cur
     item = await db[coll].find_one({"_id": payload.content_id})
     if not item:
         raise HTTPException(404, "Content not found")
-    # Members cannot bookmark unpublished research/education/reports
     if (
         current_user.get("role") != "admin"
         and payload.content_type != "companies"
@@ -656,6 +1052,77 @@ async def remove_bookmark(
     return {"bookmarked": False}
 
 
+# ---------------- Routes: PDF upload + file serve ----------------
+@api_router.post("/uploads/report-pdf")
+async def upload_report_pdf(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
+    if file.content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are accepted")
+    data = await file.read()
+    if len(data) > PDF_MAX_BYTES:
+        raise HTTPException(413, f"PDF exceeds {PDF_MAX_BYTES // (1024*1024)} MB limit")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    file_id = new_id()
+    path = f"{APP_NAME}/reports/{file_id}.pdf"
+    try:
+        result = await put_object(path, data, "application/pdf")
+    except Exception as e:
+        logger.error("upload failed: %s", e)
+        raise HTTPException(503, "Storage unavailable")
+    stored_path = result.get("path", path)
+    await db.uploads.insert_one({
+        "_id": file_id,
+        "storage_path": stored_path,
+        "original_filename": file.filename or f"{file_id}.pdf",
+        "content_type": "application/pdf",
+        "size": len(data),
+        "is_deleted": False,
+        "uploader_id": current_user["id"],
+        "created_at": now_utc(),
+    })
+    return {
+        "id": file_id,
+        "url": f"/api/files/{stored_path}",
+        "filename": file.filename or f"{file_id}.pdf",
+        "size": len(data),
+        "content_type": "application/pdf",
+    }
+
+
+@api_router.get("/files/{path:path}")
+async def serve_file(
+    path: str,
+    auth: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+):
+    # Authentication: Authorization header OR ?auth=<token> for browser-friendly links
+    token: Optional[str] = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:]
+    elif auth:
+        token = auth
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            raise HTTPException(401, "Invalid token")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token")
+    record = await db.uploads.find_one({"storage_path": path, "is_deleted": False})
+    if not record:
+        raise HTTPException(404, "File not found")
+    try:
+        data, content_type = await get_object(path)
+    except Exception as e:
+        logger.error("file fetch failed: %s", e)
+        raise HTTPException(503, "Storage unavailable")
+    headers = {"Content-Disposition": f'inline; filename="{record.get("original_filename", "file.pdf")}"'}
+    return Response(content=data, media_type=record.get("content_type") or content_type, headers=headers)
+
+
 # ---------------- Lifecycle ----------------
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@hamptoncrest.com").lower().strip()
@@ -668,6 +1135,8 @@ async def seed_admin():
             "name": "Hampton Crest Admin",
             "role": "admin",
             "created_at": now_utc(),
+            "totp_enabled": False,
+            "email_digest_opt_in": True,
         })
         logger.info("Seeded admin user %s", admin_email)
     else:
@@ -687,7 +1156,13 @@ async def on_startup():
     await db.monthly_reports.create_index([("period", -1)])
     await db.companies.create_index("ticker", unique=True)
     await db.bookmarks.create_index([("user_id", 1), ("content_type", 1), ("content_id", 1)], unique=True)
+    await db.login_attempts.create_index("locked_until", expireAfterSeconds=60 * 60 * 24)
     await seed_admin()
+    # Init storage but don't fail startup if down
+    try:
+        await asyncio.to_thread(_init_storage)
+    except Exception as e:
+        logger.warning("storage init at startup failed: %s", e)
 
 
 @app.on_event("shutdown")

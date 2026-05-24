@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { CONTENT_TYPES, formatDate, formatPeriod } from "../lib/content";
 import { useAuth } from "../context/AuthContext";
 import { BookmarkButton } from "./BookmarkButton";
 import { StatusBadge } from "./StatusBadge";
 import { AdminInlineActions } from "./AdminActions";
+import { RichContent } from "./RichContent";
+import { openPdf } from "./PdfUploader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,13 +149,33 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
         <div className="mt-8 hc-gold-rule" />
       </header>
 
+      {/* PDF attachment for reports */}
+      {contentType === "reports" && item.pdf_url && (
+        <div
+          data-testid="report-pdf-block"
+          className="mt-8 flex items-center justify-between gap-4 border border-[var(--hc-border)] bg-[var(--hc-surface)] px-5 py-4"
+        >
+          <div className="min-w-0">
+            <div className="hc-overline">Attachment</div>
+            <div className="mt-1 text-sm tracking-tight text-[var(--hc-text)] truncate">
+              {item.pdf_filename || "report.pdf"}
+            </div>
+          </div>
+          <button
+            onClick={() => openPdf(item.pdf_url)}
+            data-testid="report-pdf-open"
+            className="flex items-center gap-2 px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
+          >
+            <FileDown className="h-3.5 w-3.5" strokeWidth={1.5} /> Open PDF
+          </button>
+        </div>
+      )}
+
       <div
-        className="mt-10 text-[var(--hc-text)] tracking-tight leading-[1.75] whitespace-pre-wrap text-[1.0625rem]"
+        className="mt-10 text-[var(--hc-text)] tracking-tight leading-[1.75] text-[1.0625rem]"
         data-testid="detail-body"
       >
-        {item.body || (
-          <span className="text-[var(--hc-text-muted)] italic">No body content.</span>
-        )}
+        <RichContent html={item.body} />
       </div>
 
       {Array.isArray(item.tags) && item.tags.length > 0 && (

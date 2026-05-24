@@ -10,6 +10,7 @@ import {
 import { Plus, X } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { COMPANY_SECTORS, COMPANY_STATUSES } from "../lib/content";
+import { RichTextEditor } from "./RichTextEditor";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -183,13 +184,11 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
 
           <div>
             <label className={labelCls}>Thesis Body</label>
-            <textarea
+            <RichTextEditor
               value={form.thesis_body}
-              onChange={(e) => update("thesis_body", e.target.value)}
-              data-testid="company-thesis-body"
-              rows={8}
-              className={`${inputCls} resize-y leading-relaxed`}
-              placeholder="The full investment case."
+              onChange={(html) => update("thesis_body", html)}
+              placeholder="The full investment case. Use headings, lists, and emphasis."
+              testid="company-thesis-body"
             />
           </div>
 
