@@ -518,7 +518,12 @@ async def create_company(payload: CompanyIn, current_user: dict = Depends(requir
         "created_at": now_utc(),
         "updated_at": now_utc(),
     }
-    await db.companies.insert_one(doc)
+    try:
+        await db.companies.insert_one(doc)
+    except Exception as e:
+        if "duplicate key" in str(e).lower():
+            raise HTTPException(status_code=409, detail=f"Ticker '{data['ticker']}' already exists")
+        raise
     return serialize_doc(doc)
 
 
@@ -610,7 +615,15 @@ async def check_bookmark(
 @api_router.post("/bookmarks")
 async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(get_current_user)):
     coll = CONTENT_COLLECTIONS[payload.content_type]
-    if not await db[coll].find_one({"_id": payload.content_id}):
+    item = await db[coll].find_one({"_id": payload.content_id})
+    if not item:
+        raise HTTPException(404, "Content not found")
+    # Members cannot bookmark unpublished research/education/reports
+    if (
+        current_user.get("role") != "admin"
+        and payload.content_type != "companies"
+        and item.get("status") != "published"
+    ):
         raise HTTPException(404, "Content not found")
     existing = await db.bookmarks.find_one({
         "user_id": current_user["id"],
