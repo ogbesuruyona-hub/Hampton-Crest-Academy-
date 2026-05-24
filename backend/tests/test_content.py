@@ -24,11 +24,12 @@ def admin_token():
 
 
 @pytest.fixture(scope="session")
-def member():
+def member(make_active):
     email = f"test_member_{uuid.uuid4().hex[:8]}@example.com"
     password = "TestPass#2026"
     r = requests.post(f"{API}/auth/register", json={"name": "TEST Member", "email": email, "password": password})
     assert r.status_code == 200, f"member register failed: {r.text}"
+    make_active(email)
     return {"email": email, "password": password, "token": r.json()["access_token"], "id": r.json()["user"]["id"]}
 
 

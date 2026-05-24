@@ -20,12 +20,14 @@ def session():
 
 
 @pytest.fixture(scope="session")
-def new_member(session):
-    """Register one new member for the session."""
+def new_member(session, make_active):
+    """Register one new member for the session and flag as complimentary so
+    prior login/me tests still pass under P2 membership gating."""
     email = f"test_member_{uuid.uuid4().hex[:8]}@example.com"
     payload = {"name": "TEST Member", "email": email, "password": "TestPass#2026"}
     r = session.post(f"{API}/auth/register", json=payload)
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
+    make_active(email)
     data = r.json()
     return {"email": email, "password": payload["password"], "data": data}
 

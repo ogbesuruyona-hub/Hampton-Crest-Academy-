@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const LOGO_URL =
@@ -8,6 +8,7 @@ const LOGO_URL =
 export default function Login() {
   const { user, login, register, verify2fa } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState("login"); // "login" | "register" | "2fa"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +30,10 @@ export default function Login() {
     if (mode === "2fa") {
       const res = await verify2fa(tempToken, code);
       setSubmitting(false);
+      if (res.access_denied) {
+        navigate("/access-denied", { replace: true });
+        return;
+      }
       if (!res.ok) setError(res.error);
       return;
     }
@@ -37,6 +42,10 @@ export default function Login() {
         ? await login(email, password)
         : await register(name, email, password);
     setSubmitting(false);
+    if (res.access_denied) {
+      navigate("/access-denied", { replace: true });
+      return;
+    }
     if (!res.ok) {
       setError(res.error);
       return;
@@ -242,37 +251,14 @@ export default function Login() {
               </button>
             ) : (
               <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">
-                {isLogin ? (
-                  <>
-                    New to Hampton Crest?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("register");
-                        setError("");
-                      }}
-                      data-testid="switch-to-register"
-                      className="text-[var(--hc-gold)] hover:underline underline-offset-4"
-                    >
-                      Establish an account
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Existing member?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("login");
-                        setError("");
-                      }}
-                      data-testid="switch-to-login"
-                      className="text-[var(--hc-gold)] hover:underline underline-offset-4"
-                    >
-                      Sign in
-                    </button>
-                  </>
-                )}
+                Not a member?{" "}
+                <a
+                  href="/access-denied"
+                  data-testid="view-plans-link"
+                  className="text-[var(--hc-gold)] hover:underline underline-offset-4"
+                >
+                  View membership
+                </a>
               </div>
             )}
           </form>

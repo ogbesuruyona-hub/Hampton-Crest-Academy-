@@ -33,12 +33,13 @@ def admin_token():
 
 
 @pytest.fixture(scope="session")
-def fresh_user():
+def fresh_user(make_active):
     """A dedicated user for 2FA tests so we never touch the admin's 2FA state."""
     email = f"test_p1_{uuid.uuid4().hex[:8]}@example.com"
     password = "TestPass#2026"
     r = requests.post(f"{API}/auth/register", json={"name": "TEST P1 User", "email": email, "password": password})
     assert r.status_code == 200, r.text
+    make_active(email)
     return {"email": email, "password": password, "token": r.json()["access_token"], "id": r.json()["user"]["id"]}
 
 
@@ -63,10 +64,11 @@ class TestBruteForce:
         r_correct = requests.post(f"{API}/auth/login", json={"email": email, "password": "GoodPass#2026"})
         assert r_correct.status_code == 429
 
-    def test_successful_login_clears_attempts(self):
+    def test_successful_login_clears_attempts(self, make_active):
         email = f"bf_ok_{uuid.uuid4().hex[:8]}@example.com"
         rr = requests.post(f"{API}/auth/register", json={"name": "BF2", "email": email, "password": "GoodPass#2026"})
         assert rr.status_code == 200
+        make_active(email)
         # 4 failed
         for _ in range(4):
             r = requests.post(f"{API}/auth/login", json={"email": email, "password": "WrongPass!"})

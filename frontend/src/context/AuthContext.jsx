@@ -36,7 +36,11 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: formatApiErrorDetail(e.response?.data?.detail) || e.message };
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 403 && detail === "membership_inactive") {
+        return { ok: false, error: "membership_inactive", access_denied: true };
+      }
+      return { ok: false, error: formatApiErrorDetail(detail) || e.message };
     }
   };
 
@@ -47,7 +51,11 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: formatApiErrorDetail(e.response?.data?.detail) || e.message };
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 403 && detail === "membership_inactive") {
+        return { ok: false, error: "membership_inactive", access_denied: true };
+      }
+      return { ok: false, error: formatApiErrorDetail(detail) || e.message };
     }
   };
 
