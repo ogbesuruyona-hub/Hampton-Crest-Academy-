@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { api, formatApiErrorDetail } from "../lib/api";
+import { RichTextEditor } from "./RichTextEditor";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -29,6 +30,10 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!title.trim() || !body || body === "<p></p>") {
+      setError("Title and body are required.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -70,13 +75,11 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
           </div>
           <div>
             <label className={labelCls}>Body</label>
-            <textarea
+            <RichTextEditor
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              required
-              rows={10}
-              data-testid="memo-body"
-              className={`${inputCls} resize-y leading-relaxed`}
+              onChange={(html) => setBody(html)}
+              placeholder="The analyst observation, in detail."
+              testid="memo-body"
             />
           </div>
 

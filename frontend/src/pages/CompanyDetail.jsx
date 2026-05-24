@@ -9,6 +9,7 @@ import { AdminInlineActions } from "../components/AdminActions";
 import { CompanyEditorDialog } from "../components/CompanyEditorDialog";
 import { MemoEditorDialog } from "../components/MemoEditorDialog";
 import { Panel } from "../components/Panel";
+import { RichContent } from "../components/RichContent";
 import { formatDate } from "../lib/content";
 import {
   AlertDialog,
@@ -199,8 +200,8 @@ export default function CompanyDetail() {
                       <div className="text-base font-medium tracking-tight text-[var(--hc-text)]">
                         {m.title}
                       </div>
-                      <div className="mt-2 text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed whitespace-pre-wrap">
-                        {m.body}
+                      <div className="mt-2 text-sm text-[var(--hc-text-secondary)] tracking-tight">
+                        <RichContent html={m.body} />
                       </div>
                     </div>
                   ))}

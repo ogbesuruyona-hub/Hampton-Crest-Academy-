@@ -29,6 +29,20 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const { data } = await api.post("/auth/login", { email, password });
+      if (data.requires_2fa) {
+        return { ok: true, requires_2fa: true, temp_token: data.temp_token };
+      }
+      tokenStore.set(data.access_token);
+      setUser(data.user);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: formatApiErrorDetail(e.response?.data?.detail) || e.message };
+    }
+  };
+
+  const verify2fa = async (tempToken, code) => {
+    try {
+      const { data } = await api.post("/auth/2fa/verify", { temp_token: tempToken, code });
       tokenStore.set(data.access_token);
       setUser(data.user);
       return { ok: true };

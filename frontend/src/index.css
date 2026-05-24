@@ -158,6 +158,101 @@
     animation-delay: 0.2s;
 }
 
+/* TipTap content / RichContent — institutional reading layout */
+.hc-prose h2 {
+    font-size: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 1.5em 0 0.6em;
+    color: var(--hc-text);
+}
+.hc-prose h3 {
+    font-size: 1.15rem;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    margin: 1.4em 0 0.5em;
+    color: var(--hc-text);
+}
+.hc-prose p {
+    margin: 0 0 1em;
+    line-height: 1.75;
+}
+.hc-prose strong {
+    color: var(--hc-text);
+    font-weight: 600;
+}
+.hc-prose em {
+    font-style: italic;
+}
+.hc-prose s {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+.hc-prose ul,
+.hc-prose ol {
+    margin: 0 0 1em;
+    padding-left: 1.4em;
+}
+.hc-prose ul {
+    list-style: disc;
+}
+.hc-prose ol {
+    list-style: decimal;
+}
+.hc-prose li {
+    margin: 0.3em 0;
+    line-height: 1.7;
+}
+.hc-prose blockquote {
+    border-left: 2px solid var(--hc-gold);
+    padding: 0.2em 0 0.2em 1.2em;
+    margin: 1.2em 0;
+    color: var(--hc-text-secondary);
+    font-style: italic;
+}
+.hc-prose pre {
+    background: var(--hc-bg);
+    border: 1px solid var(--hc-border);
+    padding: 1em 1.2em;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875rem;
+    margin: 1.2em 0;
+}
+.hc-prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875em;
+    background: var(--hc-surface-elevated);
+    padding: 0.1em 0.35em;
+}
+.hc-prose pre code {
+    background: transparent;
+    padding: 0;
+}
+.hc-prose a {
+    color: var(--hc-gold);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+/* TipTap placeholder */
+.hc-prose p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: var(--hc-text-muted);
+    pointer-events: none;
+    height: 0;
+}
+.ProseMirror:focus {
+    outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: var(--hc-text-muted);
+    pointer-events: none;
+    height: 0;
+}
+
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;

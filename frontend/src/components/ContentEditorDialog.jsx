@@ -13,6 +13,8 @@ import {
   EDUCATION_TRACKS,
   CONTENT_TYPES,
 } from "../lib/content";
+import { RichTextEditor } from "./RichTextEditor";
+import { PdfUploader } from "./PdfUploader";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -29,6 +31,9 @@ const blank = {
   week_count: "",
   order_index: 0,
   period: "",
+  pdf_url: null,
+  pdf_filename: null,
+  pdf_size: null,
 };
 
 export const ContentEditorDialog = ({
@@ -86,6 +91,9 @@ export const ContentEditorDialog = ({
     }
     if (contentType === "reports") {
       payload.period = form.period;
+      payload.pdf_url = form.pdf_url;
+      payload.pdf_filename = form.pdf_filename;
+      payload.pdf_size = form.pdf_size;
     }
     try {
       if (initial?.id) {
@@ -146,13 +154,11 @@ export const ContentEditorDialog = ({
 
           <div>
             <label className={labelCls}>Body</label>
-            <textarea
+            <RichTextEditor
               value={form.body}
-              onChange={(e) => update("body", e.target.value)}
-              data-testid="editor-body"
-              rows={10}
-              className={`${inputCls} resize-y leading-relaxed`}
-              placeholder="The full text of the note. Plain text — rich-text editor arriving in a later phase."
+              onChange={(html) => update("body", html)}
+              placeholder="Compose the full piece — headings, lists, links, and emphasis are supported."
+              testid="editor-body"
             />
           </div>
 
@@ -225,18 +231,35 @@ export const ContentEditorDialog = ({
           )}
 
           {contentType === "reports" && (
-            <div>
-              <label className={labelCls}>Period (YYYY-MM)</label>
-              <input
-                type="text"
-                value={form.period}
-                onChange={(e) => update("period", e.target.value)}
-                required
-                placeholder="2026-05"
-                data-testid="editor-period"
-                className={inputCls}
-              />
-            </div>
+            <>
+              <div>
+                <label className={labelCls}>Period (YYYY-MM)</label>
+                <input
+                  type="text"
+                  value={form.period}
+                  onChange={(e) => update("period", e.target.value)}
+                  required
+                  placeholder="2026-05"
+                  data-testid="editor-period"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>PDF Attachment</label>
+                <PdfUploader
+                  value={
+                    form.pdf_url
+                      ? { url: form.pdf_url, filename: form.pdf_filename, size: form.pdf_size }
+                      : null
+                  }
+                  onChange={(v) => {
+                    update("pdf_url", v?.url || null);
+                    update("pdf_filename", v?.filename || null);
+                    update("pdf_size", v?.size || null);
+                  }}
+                />
+              </div>
+            </>
           )}
 
           <div>
