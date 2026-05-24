@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
+import { formatDate, formatPeriod, CONTENT_TYPES } from "../lib/content";
 import {
   ArrowUpRight,
   BookOpen,
@@ -36,6 +39,34 @@ export default function Dashboard() {
   const { user } = useAuth();
   const first = (user?.name || "Member").split(" ")[0];
 
+  const [counts, setCounts] = useState({ research: 0, education: 0, reports: 0, companies: 0 });
+  const [latestResearch, setLatestResearch] = useState([]);
+  const [latestReport, setLatestReport] = useState(null);
+
+  useEffect(() => {
+    let cancel = false;
+    Promise.allSettled([
+      api.get("/research"),
+      api.get("/education"),
+      api.get("/reports"),
+      api.get("/companies"),
+    ]).then((rs) => {
+      if (cancel) return;
+      const [r, e, rep, c] = rs.map((x) => (x.status === "fulfilled" ? x.value.data : []));
+      setCounts({
+        research: r.length,
+        education: e.length,
+        reports: rep.length,
+        companies: c.length,
+      });
+      setLatestResearch(r.slice(0, 4));
+      setLatestReport(rep[0] || null);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -48,56 +79,121 @@ export default function Dashboard() {
       <PageHeader
         overline={today}
         title={`Welcome, ${first}.`}
-        description="Your members' desk for institutional research, curated education, and monthly intelligence. The library is being prepared — your suite will populate as content is published."
+        description="Your members' desk for institutional research, curated education, and monthly intelligence."
       />
 
-      {/* KPI row — structural, no fabricated data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <KPI label="Research Notes" value="—" sub="Awaiting publication" testid="kpi-research" />
-        <KPI label="Education Modules" value="—" sub="Curriculum in preparation" testid="kpi-education" />
-        <KPI label="Monthly Reports" value="—" sub="Next issue: this month" testid="kpi-reports" />
-        <KPI label="Companies Tracked" value="—" sub="Coverage list pending" testid="kpi-companies" />
+        <KPI
+          label="Research Notes"
+          value={counts.research || "—"}
+          sub={counts.research ? "Total published" : "Awaiting publication"}
+          testid="kpi-research"
+        />
+        <KPI
+          label="Education Modules"
+          value={counts.education || "—"}
+          sub={counts.education ? "Available" : "Curriculum in preparation"}
+          testid="kpi-education"
+        />
+        <KPI
+          label="Monthly Reports"
+          value={counts.reports || "—"}
+          sub={counts.reports ? "Archived issues" : "Next issue: this month"}
+          testid="kpi-reports"
+        />
+        <KPI
+          label="Companies Tracked"
+          value={counts.companies || "—"}
+          sub={counts.companies ? "Active coverage" : "Coverage list pending"}
+          testid="kpi-companies"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Latest research */}
         <Panel
           overline="Latest Intelligence"
           title="Featured Research"
           className="lg:col-span-2 hc-enter hc-enter-delay-1"
           testid="panel-latest-research"
           action={
-            <a
-              href="/research"
+            <Link
+              to="/research"
               className="text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4 flex items-center gap-1"
             >
               View library <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
-            </a>
+            </Link>
           }
         >
-          <EmptyState
-            icon={BookOpen}
-            title="The research desk is being curated"
-            description="New thesis-driven research notes, sector commentaries, and macro briefings will appear here as our analysts publish them."
-          />
+          {latestResearch.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="No research published yet"
+              description="New thesis-driven research notes, sector commentaries, and macro briefings will appear here."
+            />
+          ) : (
+            <div className="divide-y divide-[var(--hc-border)]" data-testid="dashboard-latest-research">
+              {latestResearch.map((r) => (
+                <Link
+                  key={r.id}
+                  to={`/research/${r.id}`}
+                  className="group grid grid-cols-[110px_1fr_24px] gap-4 items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
+                >
+                  <span className="hc-overline">{formatDate(r.published_at || r.created_at)}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium tracking-tight text-[var(--hc-text)] truncate group-hover:text-[var(--hc-gold)] transition-colors">
+                      {r.title}
+                    </div>
+                    {r.summary && (
+                      <div className="text-xs text-[var(--hc-text-secondary)] truncate mt-0.5">
+                        {r.summary}
+                      </div>
+                    )}
+                  </div>
+                  <ArrowUpRight
+                    className="h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]"
+                    strokeWidth={1.5}
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
         </Panel>
 
-        {/* Upcoming */}
         <Panel
-          overline="Calendar"
-          title="Upcoming Sessions"
+          overline="This Month"
+          title="Latest Report"
           className="hc-enter hc-enter-delay-2"
-          testid="panel-upcoming"
+          testid="panel-latest-report"
         >
-          <EmptyState
-            icon={CalendarClock}
-            title="No scheduled sessions"
-            description="Members' briefings and live discussions will be listed here."
-          />
+          {latestReport ? (
+            <Link
+              to={`/reports/${latestReport.id}`}
+              className="block group"
+              data-testid="dashboard-latest-report"
+            >
+              <div className="hc-overline mb-2">{formatPeriod(latestReport.period)}</div>
+              <div className="text-base font-medium tracking-tight text-[var(--hc-text)] group-hover:text-[var(--hc-gold)] transition-colors">
+                {latestReport.title}
+              </div>
+              {latestReport.summary && (
+                <p className="mt-3 text-sm text-[var(--hc-text-secondary)] leading-relaxed line-clamp-4">
+                  {latestReport.summary}
+                </p>
+              )}
+              <div className="mt-5 inline-flex items-center gap-1 text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)]">
+                Read issue <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+              </div>
+            </Link>
+          ) : (
+            <EmptyState
+              icon={CalendarClock}
+              title="No issue published"
+              description="The monthly report archive will appear here."
+            />
+          )}
         </Panel>
       </div>
 
-      {/* Focus areas */}
       <div className="mt-10">
         <div className="flex items-end justify-between mb-5">
           <div>
@@ -109,9 +205,9 @@ export default function Dashboard() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {FOCUS.map(({ icon: Icon, label, to }, i) => (
-            <a
+            <Link
               key={to}
-              href={to}
+              to={to}
               data-testid={`focus-${label.toLowerCase().replace(/\s/g, "-")}`}
               className={`group bg-[var(--hc-surface)] border border-[var(--hc-border)] p-6 hover:bg-[var(--hc-surface-elevated)] transition-colors hc-enter hc-enter-delay-${i + 1}`}
             >
@@ -133,7 +229,7 @@ export default function Dashboard() {
               <div className="mt-1 text-xs text-[var(--hc-text-muted)] tracking-tight">
                 Explore the section
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

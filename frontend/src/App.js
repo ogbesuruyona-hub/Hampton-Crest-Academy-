@@ -9,9 +9,13 @@ import { Toaster } from "@/components/ui/sonner";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ResearchLibrary from "@/pages/ResearchLibrary";
+import ResearchDetail from "@/pages/ResearchDetail";
 import InvestmentEducation from "@/pages/InvestmentEducation";
+import EducationDetail from "@/pages/EducationDetail";
 import MonthlyReports from "@/pages/MonthlyReports";
+import ReportDetail from "@/pages/ReportDetail";
 import CompanyAnalysis from "@/pages/CompanyAnalysis";
+import CompanyDetail from "@/pages/CompanyDetail";
 import SavedResources from "@/pages/SavedResources";
 import Settings from "@/pages/Settings";
 import MemberProfile from "@/pages/MemberProfile";
@@ -33,9 +37,13 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/research" element={<ResearchLibrary />} />
+              <Route path="/research/:id" element={<ResearchDetail />} />
               <Route path="/education" element={<InvestmentEducation />} />
+              <Route path="/education/:id" element={<EducationDetail />} />
               <Route path="/reports" element={<MonthlyReports />} />
+              <Route path="/reports/:id" element={<ReportDetail />} />
               <Route path="/companies" element={<CompanyAnalysis />} />
+              <Route path="/companies/:id" element={<CompanyDetail />} />
               <Route path="/saved" element={<SavedResources />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<MemberProfile />} />

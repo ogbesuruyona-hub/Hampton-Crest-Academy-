@@ -1,0 +1,45 @@
+{
+  "summary": "P0 content + bookmarks testing complete. Backend: 55/55 pytest passing (16 auth regression + 39 new content/bookmark tests). Frontend: end-to-end admin authoring works for all 4 content types, memo add/delete works, universal bookmarks across all 4 types reach the /saved page with type filters, dashboard KPIs reflect real counts, member view correctly hides admin buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/companies (duplicate ticker)", "issue": "Duplicate ticker triggers Mongo DuplicateKeyError but is not caught -> returns 500. Should return 409/400 with friendly message."},
+      {"endpoint": "POST /api/bookmarks (draft content)", "issue": "Members are allowed to CREATE a bookmark on a draft research/education/report (only the GET /api/bookmarks list filters drafts out). For consistency POST should also 404 if content is unpublished for non-admin."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ContentEditorDialog (Reports)", "issue": "Invalid period (e.g. 2026/01) is submitted to backend which returns 422; the dialog stays open but [data-testid=editor-error] remains empty so the user gets no visible feedback about why the save failed. Add client-side regex validation or surface the 422 detail.", "selector": "[data-testid=editor-error]", "priority": "MEDIUM"},
+      {"component": "DialogContent (all editor dialogs)", "issue": "React console warning: 'Missing Description or aria-describedby for DialogContent'. Accessibility nit — add a <DialogDescription> or aria-describedby.", "selector": "[data-testid^=editor-dialog-]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_content.py",
+    "/app/test_reports/pytest/p0_content.xml"
+  ],
+  "action_items": [
+    "Surface a visible error in ContentEditorDialog when backend returns 422 for invalid report period (currently editor-error is empty).",
+    "Catch DuplicateKeyError in POST /api/companies and return 409 with 'Ticker already exists' instead of letting it 500.",
+    "Optionally reject member POST /api/bookmarks for unpublished content (currently the bookmark row is created but hydration filters it out, leaving an inert row in the DB).",
+    "Add DialogDescription / aria-describedby to all shadcn Dialog content blocks to clear the a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "server.py 695 lines — already close to the 700 line soft limit; consider splitting routes into modules (auth, content, companies, bookmarks) before adding more endpoints.",
+    "_published_filter is called inside list_education but list_education then re-builds the same query manually instead of calling _list_generic — duplication that drifted: education uses ['title','summary','body','track'] search fields. OK for now but extract.",
+    "Companies endpoint hides memos in list response by deleting after serialization — fine, but querying with projection would be cleaner and lighter on large memo arrays.",
+    "ReportIn uses pattern via Field; FastAPI will return 422 with location info but the frontend dialog isn't rendering it (see ui bug)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_content.py (new — 39 tests)"
+  ],
+  "success_rate": {"backend": "100% (55/55)", "frontend": "95% — all critical flows pass; only minor UX/a11y issues"},
+  "test_credentials": "Admin: admin@hamptoncrest.com / Hampton#2026 (verified working). Member registrations created with random emails like test_member_*@example.com and member_*@test.com.",
+  "seed_data_creation": "Tests create TEST_ / UI_ prefixed data and clean most of it via DELETE. A handful of UI-created records (UI_R_*, UI_E_*, UTC*) remain because the test script did not delete them — main agent may seed/clear the demo content collections if a pristine DB is required.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_content.py covers role gating, full CRUD for research/education/reports/companies, period validation, year filter, category/tag filter, search, memo add/delete, bookmark check/add/list/delete, idempotent bookmark, draft hydration filtering. test_auth.py (16) and test_content.py (39) both green against the preview URL. UI flow caveats: editor-category / editor-track / company-sector are <select> elements — use page.select_option(), not page.fill(). Company key_metrics list starts empty — click [data-testid=add-metric-button] N times to get N rows. For research/education/reports list items, use the <a> children of [data-testid=research-list] etc. rather than a free-text selector to avoid clicking duplicate matches in sidebars/dashboards.",
+  "rca_of_the_issue": "N/A — no critical issues. Two minor product issues identified: (1) report editor swallows backend 422 — the ContentEditorDialog catches the fetch error but isn't extracting `detail` from the FastAPI response into editor-error; (2) Mongo unique-index on company ticker is enforced at DB level but not wrapped in try/except so the user sees a generic 500. Both are 1-line fixes."
+}
