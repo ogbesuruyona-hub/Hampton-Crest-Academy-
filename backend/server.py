@@ -49,7 +49,7 @@ PyObjectId = Annotated[str, BeforeValidator(_validate_object_id)]
 
 class UserPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(validation_alias="_id")
     email: EmailStr
     name: str
     role: str = "member"
