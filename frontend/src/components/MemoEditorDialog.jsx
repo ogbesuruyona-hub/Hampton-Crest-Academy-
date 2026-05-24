@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -50,6 +51,9 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
         <DialogHeader>
           <div className="hc-overline mb-1">Analyst Memo</div>
           <DialogTitle className="text-xl font-medium tracking-tight">Add Memo</DialogTitle>
+          <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
+            Publish an analyst observation to this company's memo feed.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4">

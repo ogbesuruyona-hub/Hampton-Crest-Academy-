@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -61,6 +62,11 @@ export const ContentEditorDialog = ({
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    // Client-side period validation for reports (mirrors backend regex)
+    if (contentType === "reports" && !/^\d{4}-(0[1-9]|1[0-2])$/.test(form.period.trim())) {
+      setError("Period must be in YYYY-MM format (e.g. 2026-05).");
+      return;
+    }
     setSaving(true);
     const payload = {
       title: form.title.trim(),
@@ -108,6 +114,9 @@ export const ContentEditorDialog = ({
           <DialogTitle className="text-xl font-medium tracking-tight">
             {initial ? "Edit" : "New"} {cfg.singular}
           </DialogTitle>
+          <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
+            {initial ? "Update this entry." : "Compose a new entry for the members' suite."}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="editor-form">
@@ -223,7 +232,6 @@ export const ContentEditorDialog = ({
                 value={form.period}
                 onChange={(e) => update("period", e.target.value)}
                 required
-                pattern="\d{4}-(0[1-9]|1[0-2])"
                 placeholder="2026-05"
                 data-testid="editor-period"
                 className={inputCls}

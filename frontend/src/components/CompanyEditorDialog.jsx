@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -98,6 +99,9 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
           <DialogTitle className="text-xl font-medium tracking-tight">
             {initial ? "Edit Company" : "Add Company"}
           </DialogTitle>
+          <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
+            Define the coverage entry — thesis, sector, and key metrics.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="company-editor-form">
