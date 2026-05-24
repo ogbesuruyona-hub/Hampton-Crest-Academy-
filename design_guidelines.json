@@ -1,0 +1,127 @@
+{
+  "theme": "dark",
+  "archetype": "5 (Luxury)",
+  "aesthetic_notes": "Premium private investment academy. Institutional finance aesthetic (BlackRock, Goldman Sachs Private Wealth). No startup SaaS vibe, no crypto neon. Clean, grid-based, dark midnight navy with platinum/ivory text and sparse gold accents.",
+  "colors": {
+    "background": "#050914",
+    "surface": "#0C1222",
+    "surface_elevated": "#141C30",
+    "surface_hover": "#1C253B",
+    "border": "#212A3F",
+    "border_subtle": "#151C2C",
+    "text_primary": "#F4F6F8",
+    "text_secondary": "#9AA4B6",
+    "text_muted": "#5B667A",
+    "brand_gold": "#D4AF37",
+    "brand_gold_muted": "rgba(212, 175, 55, 0.2)",
+    "accent_platinum": "#E2E8F0",
+    "success": "#2E8B57",
+    "danger": "#B22222"
+  },
+  "typography": {
+    "font_family_primary": "Manrope, sans-serif",
+    "font_family_secondary": "Manrope, sans-serif",
+    "heading_style": {
+      "weight": "600",
+      "tracking": "tracking-tight",
+      "text_transform": "normal-case"
+    },
+    "body_style": {
+      "weight": "400",
+      "tracking": "tracking-normal",
+      "leading": "leading-relaxed"
+    },
+    "overline_style": {
+      "weight": "600",
+      "tracking": "tracking-[0.15em]",
+      "text_transform": "uppercase",
+      "size": "text-xs"
+    }
+  },
+  "spacing_and_layout": {
+    "container_padding": "p-8",
+    "grid_gap": "gap-6",
+    "card_padding": "p-6",
+    "sidebar_width_desktop": "w-64",
+    "sidebar_width_collapsed": "w-16",
+    "border_radius": {
+      "base": "rounded-none",
+      "card": "rounded-sm",
+      "button": "rounded-sm",
+      "input": "rounded-sm"
+    }
+  },
+  "surfaces_and_shadows": {
+    "card_style": "bg-[#0C1222] border border-[#212A3F] shadow-none",
+    "dropdown_style": "bg-[#141C30] border border-[#212A3F] shadow-lg",
+    "button_primary": "bg-[#F4F6F8] text-[#050914] hover:bg-[#E2E8F0] transition-colors",
+    "button_secondary": "bg-transparent border border-[#212A3F] text-[#F4F6F8] hover:bg-[#141C30]",
+    "button_accent": "bg-[#D4AF37] text-[#050914] hover:bg-[#C5A059]",
+    "input_style": "bg-[#050914] border border-[#212A3F] text-[#F4F6F8] focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all"
+  },
+  "navigation": {
+    "sidebar": {
+      "active_item": "bg-[#141C30] text-[#F4F6F8] border-l-2 border-[#D4AF37]",
+      "inactive_item": "text-[#9AA4B6] hover:bg-[#0C1222] hover:text-[#F4F6F8] border-l-2 border-transparent transition-colors",
+      "items": [
+        { "name": "Dashboard", "path": "/dashboard", "icon": "SquaresFour" },
+        { "name": "Research Library", "path": "/research", "icon": "BookOpen" },
+        { "name": "Investment Education", "path": "/education", "icon": "GraduationCap" },
+        { "name": "Monthly Reports", "path": "/reports", "icon": "FileText" },
+        { "name": "Company Analysis", "path": "/companies", "icon": "ChartBar" },
+        { "name": "Saved Resources", "path": "/saved", "icon": "BookmarkSimple" },
+        { "name": "Settings", "path": "/settings", "icon": "Gear" }
+      ]
+    },
+    "topbar": {
+      "height": "h-16",
+      "border": "border-b border-[#212A3F]"
+    }
+  },
+  "media": {
+    "brand_logo": {
+      "url": "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png",
+      "description": "Hampton Crest Academy Heraldic Crest Logo (Navy & Gold)"
+    },
+    "login_background": {
+      "url": "https://images.unsplash.com/photo-1593427995298-cad6731716d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBhcmNoaXRlY3R1cmUlMjBuaWdodHxlbnwwfHx8fDE3Nzk2MzE1ODV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern dark architectural high-rise building at night, fitting institutional finance."
+    }
+  },
+  "components": {
+    "empty_state": {
+      "style": "flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#212A3F] rounded-sm bg-[#0C1222]/50",
+      "icon_color": "text-[#5B667A]",
+      "text_primary": "text-[#F4F6F8] text-lg font-medium mt-4",
+      "text_secondary": "text-[#9AA4B6] text-sm mt-2 max-w-md"
+    },
+    "kpi_card": {
+      "style": "p-6 bg-[#0C1222] border border-[#212A3F] rounded-sm flex flex-col justify-between",
+      "label": "text-[#9AA4B6] text-xs uppercase tracking-widest font-semibold",
+      "value": "text-[#F4F6F8] text-3xl font-medium tracking-tight mt-2"
+    },
+    "login_screen": {
+      "layout": "split screen (desktop) - 50% image/branding, 50% form",
+      "branding_panel": "relative bg-[#050914] overflow-hidden flex flex-col items-center justify-center p-12 border-r border-[#212A3F]",
+      "form_panel": "flex flex-col justify-center px-8 sm:px-16 lg:px-24 bg-[#050914]"
+    }
+  },
+  "motion": {
+    "page_transition": "opacity 0.3s ease-in-out",
+    "hover_state": "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    "dropdown_entrance": "fade-in slide-in-from-top-2 duration-200"
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "weight": "regular"
+  },
+  "instructions_to_main_agent": [
+    "Use standard pure Tailwind for marketing/login layouts. Use Shadcn components for complex app UI elements (tables, tabs, dialogs) but override their default styles to match the institutional dark theme.",
+    "Borders should be sharp (rounded-none or rounded-sm). Do not use soft, large border-radiuses.",
+    "Include 'data-testid' on all interactive elements (buttons, inputs, nav links) as per requirements.",
+    "Ensure typography uses Manrope. Pull it from Google Fonts in index.css if not present.",
+    "Implement JWT Auth context placeholder for login to work and redirect to /dashboard.",
+    "Build empty states for Research, Education, Reports, etc., using the defined empty_state specs (no mock data, just structure).",
+    "Sidebar should have a collapsible state for desktop and drawer for mobile. Use Lucide or Phosphor icons."
+  ]
+}
