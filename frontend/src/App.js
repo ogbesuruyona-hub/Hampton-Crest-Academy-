@@ -7,6 +7,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 
 import Login from "@/pages/Login";
+import AccessDenied from "@/pages/AccessDenied";
+import AcceptInvite from "@/pages/AcceptInvite";
 import Dashboard from "@/pages/Dashboard";
 import ResearchLibrary from "@/pages/ResearchLibrary";
 import ResearchDetail from "@/pages/ResearchDetail";
@@ -19,6 +21,7 @@ import CompanyDetail from "@/pages/CompanyDetail";
 import SavedResources from "@/pages/SavedResources";
 import Settings from "@/pages/Settings";
 import MemberProfile from "@/pages/MemberProfile";
+import AdminMembers from "@/pages/AdminMembers";
 
 function App() {
   return (
@@ -27,6 +30,8 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/access-denied" element={<AccessDenied />} />
+            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route
               element={
                 <ProtectedRoute>
@@ -47,6 +52,7 @@ function App() {
               <Route path="/saved" element={<SavedResources />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<MemberProfile />} />
+              <Route path="/admin/members" element={<AdminMembers />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

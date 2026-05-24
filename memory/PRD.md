@@ -52,6 +52,17 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Brute-force lockout**: 5 failed attempts → 15-min lockout, email-only key (proxy-safe), `ensure_utc()` helper normalises Mongo-returned naive datetimes
 - Tests: **82/82 backend pytest passing** (16 auth + 39 content/bookmark + 27 P1); full frontend E2E (2FA enable → login challenge → backup codes → disable; TipTap body persisted as HTML; PDF upload + report detail render)
 
+## P2 In Progress / Complete (2026-05-24)
+- **Stripe webhook automation**: `POST /api/webhook/stripe` verifies signature, idempotency via `stripe_events` collection, handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+- **Membership model**: `users.membership_status` (active/inactive), `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`, `complimentary` flag; `has_access(user)` = admin OR complimentary OR active
+- **Access gating**: login (and 2FA verify) return `403 membership_inactive` for users without access; frontend redirects to `/access-denied`
+- **Invite flow**: on first Stripe activation, backend creates user + invite token, sends "Set your password" email via Resend (welcome template). `/api/auth/invite/{token}` validates, `/api/auth/accept-invite` consumes token and issues access_token
+- **Admin members panel** (`/admin/members`): list with status filter + search, mark complimentary, revoke access (sets inactive), resend invite. KPIs for active / inactive / admin counts.
+- **Access Denied page** (`/access-denied`): institutional dark, CTA to Framer (`FRAMER_URL` from env)
+- **Accept Invite page** (`/accept-invite?token=...`): password + confirm, auto-login on success
+- **Sidebar**: new admin-only "Steward → Members" section visible only to `role=admin`
+- **Env**: `STRIPE_API_KEY=sk_test_emergent`, `STRIPE_WEBHOOK_SECRET=whsec_...`, `FRAMER_URL=https://hamptonacademy.framer.website`
+
 ## Prioritized Backlog
 ### P2 — Next session
 - Stripe-powered membership renewals (subscription + gated checkout)

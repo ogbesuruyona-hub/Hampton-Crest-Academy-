@@ -13,6 +13,7 @@ import base64
 import asyncio
 import hashlib
 import secrets
+import json
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Annotated, List
 
@@ -22,6 +23,7 @@ import pyotp
 import qrcode
 import requests
 import resend
+import stripe
 from bson import ObjectId
 from fastapi import (
     FastAPI, APIRouter, HTTPException, Depends, Request, Query,
@@ -60,6 +62,13 @@ CONTENT_COLLECTIONS = {
 
 # Resend init
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
+
+# Stripe init
+stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+FRAMER_URL = os.environ.get("FRAMER_URL", "")
+PAYMENT_LINK_URL = os.environ.get("PAYMENT_LINK_URL", "")
+INVITE_TOKEN_TTL_DAYS = 7
 
 # Object storage config
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
@@ -430,6 +439,9 @@ class UserPublic(BaseModel):
     created_at: Optional[datetime] = None
     totp_enabled: bool = False
     email_digest_opt_in: bool = True
+    membership_status: str = "inactive"
+    complimentary: bool = False
+    current_period_end: Optional[datetime] = None
 
 
 class RegisterRequest(BaseModel):
@@ -503,6 +515,21 @@ async def register(payload: RegisterRequest):
     )
 
 
+def has_access(user_doc: dict) -> bool:
+    """Admin always; members need active subscription or complimentary flag."""
+    if user_doc.get("role") == "admin":
+        return True
+    if user_doc.get("complimentary"):
+        return True
+    return user_doc.get("membership_status") == "active"
+
+
+async def require_member(current_user: dict = Depends(get_current_user)) -> dict:
+    if not has_access(current_user):
+        raise HTTPException(403, "membership_inactive")
+    return current_user
+
+
 @api_router.post("/auth/login", response_model=AuthResponse)
 async def login(payload: LoginRequest, request: Request):
     email = payload.email.lower().strip()
@@ -512,6 +539,8 @@ async def login(payload: LoginRequest, request: Request):
         await record_failure(request, email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
     await clear_attempts(request, email)
+    if not has_access(user):
+        raise HTTPException(status_code=403, detail="membership_inactive")
     if user.get("totp_enabled"):
         temp = create_pending_2fa_token(str(user["_id"]), email)
         return AuthResponse(requires_2fa=True, temp_token=temp)
@@ -534,6 +563,8 @@ async def two_fa_verify(payload: TwoFAVerify):
         raise HTTPException(401, "Invalid state")
     if not _verify_totp_or_backup(user, payload.code):
         raise HTTPException(401, "Invalid 2FA code")
+    if not has_access(user):
+        raise HTTPException(403, "membership_inactive")
     await _consume_backup_code_if_used(decoded["sub"], payload.code)
     token = create_access_token(str(user["_id"]), user["email"])
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
@@ -1134,6 +1165,342 @@ async def serve_file(
     return Response(content=data, media_type=record.get("content_type") or content_type, headers=headers)
 
 
+# ---------------- Stripe / Membership / Invites / Admin ----------------
+
+class AcceptInviteIn(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class AdminMemberAction(BaseModel):
+    complimentary: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+def _welcome_email_html(name: str, link: str) -> str:
+    safe_name = (name or "Member").replace("<", "&lt;").replace(">", "&gt;")
+    return f"""<!doctype html>
+<html><body style="margin:0;padding:0;background:#050914;font-family:Helvetica,Arial,sans-serif;color:#f4f6f8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050914;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0c1222;border:1px solid #212a3f;">
+        <tr><td style="padding:32px 36px 8px 36px;">
+          <div style="color:#d4af37;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;font-weight:600;">Hampton Crest</div>
+          <div style="color:#5b667a;font-size:10px;letter-spacing:0.4em;text-transform:uppercase;margin-top:2px;">Academy</div>
+        </td></tr>
+        <tr><td style="padding:24px 36px 0 36px;">
+          <div style="height:1px;background:linear-gradient(to right,transparent,#d4af37,transparent);opacity:0.6;"></div>
+        </td></tr>
+        <tr><td style="padding:28px 36px 24px 36px;">
+          <div style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:12px;">Welcome, {safe_name}</div>
+          <h1 style="margin:0 0 16px 0;color:#f4f6f8;font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;">Your charter has been issued.</h1>
+          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Your subscription is active. Set your password to access the members' suite — research, education, monthly reports, and company coverage.</p>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;">
+          <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:14px 28px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;">Set my password</a>
+          <p style="color:#5b667a;font-size:11px;line-height:1.7;margin:20px 0 0 0;">This invitation link expires in 7 days. If you didn't expect this email, ignore it.</p>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+async def _create_invite(user_id: str, email: str) -> str:
+    token = secrets.token_urlsafe(32)
+    await db.invites.insert_one({
+        "_id": token,
+        "user_id": user_id,
+        "email": email,
+        "expires_at": now_utc() + timedelta(days=INVITE_TOKEN_TTL_DAYS),
+        "consumed_at": None,
+        "created_at": now_utc(),
+    })
+    return token
+
+
+async def _send_welcome_email(email: str, name: str, token: str):
+    if not PUBLIC_URL:
+        logger.warning("APP_PUBLIC_URL unset; welcome email link will be relative")
+    link = f"{PUBLIC_URL}/accept-invite?token={token}"
+    html = _welcome_email_html(name, link)
+    await send_email(email, "Welcome to Hampton Crest Academy", html)
+
+
+async def _activate_or_create_member(*, email: str, name: Optional[str], stripe_customer_id: Optional[str], stripe_subscription_id: Optional[str], current_period_end: Optional[datetime]):
+    """Idempotent: activates an existing user (matched by email) or creates a new one with a welcome invite."""
+    email = (email or "").lower().strip()
+    if not email:
+        logger.warning("Stripe event missing customer email; skipping")
+        return
+    user = await db.users.find_one({"email": email})
+    update_fields = {
+        "membership_status": "active",
+        "stripe_customer_id": stripe_customer_id,
+        "stripe_subscription_id": stripe_subscription_id,
+        "current_period_end": current_period_end,
+        "updated_at": now_utc(),
+    }
+    if user is None:
+        doc = {
+            "email": email,
+            "name": (name or email.split("@")[0]).strip()[:120] or email,
+            "role": "member",
+            "created_at": now_utc(),
+            "totp_enabled": False,
+            "email_digest_opt_in": True,
+            "password_hash": "",  # set later via invite
+            "complimentary": False,
+            **update_fields,
+        }
+        result = await db.users.insert_one(doc)
+        user_id = str(result.inserted_id)
+        token = await _create_invite(user_id, email)
+        try:
+            await _send_welcome_email(email, doc["name"], token)
+        except Exception as e:
+            logger.error("welcome email failed: %s", e)
+        logger.info("Created new member %s via Stripe", email)
+    else:
+        await db.users.update_one({"_id": user["_id"]}, {"$set": update_fields})
+        if not user.get("password_hash"):
+            # First activation but never set password — re-send invite
+            token = await _create_invite(str(user["_id"]), email)
+            try:
+                await _send_welcome_email(email, user.get("name", ""), token)
+            except Exception as e:
+                logger.error("welcome email failed: %s", e)
+        logger.info("Activated existing member %s", email)
+
+
+async def _deactivate_by_subscription(subscription_id: str, status_reason: str = "canceled"):
+    user = await db.users.find_one({"stripe_subscription_id": subscription_id})
+    if not user:
+        logger.info("No user found for subscription %s", subscription_id)
+        return
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"membership_status": "inactive", "membership_inactive_reason": status_reason, "updated_at": now_utc()}},
+    )
+    logger.info("Deactivated %s (reason=%s)", user["email"], status_reason)
+
+
+def _ts_to_dt(ts: Optional[int]) -> Optional[datetime]:
+    if not ts:
+        return None
+    return datetime.fromtimestamp(ts, tz=timezone.utc)
+
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    body = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error("STRIPE_WEBHOOK_SECRET not configured")
+        raise HTTPException(503, "Webhook handler not configured")
+    try:
+        event = stripe.Webhook.construct_event(body, sig, STRIPE_WEBHOOK_SECRET)
+    except (ValueError, stripe.error.SignatureVerificationError) as e:
+        logger.warning("Invalid webhook signature: %s", e)
+        raise HTTPException(400, "Invalid signature")
+
+    event_id = event["id"]
+    # Idempotency
+    existing = await db.stripe_events.find_one({"_id": event_id})
+    if existing:
+        return {"received": True, "duplicate": True}
+    await db.stripe_events.insert_one({
+        "_id": event_id,
+        "type": event["type"],
+        "received_at": now_utc(),
+    })
+
+    try:
+        # Use the raw, already-signature-verified body so we get a plain dict
+        parsed = json.loads(body)
+        etype = parsed["type"]
+        obj = parsed["data"]["object"]
+        if etype == "checkout.session.completed":
+            email = (obj.get("customer_details") or {}).get("email") or obj.get("customer_email")
+            name = (obj.get("customer_details") or {}).get("name")
+            customer_id = obj.get("customer")
+            subscription_id = obj.get("subscription")
+            period_end = None
+            if subscription_id:
+                try:
+                    sub = stripe.Subscription.retrieve(subscription_id)
+                    period_end = _ts_to_dt(sub.get("current_period_end"))
+                    if not email and sub.get("customer"):
+                        try:
+                            cust = stripe.Customer.retrieve(sub["customer"])
+                            email = cust.get("email")
+                            name = name or cust.get("name")
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.warning("Could not retrieve subscription %s: %s", subscription_id, e)
+            await _activate_or_create_member(
+                email=email, name=name,
+                stripe_customer_id=customer_id, stripe_subscription_id=subscription_id,
+                current_period_end=period_end,
+            )
+        elif etype == "customer.subscription.updated":
+            status = obj.get("status")
+            sub_id = obj.get("id")
+            period_end = _ts_to_dt(obj.get("current_period_end"))
+            user = await db.users.find_one({"stripe_subscription_id": sub_id})
+            if user:
+                if status in ("active", "trialing"):
+                    await db.users.update_one(
+                        {"_id": user["_id"]},
+                        {"$set": {"membership_status": "active", "current_period_end": period_end, "updated_at": now_utc()}},
+                    )
+                elif status in ("canceled", "unpaid", "incomplete_expired"):
+                    await _deactivate_by_subscription(sub_id, status_reason=status)
+                else:
+                    # past_due → keep active but flag
+                    await db.users.update_one(
+                        {"_id": user["_id"]},
+                        {"$set": {"membership_inactive_reason": status, "updated_at": now_utc()}},
+                    )
+        elif etype == "customer.subscription.deleted":
+            await _deactivate_by_subscription(obj.get("id"), status_reason="deleted")
+        elif etype == "invoice.payment_failed":
+            sub_id = obj.get("subscription")
+            if sub_id:
+                user = await db.users.find_one({"stripe_subscription_id": sub_id})
+                if user:
+                    await db.users.update_one(
+                        {"_id": user["_id"]},
+                        {"$set": {"membership_inactive_reason": "payment_failed", "updated_at": now_utc()}},
+                    )
+        else:
+            logger.info("Unhandled Stripe event type: %s", etype)
+    except Exception as e:
+        logger.exception("Stripe handler error: %s", e)
+        # Still return 200 so Stripe doesn't retry; we logged for ops
+    return {"received": True}
+
+
+@api_router.get("/auth/invite/{token}")
+async def check_invite(token: str):
+    invite = await db.invites.find_one({"_id": token})
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    if invite.get("consumed_at"):
+        raise HTTPException(400, "Invite already used")
+    exp = ensure_utc(invite.get("expires_at"))
+    if exp and exp < now_utc():
+        raise HTTPException(400, "Invite expired")
+    return {"email": invite["email"], "valid": True}
+
+
+@api_router.post("/auth/accept-invite", response_model=AuthResponse)
+async def accept_invite(payload: AcceptInviteIn):
+    invite = await db.invites.find_one({"_id": payload.token})
+    if not invite or invite.get("consumed_at"):
+        raise HTTPException(400, "Invalid or used invite")
+    exp = ensure_utc(invite.get("expires_at"))
+    if exp and exp < now_utc():
+        raise HTTPException(400, "Invite expired")
+    user = await db.users.find_one({"_id": ObjectId(invite["user_id"])})
+    if not user:
+        raise HTTPException(404, "Account not found")
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password_hash": hash_password(payload.password), "updated_at": now_utc()}},
+    )
+    await db.invites.update_one({"_id": payload.token}, {"$set": {"consumed_at": now_utc()}})
+    user = await db.users.find_one({"_id": user["_id"]})
+    token = create_access_token(str(user["_id"]), user["email"])
+    return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
+
+
+@api_router.get("/membership/config")
+async def membership_config():
+    """Public config for the access-denied screen and other UI surfaces."""
+    return {
+        "framer_url": FRAMER_URL,
+        "payment_link_url": PAYMENT_LINK_URL,
+    }
+
+
+# ---------------- Admin: members ----------------
+@api_router.get("/admin/members")
+async def admin_list_members(
+    current_user: dict = Depends(require_admin),
+    q: Optional[str] = None,
+    status: Optional[str] = None,
+):
+    query: dict = {}
+    if status == "active":
+        query["$or"] = [{"membership_status": "active"}, {"complimentary": True}, {"role": "admin"}]
+    elif status == "inactive":
+        query["$and"] = [
+            {"role": {"$ne": "admin"}},
+            {"complimentary": {"$ne": True}},
+            {"membership_status": {"$ne": "active"}},
+        ]
+    if q:
+        regex = {"$regex": re.escape(q), "$options": "i"}
+        existing = query.pop("$and", [])
+        existing.append({"$or": [{"email": regex}, {"name": regex}]})
+        query["$and"] = existing
+    docs = await db.users.find(query).sort("created_at", -1).limit(500).to_list(500)
+    return [serialize_user(d) for d in docs]
+
+
+@api_router.put("/admin/members/{user_id}")
+async def admin_update_member(
+    user_id: str,
+    payload: AdminMemberAction,
+    current_user: dict = Depends(require_admin),
+):
+    updates = {"updated_at": now_utc()}
+    if payload.complimentary is not None:
+        updates["complimentary"] = payload.complimentary
+    if payload.notes is not None:
+        updates["admin_notes"] = payload.notes
+    result = await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(404, "Member not found")
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    return serialize_user(user)
+
+
+@api_router.post("/admin/members/{user_id}/revoke")
+async def admin_revoke_member(user_id: str, current_user: dict = Depends(require_admin)):
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {
+            "membership_status": "inactive",
+            "complimentary": False,
+            "membership_inactive_reason": "admin_revoked",
+            "updated_at": now_utc(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Member not found")
+    return {"ok": True}
+
+
+@api_router.post("/admin/members/{user_id}/resend-invite")
+async def admin_resend_invite(user_id: str, current_user: dict = Depends(require_admin)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(404, "Member not found")
+    token = await _create_invite(str(user["_id"]), user["email"])
+    try:
+        await _send_welcome_email(user["email"], user.get("name", ""), token)
+    except Exception as e:
+        logger.error("resend invite failed: %s", e)
+        raise HTTPException(503, "Email delivery failed")
+    return {"ok": True}
+
+
 # ---------------- Lifecycle ----------------
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@hamptoncrest.com").lower().strip()
@@ -1168,6 +1535,8 @@ async def on_startup():
     await db.companies.create_index("ticker", unique=True)
     await db.bookmarks.create_index([("user_id", 1), ("content_type", 1), ("content_id", 1)], unique=True)
     await db.login_attempts.create_index("locked_until", expireAfterSeconds=60 * 60 * 24)
+    await db.invites.create_index("expires_at", expireAfterSeconds=60 * 60 * 24 * 14)
+    await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
     await seed_admin()
     # Init storage but don't fail startup if down
     try:

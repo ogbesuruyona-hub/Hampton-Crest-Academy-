@@ -8,9 +8,11 @@ import {
   BarChart3,
   Bookmark,
   Settings as SettingsIcon,
+  Users,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid, testid: "nav-dashboard" },
@@ -22,10 +24,16 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
 
+const ADMIN_NAV = [
+  { to: "/admin/members", label: "Members", icon: Users, testid: "nav-admin-members" },
+];
+
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
 
 export const SidebarContent = ({ collapsed = false, onItemClick }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   return (
     <div className="flex flex-col h-full" data-testid="sidebar-content">
       {/* Brand */}
@@ -91,6 +99,44 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
             )}
           </NavLink>
         ))}
+
+        {isAdmin && (
+          <>
+            <div className={`${collapsed ? "mx-2" : "mx-4"} mt-6 mb-2`}>
+              {!collapsed && <div className="hc-overline">Steward</div>}
+              {collapsed && <div className="h-px bg-[var(--hc-border)]" />}
+            </div>
+            {ADMIN_NAV.map(({ to, label, icon: Icon, testid }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={onItemClick}
+                data-testid={testid}
+                className={({ isActive }) =>
+                  `group relative flex items-center gap-3 ${
+                    collapsed ? "justify-center px-2" : "px-4"
+                  } py-2.5 text-sm transition-colors ${
+                    isActive
+                      ? "text-[var(--hc-text)] bg-[var(--hc-surface-elevated)]"
+                      : "text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface)]"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`absolute left-0 top-1 bottom-1 w-[2px] transition-colors ${
+                        isActive ? "bg-[var(--hc-gold)]" : "bg-transparent"
+                      }`}
+                    />
+                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+                    {!collapsed && <span className="truncate tracking-tight">{label}</span>}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
