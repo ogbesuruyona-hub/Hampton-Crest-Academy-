@@ -44,23 +44,27 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Role gating**: admins see drafts and admin controls; members only see published items and cannot bookmark drafts
 - Tests: 55/55 backend pytest (16 auth regression + 39 content/bookmark), all critical frontend flows green
 
-## Prioritized Backlog
-### P1 — Next session
-- File/PDF upload for reports (object storage)
-- Rich-text editor (TipTap) for analyst notes, replacing plain textarea
-- Email digests for new monthly reports (Resend or SendGrid)
-- 2FA + brute-force lockout
+## P1 Complete (2026-05-24)
+- **PDF uploads on Monthly Reports** via Emergent object storage — admin-only POST `/api/uploads/report-pdf`, 25 MB cap, PDF-only validation; authenticated `/api/files/{path}` serve (Bearer or `?auth=token` for browser links); soft-delete on report removal
+- **TipTap rich-text editor** for research/education/reports body + company thesis body + company memo body (bold/italic/strike, H2/H3, lists, blockquote, code block, links, undo/redo). HTML output is rendered via DOMPurify-sanitised `<RichContent>` on detail views
+- **Resend email digests** (HTML institutional template with logo, gold rule, CTA) on every new published content (research/education/reports) via FastAPI BackgroundTasks; opt-in toggle on Settings (default ON); per-user `email_digest_opt_in` field
+- **TOTP 2FA** (optional, opt-in): setup with QR + manual key + 10 backup codes; verify-setup, login challenge with `temp_token`, backup-code support; disable requires password + valid code; `/auth/2fa/status` reads raw doc; Settings UI shows security state
+- **Brute-force lockout**: 5 failed attempts → 15-min lockout, email-only key (proxy-safe), `ensure_utc()` helper normalises Mongo-returned naive datetimes
+- Tests: **82/82 backend pytest passing** (16 auth + 39 content/bookmark + 27 P1); full frontend E2E (2FA enable → login challenge → backup codes → disable; TipTap body persisted as HTML; PDF upload + report detail render)
 
-### P2
+## Prioritized Backlog
+### P2 — Next session
 - Stripe-powered membership renewals (subscription + gated checkout)
 - Member directory + private discussion
 - Calendar integration for live sessions
-- Analyst commentary feed across all content (timeline view)
+- Analyst commentary timeline view
 
 ### P3 / nice-to-haves
 - Full-text search across content
 - Public marketing landing page
 - Mobile app shell (PWA)
+- Verified domain for Resend deliverability
+- Server.py modular split (auth/content/uploads/2fa)
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`
