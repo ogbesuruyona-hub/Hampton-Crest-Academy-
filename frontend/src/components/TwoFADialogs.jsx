@@ -25,25 +25,26 @@ export const TwoFASetupDialog = ({ open, onOpenChange, onEnabled }) => {
 
   useEffect(() => {
     if (!open) return;
-    let cancel = false;
+    let cancelled = false;
     setStep("loading");
     setError("");
     setCode("");
     setBackupCodes([]);
     api
-      .post("/auth/2fa/setup")
+      .post("/auth/2fa/setup", {})
       .then(({ data }) => {
-        if (cancel) return;
-        setSecret(data.secret);
-        setQr(data.qr_png_base64);
+        if (cancelled) return;
+        setSecret(data.secret || "");
+        setQr(data.qr_png_base64 || "");
         setStep("setup");
       })
       .catch((e) => {
-        if (cancel) return;
+        if (cancelled) return;
         setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+        setStep("setup"); // show the error inside the form rather than spinning forever
       });
     return () => {
-      cancel = true;
+      cancelled = true;
     };
   }, [open]);
 

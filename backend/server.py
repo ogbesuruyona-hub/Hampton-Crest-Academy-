@@ -72,6 +72,15 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Mongo BSON datetimes come back tz-naive; coerce to UTC for safe comparisons."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def new_id() -> str:
     return uuid.uuid4().hex
 
@@ -193,15 +202,15 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
 
 # ---------------- Helpers: brute-force ----------------
 def _attempts_id(request: Request, email: str) -> str:
-    ip = request.client.host if request.client else "unknown"
-    return f"{ip}:{email.lower().strip()}"
+    # Email-only key (the previous IP+email key was unreliable behind ingress proxies)
+    return f"login:{email.lower().strip()}"
 
 
 async def check_lockout(request: Request, email: str):
     rec = await db.login_attempts.find_one({"_id": _attempts_id(request, email)})
     if not rec:
         return
-    locked_until = rec.get("locked_until")
+    locked_until = ensure_utc(rec.get("locked_until"))
     if locked_until and locked_until > now_utc():
         remaining = int((locked_until - now_utc()).total_seconds() // 60) + 1
         raise HTTPException(
@@ -542,9 +551,11 @@ async def logout(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/auth/2fa/status")
 async def two_fa_status(current_user: dict = Depends(get_current_user)):
+    raw = await db.users.find_one({"_id": ObjectId(current_user["id"])}) or {}
+    enabled = bool(raw.get("totp_enabled"))
     return {
-        "enabled": bool(current_user.get("totp_enabled")),
-        "backup_codes_remaining": len(current_user.get("backup_codes_hashed") or []) if current_user.get("totp_enabled") else 0,
+        "enabled": enabled,
+        "backup_codes_remaining": len(raw.get("backup_codes_hashed") or []) if enabled else 0,
     }
 
 
