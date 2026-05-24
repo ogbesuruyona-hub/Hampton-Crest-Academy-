@@ -1,75 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+:root {
+    /* Hampton Crest — Institutional Dark */
+    --hc-bg: #050914;
+    --hc-surface: #0c1222;
+    --hc-surface-elevated: #141c30;
+    --hc-surface-hover: #1c253b;
+    --hc-border: #212a3f;
+    --hc-border-subtle: #151c2c;
+    --hc-text: #f4f6f8;
+    --hc-text-secondary: #9aa4b6;
+    --hc-text-muted: #5b667a;
+    --hc-gold: #d4af37;
+    --hc-gold-soft: rgba(212, 175, 55, 0.18);
+    --hc-platinum: #e2e8f0;
 }
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --background: 222 60% 5%;
+        --foreground: 210 17% 96%;
+        --card: 222 47% 9%;
+        --card-foreground: 210 17% 96%;
+        --popover: 222 39% 13%;
+        --popover-foreground: 210 17% 96%;
+        --primary: 210 17% 96%;
+        --primary-foreground: 222 60% 5%;
+        --secondary: 222 39% 13%;
+        --secondary-foreground: 210 17% 96%;
+        --muted: 222 39% 13%;
+        --muted-foreground: 218 14% 66%;
+        --accent: 222 39% 16%;
+        --accent-foreground: 210 17% 96%;
+        --destructive: 0 70% 42%;
+        --destructive-foreground: 210 17% 96%;
+        --border: 222 32% 19%;
+        --input: 222 32% 19%;
+        --ring: 44 65% 52%;
+        --radius: 0.125rem;
     }
 }
 
@@ -77,39 +49,117 @@ code {
     * {
         @apply border-border;
     }
-    body {
-        @apply bg-background text-foreground;
+    html,
+    body,
+    #root {
+        background-color: var(--hc-bg);
+        color: var(--hc-text);
     }
+    body {
+        margin: 0;
+        font-family:
+            "Manrope",
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            sans-serif;
+        font-feature-settings:
+            "ss01" on,
+            "cv11" on;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        letter-spacing: -0.01em;
+    }
+    ::selection {
+        background: var(--hc-gold-soft);
+        color: var(--hc-text);
+    }
+}
+
+/* Custom scrollbar — institutional */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: var(--hc-bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--hc-border);
+    border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--hc-surface-hover);
+}
+
+/* Utility classes */
+.hc-overline {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--hc-text-secondary);
+}
+
+.hc-divider {
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--hc-border) 20%,
+        var(--hc-border) 80%,
+        transparent
+    );
+}
+
+.hc-gold-rule {
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--hc-gold) 50%,
+        transparent
+    );
+    opacity: 0.6;
+}
+
+.hc-noise {
+    background-image: radial-gradient(
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px
+    );
+    background-size: 3px 3px;
+}
+
+@keyframes hc-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.hc-enter {
+    animation: hc-fade-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hc-enter-delay-1 {
+    animation-delay: 0.05s;
+}
+.hc-enter-delay-2 {
+    animation-delay: 0.1s;
+}
+.hc-enter-delay-3 {
+    animation-delay: 0.15s;
+}
+.hc-enter-delay-4 {
+    animation-delay: 0.2s;
 }
 
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;
-    }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
     }
 }

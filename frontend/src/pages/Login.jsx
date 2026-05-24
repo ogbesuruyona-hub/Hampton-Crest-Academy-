@@ -1,0 +1,221 @@
+import React, { useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+
+const LOGO_URL =
+  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
+
+export default function Login() {
+  const { user, login, register } = useAuth();
+  const location = useLocation();
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (user) {
+    const next = location.state?.from || "/dashboard";
+    return <Navigate to={next} replace />;
+  }
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    const res = mode === "login"
+      ? await login(email, password)
+      : await register(name, email, password);
+    setSubmitting(false);
+    if (!res.ok) setError(res.error);
+  };
+
+  return (
+    <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--hc-bg)] text-[var(--hc-text)]">
+      {/* Brand panel */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.35]"
+          style={{
+            backgroundImage:
+              "url(https://images.unsplash.com/photo-1593427995298-cad6731716d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBhcmNoaXRlY3R1cmUlMjBuaWdodHxlbnwwfHx8fDE3Nzk2MzE1ODV8MA&ixlib=rb-4.1.0&q=85)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/95 via-[var(--hc-bg)]/75 to-[var(--hc-bg)]" />
+
+        <div className="relative z-10 flex items-center gap-4">
+          <img src={LOGO_URL} alt="Hampton Crest" className="h-12 w-12 object-contain" />
+          <div className="leading-tight">
+            <div className="text-[0.7rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
+              Hampton Crest
+            </div>
+            <div className="text-[0.65rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
+              Academy
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-md">
+          <div className="hc-overline mb-5">Est. MMXXVI · Members Only</div>
+          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-[var(--hc-text)]">
+            Disciplined capital begins with disciplined thought.
+          </h2>
+          <p className="mt-6 text-[var(--hc-text-secondary)] text-sm leading-relaxed max-w-sm">
+            A private academy for serious investors. Institutional-grade research,
+            curated education, and monthly intelligence — reserved for our members.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex items-center justify-between text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
+          <span>Confidential</span>
+          <span className="h-px w-12 bg-[var(--hc-gold)]/40" />
+          <span>Members Suite</span>
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
+        <div className="lg:hidden flex items-center gap-3 mb-12">
+          <img src={LOGO_URL} alt="Hampton Crest" className="h-10 w-10 object-contain" />
+          <div className="leading-tight">
+            <div className="text-[0.7rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
+              Hampton Crest
+            </div>
+            <div className="text-[0.6rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
+              Academy
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-md w-full hc-enter">
+          <div className="hc-overline mb-3">
+            {mode === "login" ? "Member Sign In" : "Charter Enrollment"}
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] text-[var(--hc-text)]">
+            {mode === "login" ? "Access your suite" : "Establish your account"}
+          </h1>
+          <p className="mt-3 text-sm text-[var(--hc-text-secondary)] tracking-tight">
+            {mode === "login"
+              ? "Enter your credentials to continue."
+              : "Reserved for vetted academy members."}
+          </p>
+
+          <div className="mt-8 hc-gold-rule" />
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-5" data-testid="auth-form">
+            {mode === "register" && (
+              <div>
+                <label className="hc-overline block mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  data-testid="register-name-input"
+                  className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="hc-overline block mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                data-testid="auth-email-input"
+                className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="hc-overline">Password</label>
+                {mode === "login" && (
+                  <span className="text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
+                    8+ characters
+                  </span>
+                )}
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                data-testid="auth-password-input"
+                className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
+              />
+            </div>
+
+            {error && (
+              <div
+                data-testid="auth-error"
+                className="text-xs tracking-tight text-[#E07A7A] border border-[#7A2424] bg-[#2A0F0F] px-3 py-2"
+              >
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              data-testid="auth-submit-button"
+              className="w-full bg-[var(--hc-platinum)] text-[var(--hc-bg)] py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-white transition-colors disabled:opacity-60"
+            >
+              {submitting
+                ? "Authenticating…"
+                : mode === "login"
+                  ? "Sign In"
+                  : "Create Account"}
+            </button>
+
+            <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">
+              {mode === "login" ? (
+                <>
+                  New to Hampton Crest?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("register");
+                      setError("");
+                    }}
+                    data-testid="switch-to-register"
+                    className="text-[var(--hc-gold)] hover:underline underline-offset-4"
+                  >
+                    Establish an account
+                  </button>
+                </>
+              ) : (
+                <>
+                  Existing member?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      setError("");
+                    }}
+                    data-testid="switch-to-login"
+                    className="text-[var(--hc-gold)] hover:underline underline-offset-4"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          </form>
+
+          <div className="mt-12 text-[0.65rem] text-[var(--hc-text-muted)] tracking-[0.18em] uppercase">
+            Confidential · For Members Only
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
