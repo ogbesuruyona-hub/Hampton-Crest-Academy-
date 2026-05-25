@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 
 import Login from "@/pages/Login";
+import PublicLanding from "@/pages/PublicLanding";
 import AccessDenied from "@/pages/AccessDenied";
 import AcceptInvite from "@/pages/AcceptInvite";
 import Dashboard from "@/pages/Dashboard";
@@ -22,6 +23,7 @@ import SavedResources from "@/pages/SavedResources";
 import Settings from "@/pages/Settings";
 import MemberProfile from "@/pages/MemberProfile";
 import MemberDirectory from "@/pages/MemberDirectory";
+import SearchResults from "@/pages/SearchResults";
 import AdminMembers from "@/pages/AdminMembers";
 
 function App() {
@@ -30,6 +32,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<PublicLanding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/access-denied" element={<AccessDenied />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
@@ -40,7 +43,6 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/research" element={<ResearchLibrary />} />
               <Route path="/research/:id" element={<ResearchDetail />} />
@@ -54,9 +56,10 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<MemberProfile />} />
               <Route path="/directory" element={<MemberDirectory />} />
+              <Route path="/search" element={<SearchResults />} />
               <Route path="/admin/members" element={<AdminMembers />} />
             </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Toaster theme="dark" position="bottom-right" />
         </AuthProvider>

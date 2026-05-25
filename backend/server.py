@@ -1127,6 +1127,10 @@ async def delete_book(content_id: str, current_user: dict = Depends(require_admi
     return {"ok": True}
 
 
+# ---------------- Routes: search ----------------
+# Extracted to routers/search.py — registered after api_router is fully built.
+
+
 # ---------------- Routes: bookmarks ----------------
 @api_router.get("/bookmarks")
 async def list_bookmarks(current_user: dict = Depends(get_current_user)):
@@ -1755,6 +1759,16 @@ async def shutdown_db_client():
 
 
 # ---------------- App wiring ----------------
+# Register modular routers (see backend/routers/ + ARCHITECTURE.md)
+from routers.search import register_search_routes  # noqa: E402
+
+search_router = register_search_routes(
+    db=db,
+    require_member=require_member,
+    serialize_doc=serialize_doc,
+)
+app.include_router(search_router)
+
 app.include_router(api_router)
 
 app.add_middleware(
