@@ -100,20 +100,20 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5">Est. 2026 · Members Only</div>
+          <div className="hc-overline mb-5">Est. 2026 · Solo Miembros</div>
           <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-[var(--hc-text)]">
-            Disciplined capital begins with disciplined thought.
+            El capital disciplinado nace del pensamiento disciplinado.
           </h2>
           <p className="mt-6 text-[var(--hc-text-secondary)] text-sm leading-relaxed max-w-sm">
-            A private academy for serious investors. Institutional-grade research,
-            curated education, and monthly intelligence — reserved for our members.
+            Una academia privada para inversionistas serios. Investigación de grado institucional,
+            educación curada e inteligencia mensual — reservado para nuestros miembros.
           </p>
         </div>
 
         <div className="relative z-10 flex items-center justify-between text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
-          <span>Confidential</span>
+          <span>Confidencial</span>
           <span className="h-px w-12 bg-[var(--hc-gold)]/40" />
-          <span>Members Suite</span>
+          <span>Solo Miembros</span>
         </div>
       </div>
 
@@ -139,20 +139,20 @@ export default function Login() {
         <div className="max-w-md w-full hc-enter">
           <div className="hc-overline mb-3">
             {is2fa
-              ? "Two-Factor Verification"
+              ? "Verificación en dos pasos"
               : isLogin
-                ? "Member Sign In"
-                : "Charter Enrollment"}
+                ? "Acceso de miembro"
+                : "Registro de miembro"}
           </div>
           <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] text-[var(--hc-text)]">
-            {is2fa ? "Enter your code" : isLogin ? "Access your suite" : "Establish your account"}
+            {is2fa ? "Ingresa tu código" : isLogin ? "Accede a la academia" : "Crea tu cuenta"}
           </h1>
           <p className="mt-3 text-sm text-[var(--hc-text-secondary)] tracking-tight">
             {is2fa
-              ? "Open your authenticator app and enter the 6-digit code, or use a backup code."
+              ? "Abre tu app de autenticación e ingresa el código de 6 dígitos, o usa un código de respaldo."
               : isLogin
-                ? "Enter your credentials to continue."
-                : "Reserved for vetted academy members."}
+                ? "Ingresa tus credenciales para continuar."
+                : "Reservado para miembros verificados de la academia."}
           </p>
 
           <div className="mt-8 hc-gold-rule" />
@@ -165,7 +165,7 @@ export default function Login() {
           >
             {is2fa ? (
               <div>
-                <label className="hc-overline block mb-2">6-digit code</label>
+                <label className="hc-overline block mb-2">Código de 6 dígitos</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -183,7 +183,7 @@ export default function Login() {
               <>
                 {mode === "register" && (
                   <div>
-                    <label className="hc-overline block mb-2">Full Name</label>
+                    <label className="hc-overline block mb-2">Nombre completo</label>
                     <input
                       type="text"
                       value={name}
@@ -196,7 +196,7 @@ export default function Login() {
                 )}
 
                 <div>
-                  <label className="hc-overline block mb-2">Email</label>
+                  <label className="hc-overline block mb-2">Correo electrónico</label>
                   <input
                     type="email"
                     value={email}
@@ -210,10 +210,10 @@ export default function Login() {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="hc-overline">Password</label>
+                    <label className="hc-overline">Contraseña</label>
                     {isLogin && (
                       <span className="text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
-                        8+ characters
+                        mín. 8 caracteres
                       </span>
                     )}
                   </div>
@@ -247,12 +247,12 @@ export default function Login() {
               className="w-full bg-[var(--hc-platinum)] text-[var(--hc-bg)] py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-white transition-colors disabled:opacity-60"
             >
               {submitting
-                ? "Authenticating…"
+                ? "Autenticando…"
                 : is2fa
-                  ? "Verify"
+                  ? "Verificar"
                   : isLogin
-                    ? "Sign In"
-                    : "Create Account"}
+                    ? "Iniciar sesión"
+                    : "Crear cuenta"}
             </button>
 
             {is2fa ? (
@@ -267,24 +267,24 @@ export default function Login() {
                 data-testid="twofa-back"
                 className="w-full text-xs tracking-tight text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] underline underline-offset-4 transition-colors"
               >
-                Cancel and sign in again
+                Cancelar y volver a iniciar sesión
               </button>
             ) : (
               <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">
-                Not a member?{" "}
+                ¿No eres miembro?{" "}
                 <a
                   href="/access-denied"
                   data-testid="view-plans-link"
                   className="text-[var(--hc-gold)] hover:underline underline-offset-4"
                 >
-                  View membership
+                  Ver membresía
                 </a>
               </div>
             )}
           </form>
 
           <div className="mt-12 text-[0.65rem] text-[var(--hc-text-muted)] tracking-[0.18em] uppercase">
-            Confidential · For Members Only
+            Confidencial · Solo Miembros
           </div>
         </div>
       </div>

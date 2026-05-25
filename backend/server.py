@@ -1697,6 +1697,38 @@ async def seed_admin():
             logger.info("Updated admin password for %s", admin_email)
 
 
+async def seed_test_member():
+    """Seed a complimentary test member so admins can review the member experience."""
+    email = os.environ.get("TEST_MEMBER_EMAIL", "prueba@hamptoncrest.com").lower().strip()
+    password = os.environ.get("TEST_MEMBER_PASSWORD", "Prueba#2026")
+    name = os.environ.get("TEST_MEMBER_NAME", "Miembro de Prueba")
+    existing = await db.users.find_one({"email": email})
+    base_fields = {
+        "name": name,
+        "role": "member",
+        "complimentary": True,
+        "membership_status": "active",
+        "email_digest_opt_in": True,
+        "totp_enabled": False,
+        "updated_at": now_utc(),
+    }
+    if existing is None:
+        await db.users.insert_one({
+            "email": email,
+            "password_hash": hash_password(password),
+            "created_at": now_utc(),
+            **base_fields,
+        })
+        logger.info("Seeded test member %s", email)
+    else:
+        # Always reset password + complimentary flag so the test account is reliably usable
+        await db.users.update_one(
+            {"email": email},
+            {"$set": {"password_hash": hash_password(password), **base_fields}},
+        )
+        logger.info("Refreshed test member %s", email)
+
+
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
@@ -1709,6 +1741,7 @@ async def on_startup():
     await db.invites.create_index("expires_at", expireAfterSeconds=60 * 60 * 24 * 14)
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
     await seed_admin()
+    await seed_test_member()
     # Init storage but don't fail startup if down
     try:
         await asyncio.to_thread(_init_storage)

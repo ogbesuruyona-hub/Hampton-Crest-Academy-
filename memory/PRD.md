@@ -67,9 +67,14 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Stripe Customer Portal** (2026-05-25): `POST /api/billing/portal` creates a Stripe billing_portal.Session and returns `{url}`. Settings has "Billing → Membership" panel with `Manage Subscription` button (disabled for admin/complimentary). LIVE key configured (`acct_1TQqoJA2p7IG5Aco`); user activated the portal config in Stripe dashboard.
 
 ## 2026-05-25 — Library + Branding + Session UX
-- **Research Library → Books Library**: new `books` Mongo collection + `/api/books` CRUD (admin write, member read with status gating). Fields: `title`, `author`, `cover_url`, `description`, `category`, `external_url`, `status`. Frontend `ResearchLibrary` rewritten as a 4-column cover grid (`BookCard` + `BookEditorDialog`). Books open in a new tab (`target="_blank" rel="noopener noreferrer"`) so the academy session stays alive while the member reads externally. Bookmarks extended to support `books`. Dashboard switched to `/books` and relabelled "Library Books" / "Latest Books".
 - **Logo branding**: removed image logo from Sidebar and Login (desktop + mobile). Brand is now text-only ("HAMPTON CREST / ACADEMY") so it sits cleanly on the navy background without the off-color square.
 - **Login UX**: form has `autoComplete="off"`; email/password/name fields are explicitly cleared after every submit attempt (success or failure). Combined with React state being re-initialised when Login remounts on logout, credentials never persist across a sign-out.
+
+## 2026-05-25 — Edit control, test member, Spanish UI
+- **Books Library** (`/api/books` CRUD): opens externally in new tab, bookmarks extended to support books, transparent crest logo restored with `mix-blend-mode: screen` on navy.
+- **Inline edit/delete on all content cards**: `ContentCard` renders pencil/trash icons for admins on Research, Education, Reports, Companies. Books already had inline actions. Confirmation modal in Spanish.
+- **Test member seeded automatically**: `seed_test_member()` runs at backend startup → creates/refreshes `prueba@hamptoncrest.com` / `Prueba#2026` with `complimentary=true, membership_status=active`. Admins can log in as this account to review the member-side experience.
+- **Full Spanish UI**: every user-facing string translated across Sidebar, Topbar, Login, Dashboard, Library, Education, Reports, Companies, Saved Resources, Settings, Member Profile, Member Directory, Admin Members, Access Denied, Accept Invite, Content Editor, Status Badge, Two-Factor dialogs, Empty State; dates now use `toLocaleDateString("es-ES")`. `CONTENT_TYPES` singulars/plurals + research/library/sector/track categories all in Spanish.
 
 ## Prioritized Backlog
 ### P2 — Remaining

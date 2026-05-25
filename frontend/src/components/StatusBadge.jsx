@@ -2,23 +2,23 @@ import React from "react";
 
 const VARIANTS = {
   published: {
-    label: "Published",
+    label: "Publicado",
     cls: "border-[var(--hc-gold)]/50 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]",
   },
   draft: {
-    label: "Draft",
+    label: "Borrador",
     cls: "border-[var(--hc-border)] text-[var(--hc-text-muted)] bg-transparent",
   },
   covered: {
-    label: "Covered",
+    label: "Cubierta",
     cls: "border-[var(--hc-gold)]/40 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]",
   },
   watching: {
-    label: "Watching",
+    label: "En observación",
     cls: "border-[var(--hc-border)] text-[var(--hc-platinum)] bg-[var(--hc-surface-elevated)]",
   },
   exited: {
-    label: "Exited",
+    label: "Salida",
     cls: "border-[var(--hc-border)] text-[var(--hc-text-muted)] bg-transparent",
   },
 };

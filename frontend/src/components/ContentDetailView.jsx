@@ -63,7 +63,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
   if (loading) {
     return (
       <div className="text-sm text-[var(--hc-text-muted)] py-16 text-center" data-testid="detail-loading">
-        Loading…
+        Cargando…
       </div>
     );
   }
@@ -71,13 +71,13 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
   if (error || !item) {
     return (
       <div className="py-16 text-center">
-        <div className="hc-overline mb-2">Unavailable</div>
-        <div className="text-[var(--hc-text-secondary)] text-sm">{error || "Not found"}</div>
+        <div className="hc-overline mb-2">No disponible</div>
+        <div className="text-[var(--hc-text-secondary)] text-sm">{error || "No encontrado"}</div>
         <Link
           to={cfg.listRoute}
           className="inline-flex items-center gap-2 mt-6 text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4"
         >
-          <ArrowLeft className="h-3 w-3" /> Back to {cfg.plural}
+          <ArrowLeft className="h-3 w-3" /> Volver a {cfg.plural}
         </Link>
       </div>
     );
@@ -132,7 +132,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
 
         <div className="mt-8 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 text-xs text-[var(--hc-text-muted)] tracking-tight">
-            {item.author_name && <span>By {item.author_name}</span>}
+            {item.author_name && <span>Por {item.author_name}</span>}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
@@ -156,9 +156,9 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
           className="mt-8 flex items-center justify-between gap-4 border border-[var(--hc-border)] bg-[var(--hc-surface)] px-5 py-4"
         >
           <div className="min-w-0">
-            <div className="hc-overline">Attachment</div>
+            <div className="hc-overline">Adjunto</div>
             <div className="mt-1 text-sm tracking-tight text-[var(--hc-text)] truncate">
-              {item.pdf_filename || "report.pdf"}
+              {item.pdf_filename || "reporte.pdf"}
             </div>
           </div>
           <button
@@ -166,7 +166,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
             data-testid="report-pdf-open"
             className="flex items-center gap-2 px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
           >
-            <FileDown className="h-3.5 w-3.5" strokeWidth={1.5} /> Open PDF
+            <FileDown className="h-3.5 w-3.5" strokeWidth={1.5} /> Abrir PDF
           </button>
         </div>
       )}
@@ -180,7 +180,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
 
       {Array.isArray(item.tags) && item.tags.length > 0 && (
         <div className="mt-12 flex items-center gap-2 flex-wrap">
-          <span className="hc-overline mr-2">Tags</span>
+          <span className="hc-overline mr-2">Etiquetas</span>
           {item.tags.map((t) => (
             <span
               key={t}
@@ -205,9 +205,9 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle className="tracking-tight">Delete this {cfg.singular.toLowerCase()}?</AlertDialogTitle>
+            <AlertDialogTitle className="tracking-tight">¿Eliminar este {cfg.singular.toLowerCase()}?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              This action cannot be undone.
+              Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -215,14 +215,14 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
               data-testid="delete-cancel"
               className="bg-transparent border-[var(--hc-border)] text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] rounded-none"
             >
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={onDelete}
               data-testid="delete-confirm"
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
             >
-              Delete
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

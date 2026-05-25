@@ -2,40 +2,40 @@ export const CONTENT_TYPES = {
   research: {
     key: "research",
     api: "research",
-    singular: "Research Note",
-    plural: "Research Library",
+    singular: "Nota de investigación",
+    plural: "Investigación",
     detailRoute: (id) => `/research/${id}`,
     listRoute: "/research",
   },
   education: {
     key: "education",
     api: "education",
-    singular: "Education Module",
-    plural: "Investment Education",
+    singular: "Módulo",
+    plural: "Educación",
     detailRoute: (id) => `/education/${id}`,
     listRoute: "/education",
   },
   reports: {
     key: "reports",
     api: "reports",
-    singular: "Monthly Report",
-    plural: "Monthly Reports",
+    singular: "Reporte mensual",
+    plural: "Reportes Mensuales",
     detailRoute: (id) => `/reports/${id}`,
     listRoute: "/reports",
   },
   companies: {
     key: "companies",
     api: "companies",
-    singular: "Company",
-    plural: "Company Analysis",
+    singular: "Empresa",
+    plural: "Análisis de Empresas",
     detailRoute: (id) => `/companies/${id}`,
     listRoute: "/companies",
   },
   books: {
     key: "books",
     api: "books",
-    singular: "Library Book",
-    plural: "Research Library",
+    singular: "Libro",
+    plural: "Biblioteca",
     detailRoute: () => "/research",
     listRoute: "/research",
     external: true,
@@ -44,50 +44,50 @@ export const CONTENT_TYPES = {
 
 export const RESEARCH_CATEGORIES = [
   "Macro",
-  "Equities",
-  "Fixed Income",
-  "Alternatives",
-  "Sector",
-  "Commodities",
+  "Acciones",
+  "Renta Fija",
+  "Alternativos",
+  "Sectorial",
+  "Materias Primas",
 ];
 
 export const LIBRARY_CATEGORIES = [
-  "Investing Classics",
+  "Clásicos de inversión",
   "Value Investing",
-  "Macro & Cycles",
-  "Behavioural Finance",
-  "Markets History",
-  "Strategy & Mental Models",
-  "Founders & Operators",
+  "Macro y Ciclos",
+  "Finanzas Conductuales",
+  "Historia de los Mercados",
+  "Estrategia y Modelos Mentales",
+  "Fundadores y Operadores",
 ];
 
 export const COMPANY_SECTORS = [
-  "Financials",
-  "Industrials",
-  "Consumer",
-  "Technology",
-  "Energy",
-  "Healthcare",
-  "Materials",
-  "Utilities",
-  "Real Estate",
-  "Communications",
+  "Financiero",
+  "Industrial",
+  "Consumo",
+  "Tecnología",
+  "Energía",
+  "Salud",
+  "Materiales",
+  "Servicios Públicos",
+  "Bienes Raíces",
+  "Comunicaciones",
 ];
 
 export const COMPANY_STATUSES = ["covered", "watching", "exited"];
 
 export const EDUCATION_TRACKS = [
-  "Foundations",
-  "Macro & Capital Cycles",
-  "Portfolio Construction",
-  "Behavioural Discipline",
-  "Advanced Practice",
+  "Fundamentos",
+  "Macro y Ciclos de Capital",
+  "Construcción de Cartera",
+  "Disciplina Conductual",
+  "Práctica Avanzada",
 ];
 
 export function formatDate(iso) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString("es-ES", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -101,5 +101,5 @@ export function formatPeriod(period) {
   if (!period) return "—";
   const [y, m] = period.split("-");
   const date = new Date(Number(y), Number(m) - 1, 1);
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "long" });
+  return date.toLocaleDateString("es-ES", { year: "numeric", month: "long" });
 }

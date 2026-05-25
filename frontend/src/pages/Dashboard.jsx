@@ -67,7 +67,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  const today = new Date().toLocaleDateString(undefined, {
+  const today = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -78,41 +78,41 @@ export default function Dashboard() {
     <div data-testid="dashboard-page">
       <PageHeader
         overline={today}
-        title={`Welcome, ${first}.`}
-        description="Your members' desk for institutional research, curated education, and monthly intelligence."
+        title={`Bienvenido, ${first}.`}
+        description="Tu mesa de miembro para investigación institucional, educación curada e inteligencia mensual."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <KPI
-          label="Library Books"
+          label="Libros de la biblioteca"
           value={counts.research || "—"}
-          sub={counts.research ? "On the shelf" : "Curation in progress"}
+          sub={counts.research ? "En la estantería" : "Curación en proceso"}
           testid="kpi-research"
         />
         <KPI
-          label="Education Modules"
+          label="Módulos educativos"
           value={counts.education || "—"}
-          sub={counts.education ? "Available" : "Curriculum in preparation"}
+          sub={counts.education ? "Disponibles" : "Currículum en preparación"}
           testid="kpi-education"
         />
         <KPI
-          label="Monthly Reports"
+          label="Reportes mensuales"
           value={counts.reports || "—"}
-          sub={counts.reports ? "Archived issues" : "Next issue: this month"}
+          sub={counts.reports ? "Reportes archivados" : "Próximo reporte: este mes"}
           testid="kpi-reports"
         />
         <KPI
-          label="Companies Tracked"
+          label="Empresas cubiertas"
           value={counts.companies || "—"}
-          sub={counts.companies ? "Active coverage" : "Coverage list pending"}
+          sub={counts.companies ? "Cobertura activa" : "Lista pendiente"}
           testid="kpi-companies"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Panel
-          overline="From the Shelf"
-          title="Latest Books"
+          overline="De la estantería"
+          title="Últimos libros"
           className="lg:col-span-2 hc-enter hc-enter-delay-1"
           testid="panel-latest-research"
           action={
@@ -120,15 +120,15 @@ export default function Dashboard() {
               to="/research"
               className="text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4 flex items-center gap-1"
             >
-              View library <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+              Ver biblioteca <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
             </Link>
           }
         >
           {latestResearch.length === 0 ? (
             <EmptyState
               icon={BookOpen}
-              title="No books yet"
-              description="Curated volumes added to the academy library will appear here."
+              title="Aún no hay libros"
+              description="Los libros curados que se agreguen a la biblioteca aparecerán aquí."
             />
           ) : (
             <div className="divide-y divide-[var(--hc-border)]" data-testid="dashboard-latest-research">
@@ -162,8 +162,8 @@ export default function Dashboard() {
         </Panel>
 
         <Panel
-          overline="This Month"
-          title="Latest Report"
+          overline="Este mes"
+          title="Último reporte"
           className="hc-enter hc-enter-delay-2"
           testid="panel-latest-report"
         >
@@ -183,14 +183,14 @@ export default function Dashboard() {
                 </p>
               )}
               <div className="mt-5 inline-flex items-center gap-1 text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)]">
-                Read issue <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+                Leer reporte <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
               </div>
             </Link>
           ) : (
             <EmptyState
               icon={CalendarClock}
-              title="No issue published"
-              description="The monthly report archive will appear here."
+              title="Sin reporte publicado"
+              description="El archivo de reportes mensuales aparecerá aquí."
             />
           )}
         </Panel>
@@ -199,9 +199,9 @@ export default function Dashboard() {
       <div className="mt-10">
         <div className="flex items-end justify-between mb-5">
           <div>
-            <div className="hc-overline">Suite</div>
+            <div className="hc-overline">Academia</div>
             <h2 className="text-lg sm:text-xl font-medium tracking-tight text-[var(--hc-text)] mt-1">
-              Focus areas
+              Áreas principales
             </h2>
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function Dashboard() {
                 {label}
               </div>
               <div className="mt-1 text-xs text-[var(--hc-text-muted)] tracking-tight">
-                Explore the section
+                Explorar la sección
               </div>
             </Link>
           ))}

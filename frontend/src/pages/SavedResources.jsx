@@ -35,20 +35,20 @@ export default function SavedResources() {
   return (
     <div data-testid="saved-page">
       <PageHeader
-        overline="Members Suite · Library"
-        title="Saved Resources"
-        description="Your personal archive — research notes, modules, reports, and companies you've marked to revisit."
+        overline="Academia · Guardados"
+        title="Guardados"
+        description="Tu archivo personal — libros, módulos, reportes y empresas que has marcado para volver."
       />
 
       {items.length > 0 && (
         <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="saved-filters">
           {[
-            ["all", `All (${items.length})`],
-            ["books", `Books (${counts.books || 0})`],
-            ["research", `Research (${counts.research || 0})`],
-            ["education", `Education (${counts.education || 0})`],
-            ["reports", `Reports (${counts.reports || 0})`],
-            ["companies", `Companies (${counts.companies || 0})`],
+            ["all", `Todos (${items.length})`],
+            ["books", `Libros (${counts.books || 0})`],
+            ["research", `Investigación (${counts.research || 0})`],
+            ["education", `Educación (${counts.education || 0})`],
+            ["reports", `Reportes (${counts.reports || 0})`],
+            ["companies", `Empresas (${counts.companies || 0})`],
           ].map(([k, label]) => (
             <button
               key={k}
@@ -67,12 +67,12 @@ export default function SavedResources() {
       )}
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Bookmark}
-          title="Nothing saved yet"
-          description="Bookmark any research note, module, report, or company. Your selections will appear here."
+          title="Aún no has guardado nada"
+          description="Marca cualquier libro, nota, módulo, reporte o empresa. Tus selecciones aparecerán aquí."
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="saved-list">
@@ -115,7 +115,7 @@ export default function SavedResources() {
                     </p>
                   )}
                   <div className="mt-4 text-[0.65rem] tracking-[0.18em] uppercase text-[var(--hc-text-muted)]">
-                    Saved {formatDate(b.saved_at)}
+                    Guardado {formatDate(b.saved_at)}
                   </div>
                   <ArrowUpRight
                     className="absolute top-6 right-6 h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)] transition-colors"

@@ -23,7 +23,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
     setDeleting(true);
     try {
       await api.delete(`/books/${book.id}`);
-      toast.success("Book removed");
+      toast.success("Libro eliminado");
       onDeleted?.();
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -59,7 +59,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
               className="h-8 w-8 text-[var(--hc-text-muted)]"
               strokeWidth={1.25}
             />
-            <div className="hc-overline text-[var(--hc-text-muted)]">No cover</div>
+            <div className="hc-overline text-[var(--hc-text-muted)]">Sin portada</div>
           </div>
         )}
 
@@ -107,7 +107,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
               <button
                 onClick={onEdit}
                 data-testid={`book-edit-${book.id}`}
-                title="Edit"
+                title="Editar"
                 className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -115,7 +115,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
               <button
                 onClick={() => setConfirmDelete(true)}
                 data-testid={`book-delete-${book.id}`}
-                title="Delete"
+                title="Eliminar"
                 className="h-7 w-7 flex items-center justify-center border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -128,14 +128,14 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this book?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar este libro?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              “{book.title}” will be removed from the library shelf.
+              «{book.title}» se eliminará de la biblioteca.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-[var(--hc-border)] text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] rounded-none">
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
@@ -143,7 +143,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
               data-testid={`confirm-delete-book-${book.id}`}
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
             >
-              {deleting ? "Removing…" : "Remove"}
+              {deleting ? "Eliminando…" : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

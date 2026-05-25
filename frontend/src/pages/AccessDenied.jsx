@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { ArrowUpRight, ShieldAlert } from "lucide-react";
 
 const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
+  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
 
 export default function AccessDenied() {
   const [config, setConfig] = useState({ framer_url: "", payment_link_url: "" });
@@ -14,7 +14,7 @@ export default function AccessDenied() {
   }, []);
 
   const cta = config.payment_link_url || config.framer_url || "#";
-  const ctaLabel = config.payment_link_url ? "Become a member" : "View plans";
+  const ctaLabel = config.payment_link_url ? "Quiero ser miembro" : "Ver planes";
 
   return (
     <div
@@ -23,16 +23,21 @@ export default function AccessDenied() {
     >
       <div className="max-w-xl w-full text-center hc-enter">
         <div className="flex justify-center mb-10">
-          <img src={LOGO_URL} alt="Hampton Crest" className="h-14 w-14 object-contain" />
+          <img
+            src={LOGO_URL}
+            alt="Hampton Crest"
+            className="h-16 w-16 object-contain"
+            style={{ mixBlendMode: "screen" }}
+          />
         </div>
-        <div className="hc-overline mb-3 text-[var(--hc-gold)]">Members Suite</div>
+        <div className="hc-overline mb-3 text-[var(--hc-gold)]">Academia Privada</div>
         <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] leading-[1.15]">
-          Access restricted.
+          Acceso restringido.
         </h1>
         <div className="mt-6 hc-gold-rule" />
         <p className="mt-6 text-[var(--hc-text-secondary)] text-sm sm:text-base leading-relaxed">
-          Hampton Crest Academy is a private circle reserved for paying members. Your account
-          either has no active subscription, or your membership has lapsed.
+          Hampton Crest Academy es un círculo privado reservado para miembros activos. Tu cuenta
+          no tiene una suscripción activa o tu membresía expiró.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
           {cta !== "#" ? (
@@ -50,12 +55,12 @@ export default function AccessDenied() {
             data-testid="access-denied-signin"
             className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] px-6 py-3 text-xs tracking-[0.18em] uppercase transition-colors"
           >
-            Sign in with another account
+            Entrar con otra cuenta
           </Link>
         </div>
         <div className="mt-14 inline-flex items-center gap-2 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
           <ShieldAlert className="h-3 w-3" strokeWidth={1.5} />
-          Confidential · For Members Only
+          Confidencial · Solo Miembros
         </div>
       </div>
     </div>

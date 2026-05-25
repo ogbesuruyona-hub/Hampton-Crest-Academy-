@@ -45,7 +45,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--hc-text-muted)]" strokeWidth={1.5} />
             <input
               type="text"
-              placeholder="Search research, reports, companies…"
+              placeholder="Buscar investigación, reportes, empresas…"
               data-testid="topbar-search"
               className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
             />
@@ -72,9 +72,9 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
                   {initials(user?.name)}
                 </div>
                 <div className="hidden sm:flex flex-col items-start leading-tight">
-                  <span className="text-xs text-[var(--hc-text)] tracking-tight">{user?.name || "Member"}</span>
+                  <span className="text-xs text-[var(--hc-text)] tracking-tight">{user?.name || "Miembro"}</span>
                   <span className="text-[0.65rem] tracking-[0.18em] uppercase text-[var(--hc-text-muted)]">
-                    {user?.role || "member"}
+                    {user?.role === "admin" ? "administrador" : "miembro"}
                   </span>
                 </div>
               </button>
@@ -93,13 +93,13 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
                 className="focus:bg-[var(--hc-surface-hover)] focus:text-[var(--hc-text)] cursor-pointer"
               >
                 <UserIcon className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                Member Profile
+                Perfil
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => navigate("/settings")}
                 className="focus:bg-[var(--hc-surface-hover)] focus:text-[var(--hc-text)] cursor-pointer"
               >
-                Settings
+                Ajustes
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[var(--hc-border)]" />
               <DropdownMenuItem
@@ -111,7 +111,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
                 className="focus:bg-[var(--hc-surface-hover)] focus:text-[var(--hc-text)] cursor-pointer"
               >
                 <LogOut className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                Sign Out
+                Cerrar sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -120,16 +120,16 @@ export const ContentEditorDialog = ({
         <DialogHeader>
           <div className="hc-overline mb-1">{cfg.singular}</div>
           <DialogTitle className="text-xl font-medium tracking-tight">
-            {initial ? "Edit" : "New"} {cfg.singular}
+            {initial ? "Editar" : "Nuevo"} {cfg.singular.toLowerCase()}
           </DialogTitle>
           <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
-            {initial ? "Update this entry." : "Compose a new entry for the members' suite."}
+            {initial ? "Actualiza esta entrada." : "Crea una nueva entrada para los miembros."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="editor-form">
           <div>
-            <label className={labelCls}>Title</label>
+            <label className={labelCls}>Título</label>
             <input
               type="text"
               value={form.title}
@@ -141,51 +141,51 @@ export const ContentEditorDialog = ({
           </div>
 
           <div>
-            <label className={labelCls}>Summary</label>
+            <label className={labelCls}>Resumen</label>
             <input
               type="text"
               value={form.summary}
               onChange={(e) => update("summary", e.target.value)}
               data-testid="editor-summary"
               className={inputCls}
-              placeholder="One-line abstract for the list view"
+              placeholder="Resumen de una línea para la lista"
             />
           </div>
 
           <div>
-            <label className={labelCls}>Body</label>
+            <label className={labelCls}>Cuerpo</label>
             <RichTextEditor
               value={form.body}
               onChange={(html) => update("body", html)}
-              placeholder="Compose the full piece — headings, lists, links, and emphasis are supported."
+              placeholder="Redacta el texto completo — se admiten títulos, listas, enlaces y énfasis."
               testid="editor-body"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Category</label>
+              <label className={labelCls}>Categoría</label>
               <select
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
                 data-testid="editor-category"
                 className={inputCls}
               >
-                <option value="">— None —</option>
+                <option value="">— Ninguna —</option>
                 {RESEARCH_CATEGORIES.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls}>Tags (comma-separated)</label>
+              <label className={labelCls}>Etiquetas (separadas por coma)</label>
               <input
                 type="text"
                 value={form.tags}
                 onChange={(e) => update("tags", e.target.value)}
                 data-testid="editor-tags"
                 className={inputCls}
-                placeholder="inflation, rates, fed"
+                placeholder="inflación, tasas, fed"
               />
             </div>
           </div>
@@ -200,14 +200,14 @@ export const ContentEditorDialog = ({
                   data-testid="editor-track"
                   className={inputCls}
                 >
-                  <option value="">— None —</option>
+                  <option value="">— Ninguno —</option>
                   {EDUCATION_TRACKS.map((t) => (
                     <option key={t}>{t}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Weeks</label>
+                <label className={labelCls}>Semanas</label>
                 <input
                   type="number"
                   min="1"
@@ -218,7 +218,7 @@ export const ContentEditorDialog = ({
                 />
               </div>
               <div>
-                <label className={labelCls}>Order</label>
+                <label className={labelCls}>Orden</label>
                 <input
                   type="number"
                   value={form.order_index}
@@ -233,7 +233,7 @@ export const ContentEditorDialog = ({
           {contentType === "reports" && (
             <>
               <div>
-                <label className={labelCls}>Period (YYYY-MM)</label>
+                <label className={labelCls}>Período (YYYY-MM)</label>
                 <input
                   type="text"
                   value={form.period}
@@ -245,7 +245,7 @@ export const ContentEditorDialog = ({
                 />
               </div>
               <div>
-                <label className={labelCls}>PDF Attachment</label>
+                <label className={labelCls}>Adjunto PDF</label>
                 <PdfUploader
                   value={
                     form.pdf_url
@@ -263,9 +263,12 @@ export const ContentEditorDialog = ({
           )}
 
           <div>
-            <label className={labelCls}>Status</label>
+            <label className={labelCls}>Estado</label>
             <div className="flex gap-2">
-              {["draft", "published"].map((s) => (
+              {[
+                ["draft", "Borrador"],
+                ["published", "Publicado"],
+              ].map(([s, label]) => (
                 <button
                   type="button"
                   key={s}
@@ -277,7 +280,7 @@ export const ContentEditorDialog = ({
                       : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
                   }`}
                 >
-                  {s}
+                  {label}
                 </button>
               ))}
             </div>
@@ -299,7 +302,7 @@ export const ContentEditorDialog = ({
               data-testid="editor-cancel"
               className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -307,7 +310,7 @@ export const ContentEditorDialog = ({
               data-testid="editor-save"
               className="px-6 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-60"
             >
-              {saving ? "Saving…" : initial ? "Save Changes" : `Create ${cfg.singular}`}
+              {saving ? "Guardando…" : initial ? "Guardar cambios" : `Crear ${cfg.singular.toLowerCase()}`}
             </button>
           </DialogFooter>
         </form>

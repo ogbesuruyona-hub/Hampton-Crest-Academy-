@@ -66,7 +66,7 @@ export default function CompanyDetail() {
   };
 
   if (loading) {
-    return <div className="text-sm text-[var(--hc-text-muted)] py-16 text-center">Loading…</div>;
+    return <div className="text-sm text-[var(--hc-text-muted)] py-16 text-center">Cargando…</div>;
   }
   if (error || !company) {
     return (
@@ -190,7 +190,7 @@ export default function CompanyDetail() {
                           <button
                             onClick={() => setMemoToDelete(m.id)}
                             data-testid={`memo-delete-${m.id}`}
-                            aria-label="Delete memo"
+                            aria-label="Eliminar memo"
                             className="text-[var(--hc-text-muted)] hover:text-[#E07A7A] transition-colors"
                           >
                             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -213,7 +213,7 @@ export default function CompanyDetail() {
 
         {/* Side: metrics */}
         <div>
-          <Panel overline="Key Metrics" title="Snapshot" testid="panel-metrics">
+          <Panel overline="Métricas clave" title="Resumen" testid="panel-metrics">
             {Array.isArray(company.key_metrics) && company.key_metrics.length > 0 ? (
               <div className="divide-y divide-[var(--hc-border)]">
                 {company.key_metrics.map((m, i) => (
@@ -226,13 +226,13 @@ export default function CompanyDetail() {
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-[var(--hc-text-muted)] italic">No metrics yet.</div>
+              <div className="text-sm text-[var(--hc-text-muted)] italic">Aún no hay métricas.</div>
             )}
           </Panel>
 
           {Array.isArray(company.tags) && company.tags.length > 0 && (
             <div className="mt-6">
-              <Panel overline="Tags" title="Classification" testid="panel-tags">
+              <Panel overline="Etiquetas" title="Clasificación" testid="panel-tags">
                 <div className="flex flex-wrap gap-2">
                   {company.tags.map((t) => (
                     <span
@@ -265,21 +265,21 @@ export default function CompanyDetail() {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this company?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar esta empresa?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              All memos and analyst commentary will be removed.
+              Se eliminarán todos los memos y comentarios del analista.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-[var(--hc-border)] text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] rounded-none">
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={onDeleteCompany}
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
               data-testid="delete-company-confirm"
             >
-              Delete
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -288,21 +288,21 @@ export default function CompanyDetail() {
       <AlertDialog open={!!memoToDelete} onOpenChange={(o) => !o && setMemoToDelete(null)}>
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this memo?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar este memo?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              This action cannot be undone.
+              Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-[var(--hc-border)] text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] rounded-none">
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={onDeleteMemo}
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
               data-testid="delete-memo-confirm"
             >
-              Delete
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

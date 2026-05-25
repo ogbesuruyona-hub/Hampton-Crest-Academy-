@@ -27,20 +27,20 @@ const StatusPill = ({ user }) => {
   if (user.complimentary) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-gold)]/40 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]">
-        Complimentary
+        Cortesía
       </span>
     );
   }
   if (user.membership_status === "active") {
     return (
       <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-gold)]/40 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]">
-        Active
+        Activo
       </span>
     );
   }
   return (
     <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-muted)]">
-      Inactive
+      Inactivo
     </span>
   );
 };
@@ -102,10 +102,10 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/resend-invite`);
       if (data.email_sent) {
-        alert("Invitation email sent.");
+        alert("Email de invitación enviado.");
       } else {
         await navigator.clipboard?.writeText(data.invite_link);
-        alert(`Email delivery is disabled. Invite link copied to clipboard:\n\n${data.invite_link}`);
+        alert(`Envío de email desactivado. Enlace de invitación copiado al portapapeles:\n\n${data.invite_link}`);
       }
     } catch (e) {
       alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -116,7 +116,7 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/invite-link`);
       await navigator.clipboard?.writeText(data.invite_link);
-      alert(`Invite link copied to clipboard (expires in ${data.expires_in_days} days):\n\n${data.invite_link}`);
+      alert(`Enlace copiado al portapapeles (expira en ${data.expires_in_days} días):\n\n${data.invite_link}`);
     } catch (e) {
       alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
@@ -125,26 +125,26 @@ export default function AdminMembers() {
   return (
     <div data-testid="admin-members-page">
       <PageHeader
-        overline="Admin · Roster"
-        title="Members"
-        description="Active charter members, complimentary access, and lapsed accounts. Manage roster, revoke access, or resend invites."
+        overline="Administración · Miembros"
+        title="Miembros"
+        description="Miembros activos, accesos de cortesía y cuentas caducadas. Administra la lista, revoca acceso o reenvía invitaciones."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5">
-          <div className="hc-overline">Active</div>
+          <div className="hc-overline">Activos</div>
           <div className="mt-2 text-2xl font-medium tracking-tight text-[var(--hc-text)]">
             {counts.active}
           </div>
         </div>
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5">
-          <div className="hc-overline">Inactive</div>
+          <div className="hc-overline">Inactivos</div>
           <div className="mt-2 text-2xl font-medium tracking-tight text-[var(--hc-text)]">
             {counts.inactive}
           </div>
         </div>
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5">
-          <div className="hc-overline">Admin</div>
+          <div className="hc-overline">Administradores</div>
           <div className="mt-2 text-2xl font-medium tracking-tight text-[var(--hc-text)]">
             {counts.admin}
           </div>
@@ -161,7 +161,7 @@ export default function AdminMembers() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by email or name…"
+            placeholder="Buscar por email o nombre…"
             data-testid="members-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
           />
@@ -172,19 +172,19 @@ export default function AdminMembers() {
           data-testid="members-status-filter"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
-          <option value="">All</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="">Todos</option>
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
         </select>
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No members yet"
-          description="Members will appear here as soon as they subscribe via the Stripe payment link."
+          title="Aún no hay miembros"
+          description="Los miembros aparecerán aquí en cuanto se suscriban vía el enlace de pago de Stripe."
         />
       ) : (
         <Panel testid="members-table">
@@ -205,7 +205,7 @@ export default function AdminMembers() {
                 </div>
                 <StatusPill user={m} />
                 <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  Joined {formatDate(m.created_at)}
+                  Se unió {formatDate(m.created_at)}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
                   {m.role !== "admin" && (
@@ -215,12 +215,12 @@ export default function AdminMembers() {
                         data-testid={`toggle-comp-${m.id}`}
                         className="px-3 py-1.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
                       >
-                        {m.complimentary ? "Remove cortesía" : "Mark complimentary"}
+                        {m.complimentary ? "Quitar cortesía" : "Marcar cortesía"}
                       </button>
                       <button
                         onClick={() => copyInviteLink(m)}
                         data-testid={`copy-invite-${m.id}`}
-                        title="Copy invite link"
+                        title="Copiar enlace de invitación"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -228,7 +228,7 @@ export default function AdminMembers() {
                       <button
                         onClick={() => resendInvite(m)}
                         data-testid={`resend-invite-${m.id}`}
-                        title="Resend invite (email if enabled, link otherwise)"
+                        title="Reenviar invitación (email si está activo, enlace si no)"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -239,7 +239,7 @@ export default function AdminMembers() {
                           setConfirmAction("revoke");
                         }}
                         data-testid={`revoke-${m.id}`}
-                        title="Revoke access"
+                        title="Revocar acceso"
                         className="h-7 w-7 flex items-center justify-center border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors"
                       >
                         <Ban className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -264,15 +264,15 @@ export default function AdminMembers() {
       >
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke access?</AlertDialogTitle>
+            <AlertDialogTitle>¿Revocar acceso?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              {actionTarget?.email} will be marked inactive and cannot sign in until the
-              subscription is reactivated.
+              {actionTarget?.email} será marcado como inactivo y no podrá iniciar sesión hasta que
+              la suscripción se reactive.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-[var(--hc-border)] text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] rounded-none">
-              Cancel
+              Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
@@ -283,7 +283,7 @@ export default function AdminMembers() {
               data-testid="confirm-revoke"
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
             >
-              Revoke
+              Revocar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
