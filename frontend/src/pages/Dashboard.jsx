@@ -46,7 +46,7 @@ export default function Dashboard() {
   useEffect(() => {
     let cancel = false;
     Promise.allSettled([
-      api.get("/research"),
+      api.get("/books"),
       api.get("/education"),
       api.get("/reports"),
       api.get("/companies"),
@@ -84,9 +84,9 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <KPI
-          label="Research Notes"
+          label="Library Books"
           value={counts.research || "—"}
-          sub={counts.research ? "Total published" : "Awaiting publication"}
+          sub={counts.research ? "On the shelf" : "Curation in progress"}
           testid="kpi-research"
         />
         <KPI
@@ -111,8 +111,8 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Panel
-          overline="Latest Intelligence"
-          title="Featured Research"
+          overline="From the Shelf"
+          title="Latest Books"
           className="lg:col-span-2 hc-enter hc-enter-delay-1"
           testid="panel-latest-research"
           action={
@@ -127,25 +127,27 @@ export default function Dashboard() {
           {latestResearch.length === 0 ? (
             <EmptyState
               icon={BookOpen}
-              title="No research published yet"
-              description="New thesis-driven research notes, sector commentaries, and macro briefings will appear here."
+              title="No books yet"
+              description="Curated volumes added to the academy library will appear here."
             />
           ) : (
             <div className="divide-y divide-[var(--hc-border)]" data-testid="dashboard-latest-research">
               {latestResearch.map((r) => (
-                <Link
+                <a
                   key={r.id}
-                  to={`/research/${r.id}`}
+                  href={r.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group grid grid-cols-[110px_1fr_24px] gap-4 items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
                 >
-                  <span className="hc-overline">{formatDate(r.published_at || r.created_at)}</span>
+                  <span className="hc-overline">{r.author || formatDate(r.published_at || r.created_at)}</span>
                   <div className="min-w-0">
                     <div className="text-sm font-medium tracking-tight text-[var(--hc-text)] truncate group-hover:text-[var(--hc-gold)] transition-colors">
                       {r.title}
                     </div>
-                    {r.summary && (
+                    {r.description && (
                       <div className="text-xs text-[var(--hc-text-secondary)] truncate mt-0.5">
-                        {r.summary}
+                        {r.description}
                       </div>
                     )}
                   </div>
@@ -153,7 +155,7 @@ export default function Dashboard() {
                     className="h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]"
                     strokeWidth={1.5}
                   />
-                </Link>
+                </a>
               ))}
             </div>
           )}

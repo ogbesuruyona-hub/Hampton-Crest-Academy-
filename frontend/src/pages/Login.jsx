@@ -30,6 +30,7 @@ export default function Login() {
     if (mode === "2fa") {
       const res = await verify2fa(tempToken, code);
       setSubmitting(false);
+      setCode("");
       if (res.access_denied) {
         navigate("/access-denied", { replace: true });
         return;
@@ -42,6 +43,10 @@ export default function Login() {
         ? await login(email, password)
         : await register(name, email, password);
     setSubmitting(false);
+    // Always clear credentials after a submit attempt
+    setEmail("");
+    setPassword("");
+    setName("");
     if (res.access_denied) {
       navigate("/access-denied", { replace: true });
       return;
@@ -78,12 +83,11 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/95 via-[var(--hc-bg)]/75 to-[var(--hc-bg)]" />
 
         <div className="relative z-10 flex items-center gap-4">
-          <img src={LOGO_URL} alt="Hampton Crest" className="h-12 w-12 object-contain" />
           <div className="leading-tight">
-            <div className="text-[0.7rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
+            <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
             </div>
-            <div className="text-[0.65rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
+            <div className="text-[0.7rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
               Academy
             </div>
           </div>
@@ -110,12 +114,11 @@ export default function Login() {
       {/* Form panel */}
       <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
         <div className="lg:hidden flex items-center gap-3 mb-12">
-          <img src={LOGO_URL} alt="Hampton Crest" className="h-10 w-10 object-contain" />
           <div className="leading-tight">
-            <div className="text-[0.7rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
+            <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
             </div>
-            <div className="text-[0.6rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
+            <div className="text-[0.65rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
               Academy
             </div>
           </div>
@@ -142,7 +145,12 @@ export default function Login() {
 
           <div className="mt-8 hc-gold-rule" />
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-5" data-testid="auth-form">
+          <form
+            onSubmit={onSubmit}
+            className="mt-8 space-y-5"
+            data-testid="auth-form"
+            autoComplete="off"
+          >
             {is2fa ? (
               <div>
                 <label className="hc-overline block mb-2">6-digit code</label>

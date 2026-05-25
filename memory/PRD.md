@@ -64,12 +64,16 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Member Directory** (2026-05-25): `GET /api/directory` (active members + admin, gated by `require_member`, `q` search on name/email/phone). Frontend `/directory` lists every active member with mailto + tel links.
 - **Profile editing** (2026-05-25): `PUT /api/auth/profile` lets a member update `name` and `phone`. `UserPublic` exposes `phone`. MemberProfile page has Edit/Save/Cancel.
 - **Resend verified domain** (2026-05-25): `SENDER_EMAIL=members@investorhamptoncrest.com`, `EMAILS_ENABLED=true`. Verified end-to-end via `POST /api/admin/email/test` (Resend id returned, 200 OK).
-- **Stripe Customer Portal** (2026-05-25): `POST /api/billing/portal` creates a Stripe billing_portal.Session for the signed-in member and returns `{url}`. Settings page has new "Billing → Membership" panel with `Manage Subscription` button (disabled for admin/complimentary). LIVE key configured (`acct_1TQqoJA2p7IG5Aco`, charges_enabled=true).
+- **Stripe Customer Portal** (2026-05-25): `POST /api/billing/portal` creates a Stripe billing_portal.Session and returns `{url}`. Settings has "Billing → Membership" panel with `Manage Subscription` button (disabled for admin/complimentary). LIVE key configured (`acct_1TQqoJA2p7IG5Aco`); user activated the portal config in Stripe dashboard.
+
+## 2026-05-25 — Library + Branding + Session UX
+- **Research Library → Books Library**: new `books` Mongo collection + `/api/books` CRUD (admin write, member read with status gating). Fields: `title`, `author`, `cover_url`, `description`, `category`, `external_url`, `status`. Frontend `ResearchLibrary` rewritten as a 4-column cover grid (`BookCard` + `BookEditorDialog`). Books open in a new tab (`target="_blank" rel="noopener noreferrer"`) so the academy session stays alive while the member reads externally. Bookmarks extended to support `books`. Dashboard switched to `/books` and relabelled "Library Books" / "Latest Books".
+- **Logo branding**: removed image logo from Sidebar and Login (desktop + mobile). Brand is now text-only ("HAMPTON CREST / ACADEMY") so it sits cleanly on the navy background without the off-color square.
+- **Login UX**: form has `autoComplete="off"`; email/password/name fields are explicitly cleared after every submit attempt (success or failure). Combined with React state being re-initialised when Login remounts on logout, credentials never persist across a sign-out.
 
 ## Prioritized Backlog
 ### P2 — Remaining
-- Stripe-powered membership renewals UI (customer portal link from Settings)
-- Verified domain for Resend deliverability
+- (none — all P2 features shipped)
 
 ### Out of scope (per user)
 - Live session calendar (declined 2026-05-25)

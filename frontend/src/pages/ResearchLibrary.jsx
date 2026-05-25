@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
-import { ContentCard } from "../components/ContentCard";
-import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
+import { BookEditorDialog } from "../components/BookEditorDialog";
+import { BookCard } from "../components/BookCard";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
-import { RESEARCH_CATEGORIES } from "../lib/content";
+import { LIBRARY_CATEGORIES } from "../lib/content";
 import { BookOpen, Search } from "lucide-react";
 
 export default function ResearchLibrary() {
@@ -18,6 +18,7 @@ export default function ResearchLibrary() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -26,7 +27,7 @@ export default function ResearchLibrary() {
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/research", { params });
+      const { data } = await api.get("/books", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -37,25 +38,35 @@ export default function ResearchLibrary() {
     load();
   }, [load]);
 
+  const openNew = () => {
+    setEditing(null);
+    setEditorOpen(true);
+  };
+
+  const openEdit = (book) => {
+    setEditing(book);
+    setEditorOpen(true);
+  };
+
   return (
     <div data-testid="research-page">
       <PageHeader
-        overline="Members Suite · Research"
+        overline="Members Suite · Library"
         title="Research Library"
-        description="Institutional-grade research notes, sector commentary, and macro briefings — curated by Hampton Crest analysts."
+        description="A curated shelf of books selected by Hampton Crest. Each volume opens on its source page so you can read without losing your place here."
         actions={
           isAdmin && (
             <AdminAction
-              label="New Research"
-              testid="new-research-button"
-              onClick={() => setEditorOpen(true)}
+              label="New Book"
+              testid="new-book-button"
+              onClick={openNew}
             />
           )
         }
       />
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-8 flex-wrap" data-testid="research-filters">
+      <div className="flex items-center gap-3 mb-8 flex-wrap" data-testid="library-filters">
         <div className="flex items-center gap-1 overflow-x-auto">
           <button
             onClick={() => setCategory("")}
@@ -68,7 +79,7 @@ export default function ResearchLibrary() {
           >
             All
           </button>
-          {RESEARCH_CATEGORIES.map((c) => (
+          {LIBRARY_CATEGORIES.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
@@ -90,10 +101,10 @@ export default function ResearchLibrary() {
           />
           <input
             type="text"
-            placeholder="Search title or summary…"
+            placeholder="Search title, author, or description…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            data-testid="research-search"
+            data-testid="library-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           />
         </div>
@@ -101,7 +112,7 @@ export default function ResearchLibrary() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            data-testid="research-status-filter"
+            data-testid="library-status-filter"
             className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           >
             <option value="">All Statuses</option>
@@ -116,25 +127,35 @@ export default function ResearchLibrary() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={BookOpen}
-          title="The library is being prepared"
+          title="The shelf is being arranged"
           description={
             isAdmin
-              ? "Use “New Research” to publish your first note. It will appear here for members upon publication."
-              : "Upon publication, research notes will appear here. Check back shortly."
+              ? "Use “New Book” to add the first volume. Paste the title, author, cover image URL, a short description, and the external link where the book lives."
+              : "Upon curation, the shelf will appear here. Check back shortly."
           }
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="research-list">
-          {items.map((it) => (
-            <ContentCard key={it.id} item={it} contentType="research" showStatus={isAdmin} />
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          data-testid="library-grid"
+        >
+          {items.map((b) => (
+            <BookCard
+              key={b.id}
+              book={b}
+              showStatus={isAdmin}
+              isAdmin={isAdmin}
+              onEdit={() => openEdit(b)}
+              onDeleted={load}
+            />
           ))}
         </div>
       )}
 
-      <ContentEditorDialog
+      <BookEditorDialog
         open={editorOpen}
         onOpenChange={setEditorOpen}
-        contentType="research"
+        initial={editing}
         onSaved={load}
       />
     </div>

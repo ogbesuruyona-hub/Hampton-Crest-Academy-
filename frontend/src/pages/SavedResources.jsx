@@ -44,6 +44,7 @@ export default function SavedResources() {
         <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="saved-filters">
           {[
             ["all", `All (${items.length})`],
+            ["books", `Books (${counts.books || 0})`],
             ["research", `Research (${counts.research || 0})`],
             ["education", `Education (${counts.education || 0})`],
             ["reports", `Reports (${counts.reports || 0})`],
@@ -78,20 +79,26 @@ export default function SavedResources() {
           {filtered.map((b) => {
             const cfg = CONTENT_TYPES[b.content_type];
             const c = b.content;
-            const dateLabel =
-              b.content_type === "reports"
+            const isBook = b.content_type === "books";
+            const dateLabel = isBook
+              ? c.author || c.category || "—"
+              : b.content_type === "reports"
                 ? formatPeriod(c.period)
                 : c.ticker
                   ? c.sector || "—"
                   : formatDate(c.published_at || c.created_at);
             const title = c.ticker ? `${c.ticker} · ${c.name}` : c.title;
+            const InnerLink = isBook ? "a" : Link;
+            const linkProps = isBook
+              ? { href: c.external_url, target: "_blank", rel: "noopener noreferrer" }
+              : { to: cfg.detailRoute(c.id) };
             return (
               <div
                 key={b.bookmark_id}
                 data-testid={`saved-item-${b.content_type}-${c.id}`}
                 className="group relative bg-[var(--hc-surface)] border border-[var(--hc-border)] hover:border-[var(--hc-text-muted)] transition-colors"
               >
-                <Link to={cfg.detailRoute(c.id)} className="block p-6 pr-16">
+                <InnerLink {...linkProps} className="block p-6 pr-16">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="hc-overline">{cfg.singular}</span>
                     <span className="h-1 w-1 rounded-full bg-[var(--hc-text-muted)]" />
@@ -102,9 +109,9 @@ export default function SavedResources() {
                   <h3 className="text-lg font-medium tracking-tight text-[var(--hc-text)] group-hover:text-[var(--hc-gold)] transition-colors">
                     {title}
                   </h3>
-                  {(c.summary || c.thesis_summary) && (
+                  {(c.summary || c.thesis_summary || c.description) && (
                     <p className="mt-3 text-sm text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2">
-                      {c.summary || c.thesis_summary}
+                      {c.summary || c.thesis_summary || c.description}
                     </p>
                   )}
                   <div className="mt-4 text-[0.65rem] tracking-[0.18em] uppercase text-[var(--hc-text-muted)]">
@@ -114,7 +121,7 @@ export default function SavedResources() {
                     className="absolute top-6 right-6 h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)] transition-colors"
                     strokeWidth={1.5}
                   />
-                </Link>
+                </InnerLink>
                 <div className="absolute bottom-5 right-5">
                   <BookmarkButton contentType={b.content_type} contentId={c.id} />
                 </div>
