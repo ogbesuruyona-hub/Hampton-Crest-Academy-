@@ -21,6 +21,7 @@ import CompanyDetail from "@/pages/CompanyDetail";
 import SavedResources from "@/pages/SavedResources";
 import Settings from "@/pages/Settings";
 import MemberProfile from "@/pages/MemberProfile";
+import MemberDirectory from "@/pages/MemberDirectory";
 import AdminMembers from "@/pages/AdminMembers";
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
               <Route path="/saved" element={<SavedResources />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<MemberProfile />} />
+              <Route path="/directory" element={<MemberDirectory />} />
               <Route path="/admin/members" element={<AdminMembers />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -9,6 +9,7 @@ import {
   Bookmark,
   Settings as SettingsIcon,
   Users,
+  UserCircle,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/education", label: "Investment Education", icon: GraduationCap, testid: "nav-education" },
   { to: "/reports", label: "Monthly Reports", icon: FileText, testid: "nav-reports" },
   { to: "/companies", label: "Company Analysis", icon: BarChart3, testid: "nav-companies" },
+  { to: "/directory", label: "Member Directory", icon: UserCircle, testid: "nav-directory" },
   { to: "/saved", label: "Saved Resources", icon: Bookmark, testid: "nav-saved" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
