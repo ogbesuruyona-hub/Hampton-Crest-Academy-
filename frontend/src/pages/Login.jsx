@@ -72,7 +72,7 @@ export default function Login() {
       {/* Brand panel */}
       <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.35]"
+          className="absolute inset-0 opacity-[0.55]"
           style={{
             backgroundImage:
               "url(https://images.unsplash.com/photo-1593427995298-cad6731716d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBhcmNoaXRlY3R1cmUlMjBuaWdodHxlbnwwfHx8fDE3Nzk2MzE1ODV8MA&ixlib=rb-4.1.0&q=85)",
@@ -80,7 +80,7 @@ export default function Login() {
             backgroundPosition: "center",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/95 via-[var(--hc-bg)]/75 to-[var(--hc-bg)]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/85 via-[var(--hc-bg)]/55 to-[var(--hc-bg)]/90" />
 
         <div className="relative z-10 flex items-center gap-4">
           <img
@@ -100,7 +100,7 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5">Est. MMXXVI · Members Only</div>
+          <div className="hc-overline mb-5">Est. 2026 · Members Only</div>
           <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-[var(--hc-text)]">
             Disciplined capital begins with disciplined thought.
           </h2>
