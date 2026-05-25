@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
+  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
 
 export default function Login() {
   const { user, login, register, verify2fa } = useAuth();
@@ -86,7 +86,8 @@ export default function Login() {
           <img
             src={LOGO_URL}
             alt="Hampton Crest"
-            className="h-14 w-14 object-cover rounded-full border border-[var(--hc-gold)]/30"
+            className="h-16 w-16 object-contain"
+            style={{ mixBlendMode: "screen" }}
           />
           <div className="leading-tight">
             <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
@@ -122,7 +123,8 @@ export default function Login() {
           <img
             src={LOGO_URL}
             alt="Hampton Crest"
-            className="h-11 w-11 object-cover rounded-full border border-[var(--hc-gold)]/30"
+            className="h-12 w-12 object-contain"
+            style={{ mixBlendMode: "screen" }}
           />
           <div className="leading-tight">
             <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">

@@ -31,7 +31,7 @@ const ADMIN_NAV = [
 ];
 
 const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/h4tthbvd_A58944FA-BD9D-4E3C-9437-9EED1300A03D.png";
+  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
 
 export const SidebarContent = ({ collapsed = false, onItemClick }) => {
   const { user } = useAuth();
@@ -48,7 +48,8 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
           src={LOGO_URL}
           alt="Hampton Crest Academy"
           data-testid="sidebar-logo"
-          className="h-10 w-10 object-cover shrink-0 rounded-full border border-[var(--hc-gold)]/30"
+          className="h-11 w-11 object-contain shrink-0"
+          style={{ mixBlendMode: "screen" }}
         />
         {!collapsed && (
           <div className="flex flex-col leading-tight">
