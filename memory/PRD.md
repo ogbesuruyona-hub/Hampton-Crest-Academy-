@@ -76,6 +76,11 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Test member seeded automatically**: `seed_test_member()` runs at backend startup → creates/refreshes `prueba@hamptoncrest.com` / `Prueba#2026` with `complimentary=true, membership_status=active`. Admins can log in as this account to review the member-side experience.
 - **Full Spanish UI**: every user-facing string translated across Sidebar, Topbar, Login, Dashboard, Library, Education, Reports, Companies, Saved Resources, Settings, Member Profile, Member Directory, Admin Members, Access Denied, Accept Invite, Content Editor, Status Badge, Two-Factor dialogs, Empty State; dates now use `toLocaleDateString("es-ES")`. `CONTENT_TYPES` singulars/plurals + research/library/sector/track categories all in Spanish.
 
+## 2026-05-25 — P3: Búsqueda, Landing público, Split de server.py (inicio)
+- **Búsqueda global**: nuevo endpoint `GET /api/search?q=…` busca con regex case-insensitive en books, research, education, reports y companies (respeta filtro de status para no-admins). Frontend: `SearchResults` page en `/search?q=…` agrupada por sección. Topbar form ahora navega a `/search`. Búsqueda gated con `require_member`.
+- **Landing público en `/`**: `PublicLanding.jsx` con hero institucional, 4 pilares de propuesta de valor, trust strip (acceso privado, círculo discreto, Stripe), CTAs a Stripe Payment Link y al sitio Framer. Usuarios sin sesión llegan a `/`, miembros pasan directo del login a `/dashboard`. La ruta `*` ahora redirige al landing (era `/dashboard`).
+- **Modularización pragmática del backend**: nuevo directorio `/app/backend/routers/` con `search.py` extraído usando patrón de factory `register_search_routes(*, db, require_member, serialize_doc)`. Server.py inyecta las dependencias y monta el router. Documento `ARCHITECTURE.md` explica el patrón y la orden recomendado para extraer el resto (uploads → billing → members → content → auth). Tests existentes siguen pasando.
+
 ## Prioritized Backlog
 ### P2 — Remaining
 - (none — all P2 features shipped)

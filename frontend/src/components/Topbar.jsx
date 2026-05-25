@@ -23,6 +23,15 @@ const initials = (name = "") =>
 export const Topbar = ({ onOpenMobileSidebar }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchInput, setSearchInput] = React.useState("");
+
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const q = searchInput.trim();
+    if (q) {
+      navigate(`/search?q=${encodeURIComponent(q)}`);
+    }
+  };
 
   return (
     <header
@@ -40,17 +49,19 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
         </button>
 
         {/* Search */}
-        <div className="flex-1 max-w-xl">
+        <form onSubmit={submitSearch} className="flex-1 max-w-xl">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--hc-text-muted)]" strokeWidth={1.5} />
             <input
               type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Buscar investigación, reportes, empresas…"
               data-testid="topbar-search"
               className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
             />
           </div>
-        </div>
+        </form>
 
         {/* Right cluster */}
         <div className="flex items-center gap-2">
