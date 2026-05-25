@@ -61,9 +61,10 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Access Denied page** (`/access-denied`): institutional dark, CTA to Framer (`FRAMER_URL` from env)
 - **Accept Invite page** (`/accept-invite?token=...`): password + confirm, auto-login on success
 - **Sidebar**: new admin-only "Steward → Members" section visible only to `role=admin`
-- **Env**: `STRIPE_API_KEY=sk_test_emergent`, `STRIPE_WEBHOOK_SECRET=whsec_...`, `FRAMER_URL=https://hamptonacademy.framer.website`
-- **Member Directory** (2026-05-25): new `GET /api/directory` endpoint (active members + admin, gated by `require_member`, supports `q` search on name/email/phone). Frontend page at `/directory` lists every active member with name, email (mailto link), and phone (tel link). New `Member Directory` entry in members sidebar.
-- **Profile editing** (2026-05-25): `PUT /api/auth/profile` lets a member update their `name` and `phone`. `MemberProfile` page now has Edit/Save/Cancel actions and a Phone field; `UserPublic` exposes `phone`.
+- **Member Directory** (2026-05-25): `GET /api/directory` (active members + admin, gated by `require_member`, `q` search on name/email/phone). Frontend `/directory` lists every active member with mailto + tel links.
+- **Profile editing** (2026-05-25): `PUT /api/auth/profile` lets a member update `name` and `phone`. `UserPublic` exposes `phone`. MemberProfile page has Edit/Save/Cancel.
+- **Resend verified domain** (2026-05-25): `SENDER_EMAIL=members@investorhamptoncrest.com`, `EMAILS_ENABLED=true`. Verified end-to-end via `POST /api/admin/email/test` (Resend id returned, 200 OK).
+- **Stripe Customer Portal** (2026-05-25): `POST /api/billing/portal` creates a Stripe billing_portal.Session for the signed-in member and returns `{url}`. Settings page has new "Billing → Membership" panel with `Manage Subscription` button (disabled for admin/complimentary). LIVE key configured (`acct_1TQqoJA2p7IG5Aco`, charges_enabled=true).
 
 ## Prioritized Backlog
 ### P2 — Remaining
