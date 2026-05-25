@@ -4,7 +4,7 @@ import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { formatDate } from "../lib/content";
-import { Users, Search, Mail, Ban, ShieldCheck } from "lucide-react";
+import { Users, Search, Mail, Ban, ShieldCheck, Link2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,8 +100,23 @@ export default function AdminMembers() {
 
   const resendInvite = async (user) => {
     try {
-      await api.post(`/admin/members/${user.id}/resend-invite`);
-      alert("Invitation email sent.");
+      const { data } = await api.post(`/admin/members/${user.id}/resend-invite`);
+      if (data.email_sent) {
+        alert("Invitation email sent.");
+      } else {
+        await navigator.clipboard?.writeText(data.invite_link);
+        alert(`Email delivery is disabled. Invite link copied to clipboard:\n\n${data.invite_link}`);
+      }
+    } catch (e) {
+      alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    }
+  };
+
+  const copyInviteLink = async (user) => {
+    try {
+      const { data } = await api.post(`/admin/members/${user.id}/invite-link`);
+      await navigator.clipboard?.writeText(data.invite_link);
+      alert(`Invite link copied to clipboard (expires in ${data.expires_in_days} days):\n\n${data.invite_link}`);
     } catch (e) {
       alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
@@ -203,9 +218,17 @@ export default function AdminMembers() {
                         {m.complimentary ? "Remove cortesía" : "Mark complimentary"}
                       </button>
                       <button
+                        onClick={() => copyInviteLink(m)}
+                        data-testid={`copy-invite-${m.id}`}
+                        title="Copy invite link"
+                        className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
+                      >
+                        <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      </button>
+                      <button
                         onClick={() => resendInvite(m)}
                         data-testid={`resend-invite-${m.id}`}
-                        title="Resend invite"
+                        title="Resend invite (email if enabled, link otherwise)"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />

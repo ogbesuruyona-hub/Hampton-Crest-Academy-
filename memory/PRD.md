@@ -52,7 +52,7 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Brute-force lockout**: 5 failed attempts → 15-min lockout, email-only key (proxy-safe), `ensure_utc()` helper normalises Mongo-returned naive datetimes
 - Tests: **82/82 backend pytest passing** (16 auth + 39 content/bookmark + 27 P1); full frontend E2E (2FA enable → login challenge → backup codes → disable; TipTap body persisted as HTML; PDF upload + report detail render)
 
-## P2 In Progress / Complete (2026-05-24)
+## P2 In Progress / Complete (2026-05-24 → 2026-05-25)
 - **Stripe webhook automation**: `POST /api/webhook/stripe` verifies signature, idempotency via `stripe_events` collection, handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 - **Membership model**: `users.membership_status` (active/inactive), `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`, `complimentary` flag; `has_access(user)` = admin OR complimentary OR active
 - **Access gating**: login (and 2FA verify) return `403 membership_inactive` for users without access; frontend redirects to `/access-denied`
@@ -62,20 +62,23 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Accept Invite page** (`/accept-invite?token=...`): password + confirm, auto-login on success
 - **Sidebar**: new admin-only "Steward → Members" section visible only to `role=admin`
 - **Env**: `STRIPE_API_KEY=sk_test_emergent`, `STRIPE_WEBHOOK_SECRET=whsec_...`, `FRAMER_URL=https://hamptonacademy.framer.website`
+- **Member Directory** (2026-05-25): new `GET /api/directory` endpoint (active members + admin, gated by `require_member`, supports `q` search on name/email/phone). Frontend page at `/directory` lists every active member with name, email (mailto link), and phone (tel link). New `Member Directory` entry in members sidebar.
+- **Profile editing** (2026-05-25): `PUT /api/auth/profile` lets a member update their `name` and `phone`. `MemberProfile` page now has Edit/Save/Cancel actions and a Phone field; `UserPublic` exposes `phone`.
 
 ## Prioritized Backlog
-### P2 — Next session
-- Stripe-powered membership renewals (subscription + gated checkout)
-- Member directory + private discussion
-- Calendar integration for live sessions
-- Analyst commentary timeline view
+### P2 — Remaining
+- Stripe-powered membership renewals UI (customer portal link from Settings)
+- Verified domain for Resend deliverability
+
+### Out of scope (per user)
+- Live session calendar (declined 2026-05-25)
 
 ### P3 / nice-to-haves
 - Full-text search across content
 - Public marketing landing page
 - Mobile app shell (PWA)
-- Verified domain for Resend deliverability
-- Server.py modular split (auth/content/uploads/2fa)
+- Server.py modular split (auth/content/uploads/2fa/directory)
+- Analyst commentary timeline view
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`

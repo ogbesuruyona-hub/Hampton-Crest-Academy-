@@ -371,6 +371,9 @@ def _digest_html(*, title: str, summary: str, category: Optional[str], content_t
 
 
 def _send_email_sync(to: str, subject: str, html: str) -> Optional[dict]:
+    if os.environ.get("EMAILS_ENABLED", "false").lower() != "true":
+        logger.info("[email:disabled] to=%s subject=%s (EMAILS_ENABLED=false)", to, subject)
+        return None
     if not resend.api_key:
         logger.info("[email:dry-run] to=%s subject=%s (no RESEND_API_KEY)", to, subject)
         return None
@@ -442,6 +445,7 @@ class UserPublic(BaseModel):
     membership_status: str = "inactive"
     complimentary: bool = False
     current_period_end: Optional[datetime] = None
+    phone: Optional[str] = None
 
 
 class RegisterRequest(BaseModel):
@@ -479,6 +483,11 @@ class TwoFADisable(BaseModel):
 
 class EmailPrefsIn(BaseModel):
     email_digest_opt_in: bool
+
+
+class ProfileUpdateIn(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    phone: Optional[str] = Field(default=None, max_length=40)
 
 
 # ---------------- Routes: root/health ----------------
@@ -654,6 +663,55 @@ async def update_email_prefs(payload: EmailPrefsIn, current_user: dict = Depends
     )
     user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
     return UserPublic(**serialize_user(user))
+
+
+@api_router.put("/auth/profile", response_model=UserPublic)
+async def update_profile(payload: ProfileUpdateIn, current_user: dict = Depends(get_current_user)):
+    updates: dict = {"updated_at": now_utc()}
+    if payload.name is not None:
+        updates["name"] = payload.name.strip()
+    if payload.phone is not None:
+        phone = payload.phone.strip()
+        updates["phone"] = phone or None
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": updates},
+    )
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    return UserPublic(**serialize_user(user))
+
+
+# ---------------- Routes: member directory ----------------
+@api_router.get("/directory")
+async def member_directory(
+    current_user: dict = Depends(require_member),
+    q: Optional[str] = None,
+):
+    """Active members + admins. Returns minimal contact info (name, email, phone)."""
+    query: dict = {
+        "$or": [
+            {"role": "admin"},
+            {"complimentary": True},
+            {"membership_status": "active"},
+        ],
+    }
+    if q:
+        regex = {"$regex": re.escape(q), "$options": "i"}
+        query = {"$and": [query, {"$or": [{"name": regex}, {"email": regex}, {"phone": regex}]}]}
+    docs = await db.users.find(
+        query,
+        {"name": 1, "email": 1, "phone": 1, "role": 1},
+    ).sort("name", 1).limit(500).to_list(500)
+    return [
+        {
+            "id": str(d["_id"]),
+            "name": d.get("name", ""),
+            "email": d.get("email", ""),
+            "phone": d.get("phone") or None,
+            "role": d.get("role", "member"),
+        }
+        for d in docs
+    ]
 
 
 # ---------------- Content models ----------------
@@ -1497,8 +1555,23 @@ async def admin_resend_invite(user_id: str, current_user: dict = Depends(require
         await _send_welcome_email(user["email"], user.get("name", ""), token)
     except Exception as e:
         logger.error("resend invite failed: %s", e)
-        raise HTTPException(503, "Email delivery failed")
-    return {"ok": True}
+    link = f"{PUBLIC_URL}/accept-invite?token={token}" if PUBLIC_URL else f"/accept-invite?token={token}"
+    return {
+        "ok": True,
+        "invite_link": link,
+        "email_sent": os.environ.get("EMAILS_ENABLED", "false").lower() == "true",
+    }
+
+
+@api_router.post("/admin/members/{user_id}/invite-link")
+async def admin_invite_link(user_id: str, current_user: dict = Depends(require_admin)):
+    """Generates a fresh invite token without sending email. Use to share manually."""
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(404, "Member not found")
+    token = await _create_invite(str(user["_id"]), user["email"])
+    link = f"{PUBLIC_URL}/accept-invite?token={token}" if PUBLIC_URL else f"/accept-invite?token={token}"
+    return {"invite_link": link, "expires_in_days": INVITE_TOKEN_TTL_DAYS}
 
 
 # ---------------- Lifecycle ----------------
