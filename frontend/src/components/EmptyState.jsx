@@ -11,7 +11,7 @@ export const EmptyState = ({ icon: Icon, title, description, action, testid }) =
           <Icon className="h-6 w-6 text-[var(--hc-text-muted)]" strokeWidth={1.25} />
         </div>
       )}
-      <div className="hc-overline mb-2 text-[var(--hc-gold)]/80">Awaiting Curation</div>
+      <div className="hc-overline mb-2 text-[var(--hc-gold)]/80">Próximamente</div>
       <h3 className="text-lg sm:text-xl font-medium text-[var(--hc-text)] tracking-tight">{title}</h3>
       {description && (
         <p className="mt-3 text-sm text-[var(--hc-text-secondary)] max-w-md leading-relaxed">

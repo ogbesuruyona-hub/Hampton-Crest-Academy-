@@ -20,6 +20,7 @@ export default function MonthlyReports() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,25 +37,34 @@ export default function MonthlyReports() {
     load();
   }, [load]);
 
+  const openNew = () => {
+    setEditing(null);
+    setEditorOpen(true);
+  };
+  const openEdit = (item) => {
+    setEditing(item);
+    setEditorOpen(true);
+  };
+
   return (
     <div data-testid="reports-page">
       <PageHeader
-        overline="Members Suite · Reports"
-        title="Monthly Reports"
-        description="A monthly intelligence brief — macro posture, portfolio reflections, and the analyst's letter."
+        overline="Academia · Reportes"
+        title="Reportes Mensuales"
+        description="Un informe mensual de inteligencia — postura macro, reflexiones de cartera y la carta del analista."
         actions={
           isAdmin && (
             <AdminAction
-              label="New Issue"
+              label="Nuevo reporte"
               testid="new-report-button"
-              onClick={() => setEditorOpen(true)}
+              onClick={openNew}
             />
           )
         }
       />
 
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div className="hc-overline">{year} Vintage</div>
+        <div className="hc-overline">Año {year}</div>
         <select
           data-testid="reports-year-select"
           value={year}
@@ -68,15 +78,15 @@ export default function MonthlyReports() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : items.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No reports for this year"
+          title="No hay reportes para este año"
           description={
             isAdmin
-              ? "Publish the first issue with “New Issue”."
-              : "Issues will be archived here on publication."
+              ? "Publica el primer reporte con «Nuevo reporte»."
+              : "Los reportes mensuales quedarán archivados aquí al publicarse."
           }
         />
       ) : (
@@ -88,6 +98,9 @@ export default function MonthlyReports() {
               contentType="reports"
               periodLabel
               showStatus={isAdmin}
+              isAdmin={isAdmin}
+              onEdit={openEdit}
+              onDeleted={load}
             />
           ))}
         </div>
@@ -97,6 +110,7 @@ export default function MonthlyReports() {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         contentType="reports"
+        initial={editing}
         onSaved={load}
       />
     </div>

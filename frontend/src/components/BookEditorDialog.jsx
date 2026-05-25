@@ -86,20 +86,20 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
         data-testid="editor-dialog-books"
       >
         <DialogHeader>
-          <div className="hc-overline mb-1">Library</div>
+          <div className="hc-overline mb-1">Biblioteca</div>
           <DialogTitle className="text-xl font-medium tracking-tight">
-            {initial ? "Edit Book" : "New Book"}
+            {initial ? "Editar libro" : "Nuevo libro"}
           </DialogTitle>
           <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
             {initial
-              ? "Update this volume on the shelf."
-              : "Add a book to the academy library. The external link opens in a new tab so members stay signed in."}
+              ? "Actualiza este volumen en la estantería."
+              : "Agrega un libro a la biblioteca de la academia. El enlace externo abre en una pestaña nueva para que el miembro mantenga la sesión activa."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="book-editor-form">
           <div>
-            <label className={labelCls}>Title</label>
+            <label className={labelCls}>Título</label>
             <input
               type="text"
               value={form.title}
@@ -112,25 +112,25 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Author</label>
+              <label className={labelCls}>Autor</label>
               <input
                 type="text"
                 value={form.author}
                 onChange={(e) => update("author", e.target.value)}
                 data-testid="book-editor-author"
                 className={inputCls}
-                placeholder="e.g. Howard Marks"
+                placeholder="Ej. Howard Marks"
               />
             </div>
             <div>
-              <label className={labelCls}>Category</label>
+              <label className={labelCls}>Categoría</label>
               <select
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
                 data-testid="book-editor-category"
                 className={inputCls}
               >
-                <option value="">— None —</option>
+                <option value="">— Ninguna —</option>
                 {LIBRARY_CATEGORIES.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
@@ -139,20 +139,20 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
           </div>
 
           <div>
-            <label className={labelCls}>Cover image URL (optional)</label>
+            <label className={labelCls}>URL de portada (opcional)</label>
             <input
               type="url"
               value={form.cover_url}
               onChange={(e) => update("cover_url", e.target.value)}
               data-testid="book-editor-cover"
               className={inputCls}
-              placeholder="https://…/cover.jpg"
+              placeholder="https://…/portada.jpg"
             />
             {form.cover_url && (
               <div className="mt-3 inline-block">
                 <img
                   src={form.cover_url}
-                  alt="cover preview"
+                  alt="vista previa de portada"
                   className="h-32 w-auto object-cover border border-[var(--hc-border)]"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
@@ -163,7 +163,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
           </div>
 
           <div>
-            <label className={labelCls}>External link (where the book lives)</label>
+            <label className={labelCls}>Enlace externo (donde vive el libro)</label>
             <input
               type="url"
               value={form.external_url}
@@ -171,28 +171,31 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
               required
               data-testid="book-editor-external-url"
               className={inputCls}
-              placeholder="https://…  (Amazon, Drive, your own host)"
+              placeholder="https://…  (Amazon, Drive, tu propio host)"
             />
             <p className="mt-2 text-[0.65rem] text-[var(--hc-text-muted)] tracking-tight">
-              Opens in a new tab so the member's academy session is preserved.
+              Abre en una pestaña nueva para preservar la sesión del miembro en la academia.
             </p>
           </div>
 
           <div>
-            <label className={labelCls}>Short description</label>
+            <label className={labelCls}>Descripción corta</label>
             <textarea
               value={form.description}
               onChange={(e) => update("description", e.target.value)}
               data-testid="book-editor-description"
               className={`${inputCls} min-h-[100px] resize-y`}
-              placeholder="One paragraph: why members should read it."
+              placeholder="Un párrafo: por qué los miembros deberían leerlo."
             />
           </div>
 
           <div>
-            <label className={labelCls}>Status</label>
+            <label className={labelCls}>Estado</label>
             <div className="flex gap-2">
-              {["draft", "published"].map((s) => (
+              {[
+                ["draft", "Borrador"],
+                ["published", "Publicado"],
+              ].map(([s, label]) => (
                 <button
                   type="button"
                   key={s}
@@ -204,7 +207,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
                       : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
                   }`}
                 >
-                  {s}
+                  {label}
                 </button>
               ))}
             </div>
@@ -226,7 +229,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
               data-testid="book-editor-cancel"
               className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -234,7 +237,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
               data-testid="book-editor-save"
               className="px-6 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-60"
             >
-              {saving ? "Saving…" : initial ? "Save Changes" : "Add to Library"}
+              {saving ? "Guardando…" : initial ? "Guardar cambios" : "Añadir a la biblioteca"}
             </button>
           </DialogFooter>
         </form>

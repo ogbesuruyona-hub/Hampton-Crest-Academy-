@@ -24,14 +24,14 @@ export const AdminInlineActions = ({ onEdit, onDelete, testid }) => (
       className="flex items-center gap-1.5 px-3 py-2 text-[0.7rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
       data-testid="admin-edit"
     >
-      <Pencil className="h-3 w-3" strokeWidth={1.5} /> Edit
+      <Pencil className="h-3 w-3" strokeWidth={1.5} /> Editar
     </button>
     <button
       onClick={onDelete}
       className="flex items-center gap-1.5 px-3 py-2 text-[0.7rem] tracking-[0.18em] uppercase border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors"
       data-testid="admin-delete"
     >
-      <Trash2 className="h-3 w-3" strokeWidth={1.5} /> Delete
+      <Trash2 className="h-3 w-3" strokeWidth={1.5} /> Eliminar
     </button>
   </div>
 );

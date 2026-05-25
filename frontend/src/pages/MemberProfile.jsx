@@ -42,7 +42,7 @@ export default function MemberProfile() {
   }, [user]);
 
   const memberSince = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString(undefined, {
+    ? new Date(user.created_at).toLocaleDateString("es-ES", {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -54,7 +54,7 @@ export default function MemberProfile() {
     try {
       await api.put("/auth/profile", { name: name.trim(), phone: phone.trim() });
       await refresh();
-      toast.success("Profile updated");
+      toast.success("Perfil actualizado");
       setEditing(false);
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -72,9 +72,9 @@ export default function MemberProfile() {
   return (
     <div data-testid="profile-page">
       <PageHeader
-        overline="Members Suite · Profile"
-        title="Member Profile"
-        description="Your standing within Hampton Crest Academy."
+        overline="Academia · Perfil"
+        title="Perfil"
+        description="Tu posición dentro de Hampton Crest Academy."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -89,22 +89,22 @@ export default function MemberProfile() {
                 .toUpperCase()}
             </div>
             <div className="mt-6 text-lg font-medium tracking-tight text-[var(--hc-text)]">
-              {user?.name || "Member"}
+              {user?.name || "Miembro"}
             </div>
             <div className="hc-overline mt-1 text-[var(--hc-gold)]">
-              {user?.role === "admin" ? "Steward" : "Charter Member"}
+              {user?.role === "admin" ? "Administrador" : "Miembro"}
             </div>
             <div className="mt-6 hc-gold-rule w-2/3" />
             <div className="mt-6 text-xs text-[var(--hc-text-secondary)] tracking-tight max-w-xs">
-              Member of Hampton Crest Academy — a private circle of disciplined capital allocators.
+              Miembro de Hampton Crest Academy — un círculo privado de asignadores de capital disciplinados.
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-2">
           <Panel
-            overline="Account"
-            title="Details"
+            overline="Cuenta"
+            title="Detalles"
             testid="panel-profile-details"
             action={
               editing ? (
@@ -116,7 +116,7 @@ export default function MemberProfile() {
                     data-testid="profile-cancel-button"
                     className="px-4 py-2 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors disabled:opacity-50"
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     type="button"
@@ -125,7 +125,7 @@ export default function MemberProfile() {
                     data-testid="profile-save-button"
                     className="px-4 py-2 text-[0.65rem] tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-50"
                   >
-                    {saving ? "Saving…" : "Save"}
+                    {saving ? "Guardando…" : "Guardar"}
                   </button>
                 </div>
               ) : (
@@ -135,7 +135,7 @@ export default function MemberProfile() {
                   data-testid="profile-edit-button"
                   className="px-4 py-2 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:border-[var(--hc-gold)]/60 transition-colors"
                 >
-                  Edit
+                  Editar
                 </button>
               )
             }
@@ -143,15 +143,15 @@ export default function MemberProfile() {
             {editing ? (
               <>
                 <TextInput
-                  label="Full Name"
+                  label="Nombre completo"
                   value={name}
                   onChange={setName}
                   testid="profile-name-input"
-                  placeholder="Your full name"
+                  placeholder="Tu nombre completo"
                   maxLength={120}
                 />
                 <TextInput
-                  label="Phone"
+                  label="Teléfono"
                   value={phone}
                   onChange={setPhone}
                   testid="profile-phone-input"
@@ -159,16 +159,24 @@ export default function MemberProfile() {
                   maxLength={40}
                 />
                 <Field label="Email" value={user?.email} testid="profile-email" />
-                <Field label="Role" value={user?.role} testid="profile-role" />
-                <Field label="Member Since" value={memberSince} testid="profile-since" />
+                <Field
+                  label="Rol"
+                  value={user?.role === "admin" ? "administrador" : "miembro"}
+                  testid="profile-role"
+                />
+                <Field label="Miembro desde" value={memberSince} testid="profile-since" />
               </>
             ) : (
               <>
-                <Field label="Full Name" value={user?.name} testid="profile-name" />
-                <Field label="Phone" value={user?.phone} testid="profile-phone" />
+                <Field label="Nombre completo" value={user?.name} testid="profile-name" />
+                <Field label="Teléfono" value={user?.phone} testid="profile-phone" />
                 <Field label="Email" value={user?.email} testid="profile-email" />
-                <Field label="Role" value={user?.role} testid="profile-role" />
-                <Field label="Member Since" value={memberSince} testid="profile-since" />
+                <Field
+                  label="Rol"
+                  value={user?.role === "admin" ? "administrador" : "miembro"}
+                  testid="profile-role"
+                />
+                <Field label="Miembro desde" value={memberSince} testid="profile-since" />
               </>
             )}
           </Panel>

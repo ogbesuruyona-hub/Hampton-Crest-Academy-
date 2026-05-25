@@ -16,18 +16,18 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutGrid, testid: "nav-dashboard" },
-  { to: "/research", label: "Research Library", icon: BookOpen, testid: "nav-research" },
-  { to: "/education", label: "Investment Education", icon: GraduationCap, testid: "nav-education" },
-  { to: "/reports", label: "Monthly Reports", icon: FileText, testid: "nav-reports" },
-  { to: "/companies", label: "Company Analysis", icon: BarChart3, testid: "nav-companies" },
-  { to: "/directory", label: "Member Directory", icon: UserCircle, testid: "nav-directory" },
-  { to: "/saved", label: "Saved Resources", icon: Bookmark, testid: "nav-saved" },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
+  { to: "/dashboard", label: "Panel", icon: LayoutGrid, testid: "nav-dashboard" },
+  { to: "/research", label: "Biblioteca", icon: BookOpen, testid: "nav-research" },
+  { to: "/education", label: "Educación", icon: GraduationCap, testid: "nav-education" },
+  { to: "/reports", label: "Reportes Mensuales", icon: FileText, testid: "nav-reports" },
+  { to: "/companies", label: "Análisis de Empresas", icon: BarChart3, testid: "nav-companies" },
+  { to: "/directory", label: "Directorio de Miembros", icon: UserCircle, testid: "nav-directory" },
+  { to: "/saved", label: "Guardados", icon: Bookmark, testid: "nav-saved" },
+  { to: "/settings", label: "Ajustes", icon: SettingsIcon, testid: "nav-settings" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/admin/members", label: "Members", icon: Users, testid: "nav-admin-members" },
+  { to: "/admin/members", label: "Miembros", icon: Users, testid: "nav-admin-members" },
 ];
 
 const LOGO_URL =
@@ -66,7 +66,7 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
       {/* Section label */}
       {!collapsed && (
         <div className="px-6 pt-6 pb-3">
-          <span className="hc-overline">Members Suite</span>
+          <span className="hc-overline">Academia</span>
         </div>
       )}
       {collapsed && <div className="h-6" />}
@@ -106,7 +106,7 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
         {isAdmin && (
           <>
             <div className={`${collapsed ? "mx-2" : "mx-4"} mt-6 mb-2`}>
-              {!collapsed && <div className="hc-overline">Steward</div>}
+              {!collapsed && <div className="hc-overline">Administración</div>}
               {collapsed && <div className="h-px bg-[var(--hc-border)]" />}
             </div>
             {ADMIN_NAV.map(({ to, label, icon: Icon, testid }) => (
@@ -145,11 +145,11 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
       {/* Footer */}
       {!collapsed ? (
         <div className="px-6 py-5 border-t border-[var(--hc-border)]">
-          <div className="hc-overline mb-1">Member Status</div>
+          <div className="hc-overline mb-1">Estado</div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--hc-gold)]" />
             <span className="text-xs text-[var(--hc-text-secondary)] tracking-tight">
-              Charter Member
+              Miembro fundador
             </span>
           </div>
         </div>

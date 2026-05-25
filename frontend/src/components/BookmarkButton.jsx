@@ -45,7 +45,7 @@ export const BookmarkButton = ({ contentType, contentId, size = "md", className 
     <button
       onClick={toggle}
       data-testid={`bookmark-toggle-${contentType}-${contentId}`}
-      aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
+      aria-label={bookmarked ? "Quitar marcador" : "Añadir marcador"}
       className={`${dim} flex items-center justify-center border transition-colors ${
         bookmarked
           ? "border-[var(--hc-gold)]/60 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]"

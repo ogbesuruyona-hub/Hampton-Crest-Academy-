@@ -16,6 +16,7 @@ export default function InvestmentEducation() {
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,18 +34,27 @@ export default function InvestmentEducation() {
     load();
   }, [load]);
 
+  const openNew = () => {
+    setEditing(null);
+    setEditorOpen(true);
+  };
+  const openEdit = (item) => {
+    setEditing(item);
+    setEditorOpen(true);
+  };
+
   return (
     <div data-testid="education-page">
       <PageHeader
-        overline="Members Suite · Curriculum"
-        title="Investment Education"
-        description="A structured curriculum — from foundational frameworks to advanced practice — designed for serious capital allocators."
+        overline="Academia · Currículum"
+        title="Educación de Inversión"
+        description="Un currículum estructurado — desde marcos fundamentales hasta práctica avanzada — diseñado para asignadores de capital serios."
         actions={
           isAdmin && (
             <AdminAction
-              label="New Module"
+              label="Nuevo módulo"
               testid="new-education-button"
-              onClick={() => setEditorOpen(true)}
+              onClick={openNew}
             />
           )
         }
@@ -60,7 +70,7 @@ export default function InvestmentEducation() {
               : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
           }`}
         >
-          All Tracks
+          Todos los tracks
         </button>
         {EDUCATION_TRACKS.map((t) => (
           <button
@@ -78,21 +88,29 @@ export default function InvestmentEducation() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : items.length === 0 ? (
         <EmptyState
           icon={GraduationCap}
-          title="Curriculum in preparation"
+          title="Currículum en preparación"
           description={
             isAdmin
-              ? "Use “New Module” to publish curriculum content."
-              : "Modules will unlock with reading lists, recorded sessions, and analyst commentary."
+              ? "Usa «Nuevo módulo» para publicar contenido del currículum."
+              : "Los módulos abrirán con lecturas, sesiones grabadas y comentarios del analista."
           }
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="education-list">
           {items.map((it) => (
-            <ContentCard key={it.id} item={it} contentType="education" showStatus={isAdmin} />
+            <ContentCard
+              key={it.id}
+              item={it}
+              contentType="education"
+              showStatus={isAdmin}
+              isAdmin={isAdmin}
+              onEdit={openEdit}
+              onDeleted={load}
+            />
           ))}
         </div>
       )}
@@ -101,6 +119,7 @@ export default function InvestmentEducation() {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         contentType="education"
+        initial={editing}
         onSaved={load}
       />
     </div>

@@ -20,13 +20,13 @@ const RoleBadge = ({ role }) => {
         data-testid="directory-role-admin"
         className="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-gold)]/60 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]"
       >
-        <ShieldCheck className="h-3 w-3" strokeWidth={1.5} /> Steward
+        <ShieldCheck className="h-3 w-3" strokeWidth={1.5} /> Administrador
       </span>
     );
   }
   return (
     <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)]">
-      Charter
+      Miembro
     </span>
   );
 };
@@ -55,7 +55,7 @@ export default function MemberDirectory() {
   return (
     <div data-testid="directory-page">
       <PageHeader
-        overline="Members Suite · Directory"
+        overline="Academia · Directorio"
         title="Member Directory"
         description="A discreet roster of fellow Hampton Crest members. Use it to find a name, drop a line, or pick up the phone."
       />
@@ -97,12 +97,12 @@ export default function MemberDirectory() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No members to show"
-          description="As the circle grows, charter members will appear here."
+          title="No hay miembros para mostrar"
+          description="A medida que el círculo crezca, los miembros aparecerán aquí."
         />
       ) : (
         <Panel testid="directory-table">

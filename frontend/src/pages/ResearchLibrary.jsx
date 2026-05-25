@@ -51,13 +51,13 @@ export default function ResearchLibrary() {
   return (
     <div data-testid="research-page">
       <PageHeader
-        overline="Members Suite · Library"
-        title="Research Library"
-        description="A curated shelf of books selected by Hampton Crest. Each volume opens on its source page so you can read without losing your place here."
+        overline="Academia · Biblioteca"
+        title="Biblioteca"
+        description="Una estantería curada de libros seleccionados por Hampton Crest. Cada volumen abre en su fuente original para que leas sin perder tu lugar aquí."
         actions={
           isAdmin && (
             <AdminAction
-              label="New Book"
+              label="Nuevo libro"
               testid="new-book-button"
               onClick={openNew}
             />
@@ -77,7 +77,7 @@ export default function ResearchLibrary() {
                 : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
             }`}
           >
-            All
+            Todas
           </button>
           {LIBRARY_CATEGORIES.map((c) => (
             <button
@@ -101,7 +101,7 @@ export default function ResearchLibrary() {
           />
           <input
             type="text"
-            placeholder="Search title, author, or description…"
+            placeholder="Buscar título, autor o descripción…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             data-testid="library-search"
@@ -115,23 +115,23 @@ export default function ResearchLibrary() {
             data-testid="library-status-filter"
             className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           >
-            <option value="">All Statuses</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
+            <option value="">Todos los estados</option>
+            <option value="published">Publicados</option>
+            <option value="draft">Borradores</option>
           </select>
         )}
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : items.length === 0 ? (
         <EmptyState
           icon={BookOpen}
-          title="The shelf is being arranged"
+          title="La estantería se está preparando"
           description={
             isAdmin
-              ? "Use “New Book” to add the first volume. Paste the title, author, cover image URL, a short description, and the external link where the book lives."
-              : "Upon curation, the shelf will appear here. Check back shortly."
+              ? "Usa «Nuevo libro» para añadir el primer volumen. Pega el título, autor, URL de portada, una descripción corta y el enlace externo donde vive el libro."
+              : "Pronto encontrarás aquí los libros curados de la academia."
           }
         />
       ) : (

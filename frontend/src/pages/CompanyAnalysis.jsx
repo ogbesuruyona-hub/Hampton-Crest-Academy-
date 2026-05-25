@@ -41,13 +41,13 @@ export default function CompanyAnalysis() {
   return (
     <div data-testid="companies-page">
       <PageHeader
-        overline="Members Suite · Coverage"
-        title="Company Analysis"
-        description="Deep-dive coverage on individual companies — thesis, financials, and ongoing analyst observation."
+        overline="Academia · Cobertura"
+        title="Análisis de Empresas"
+        description="Cobertura profunda de empresas — tesis, fundamentales y seguimiento del analista."
         actions={
           isAdmin && (
             <AdminAction
-              label="Add Company"
+              label="Añadir empresa"
               testid="new-company-button"
               onClick={() => setEditorOpen(true)}
             />
@@ -65,7 +65,7 @@ export default function CompanyAnalysis() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by ticker or company…"
+            placeholder="Buscar por ticker o empresa…"
             data-testid="companies-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
           />
@@ -76,7 +76,7 @@ export default function CompanyAnalysis() {
           data-testid="companies-sector-select"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
-          <option value="">All Sectors</option>
+          <option value="">Todos los sectores</option>
           {COMPANY_SECTORS.map((s) => (
             <option key={s}>{s}</option>
           ))}
@@ -87,23 +87,23 @@ export default function CompanyAnalysis() {
           data-testid="companies-status-select"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
-          <option value="">All Statuses</option>
-          <option value="covered">Covered</option>
-          <option value="watching">Watching</option>
-          <option value="exited">Exited</option>
+          <option value="">Todos los estados</option>
+          <option value="covered">Cubierta</option>
+          <option value="watching">En observación</option>
+          <option value="exited">Salida</option>
         </select>
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Loading…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : items.length === 0 ? (
         <EmptyState
           icon={BarChart3}
-          title="Coverage list pending publication"
+          title="Lista de cobertura pendiente"
           description={
             isAdmin
-              ? "Use “Add Company” to begin building coverage."
-              : "Companies in our coverage universe will appear here with thesis, metrics, and analyst memos."
+              ? "Usa «Añadir empresa» para construir la cobertura."
+              : "Las empresas de nuestra cobertura aparecerán aquí con tesis, métricas y memos del analista."
           }
         />
       ) : (

@@ -75,35 +75,35 @@ export default function Settings() {
   return (
     <div data-testid="settings-page">
       <PageHeader
-        overline="Members Suite · Settings"
-        title="Settings"
-        description="Manage your account, security, and delivery preferences."
+        overline="Academia · Ajustes"
+        title="Ajustes"
+        description="Gestiona tu cuenta, seguridad y preferencias de entrega."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Panel overline="Security" title="Two-Factor Authentication" testid="panel-2fa">
+        <Panel overline="Seguridad" title="Autenticación de dos factores" testid="panel-2fa">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 {twoFa.enabled ? (
                   <>
                     <ShieldCheck className="h-4 w-4 text-[var(--hc-gold)]" strokeWidth={1.5} />
-                    <span className="text-[var(--hc-text)]">2FA is enabled</span>
+                    <span className="text-[var(--hc-text)]">2FA está activado</span>
                   </>
                 ) : (
                   <>
                     <ShieldOff className="h-4 w-4 text-[var(--hc-text-muted)]" strokeWidth={1.5} />
-                    <span className="text-[var(--hc-text-secondary)]">2FA is disabled</span>
+                    <span className="text-[var(--hc-text-secondary)]">2FA está desactivado</span>
                   </>
                 )}
               </div>
               <p className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-2 max-w-md leading-relaxed">
-                When enabled, you'll be asked for a 6-digit code from your authenticator app each time
-                you sign in. Backup codes are provided in case you lose access.
+                Cuando esté activo, te pediremos un código de 6 dígitos de tu app de autenticación
+                cada vez que inicies sesión. Se generan códigos de respaldo por si pierdes el acceso.
               </p>
               {twoFa.enabled && (
                 <div className="hc-overline mt-3 text-[var(--hc-text-secondary)]">
-                  {twoFa.backup_codes_remaining} backup codes remaining
+                  {twoFa.backup_codes_remaining} códigos de respaldo restantes
                 </div>
               )}
             </div>
@@ -113,7 +113,7 @@ export default function Settings() {
                 data-testid="disable-2fa-button"
                 className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors shrink-0"
               >
-                Disable
+                Desactivar
               </button>
             ) : (
               <button
@@ -121,16 +121,16 @@ export default function Settings() {
                 data-testid="enable-2fa-button"
                 className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0"
               >
-                Enable 2FA
+                Activar 2FA
               </button>
             )}
           </div>
         </Panel>
 
-        <Panel overline="Notifications" title="Email Delivery" testid="panel-email">
+        <Panel overline="Notificaciones" title="Entrega por email" testid="panel-email">
           <Row
-            label="Content Digest Emails"
-            value={digestOptIn ? "Enabled — you'll receive new publications" : "Disabled"}
+            label="Resúmenes por email"
+            value={digestOptIn ? "Activado — recibirás nuevas publicaciones" : "Desactivado"}
             testid="setting-digest"
             action={
               <Switch
@@ -143,33 +143,33 @@ export default function Settings() {
             }
           />
           <div className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed">
-            We email new research notes, education modules, and monthly reports as they are
-            published. You can opt out anytime.
+            Te enviamos por email cada nueva investigación, módulo educativo y reporte mensual
+            cuando se publica. Puedes desactivarlo en cualquier momento.
           </div>
         </Panel>
 
-        <Panel overline="Billing" title="Membership" testid="panel-billing">
+        <Panel overline="Facturación" title="Membresía" testid="panel-billing">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
             <div className="min-w-0 max-w-md">
               <div className="flex items-center gap-2 text-sm">
                 <CreditCard className="h-4 w-4 text-[var(--hc-gold)] shrink-0" strokeWidth={1.5} />
                 <span className="text-[var(--hc-text)]">
                   {user?.role === "admin"
-                    ? "Steward account — no subscription on file"
+                    ? "Cuenta administrador — sin suscripción"
                     : user?.complimentary
-                    ? "Complimentary access — no subscription required"
+                    ? "Acceso de cortesía — sin suscripción"
                     : user?.membership_status === "active"
-                    ? "Active charter membership"
-                    : "Inactive membership"}
+                    ? "Membresía activa"
+                    : "Membresía inactiva"}
                 </span>
               </div>
               <p
                 data-testid="billing-description"
                 className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed"
               >
-                Manage your payment method, view past invoices, or cancel your subscription via the
-                Stripe customer portal. You'll be redirected to a secure Stripe-hosted page and
-                returned to Settings when done.
+                Administra tu método de pago, consulta facturas o cancela tu suscripción desde el
+                portal seguro de Stripe. Te redirige a una página externa y regresas a Ajustes al
+                terminar.
               </p>
             </div>
             <button
@@ -180,22 +180,26 @@ export default function Settings() {
               data-testid="billing-portal-button"
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 self-start disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {billingLoading ? "Opening…" : "Manage Subscription"}
+              {billingLoading ? "Abriendo…" : "Administrar suscripción"}
               <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
             </button>
           </div>
         </Panel>
 
-        <Panel overline="Account" title="Profile" testid="panel-account">
-          <Row label="Full Name" value={user?.name || "—"} testid="setting-name" />
+        <Panel overline="Cuenta" title="Perfil" testid="panel-account">
+          <Row label="Nombre completo" value={user?.name || "—"} testid="setting-name" />
           <Row label="Email" value={user?.email || "—"} testid="setting-email" />
-          <Row label="Role" value={user?.role || "member"} testid="setting-role" />
+          <Row
+            label="Rol"
+            value={user?.role === "admin" ? "administrador" : "miembro"}
+            testid="setting-role"
+          />
         </Panel>
 
-        <Panel overline="Preferences" title="Display" testid="panel-display">
-          <Row label="Theme" value="Institutional Dark" testid="setting-theme" />
-          <Row label="Language" value="English (US)" testid="setting-language" />
-          <Row label="Time Zone" value="Automatic" testid="setting-tz" />
+        <Panel overline="Preferencias" title="Visualización" testid="panel-display">
+          <Row label="Tema" value="Oscuro institucional" testid="setting-theme" />
+          <Row label="Idioma" value="Español" testid="setting-language" />
+          <Row label="Zona horaria" value="Automática" testid="setting-tz" />
         </Panel>
       </div>
 
