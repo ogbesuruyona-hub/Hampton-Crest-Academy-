@@ -6,12 +6,12 @@
 
 :root {
     /* Hampton Crest — Institutional Dark */
-    --hc-bg: #0a1428;
-    --hc-surface: #15213e;
-    --hc-surface-elevated: #1f2d4e;
-    --hc-surface-hover: #293a5e;
-    --hc-border: #324166;
-    --hc-border-subtle: #1e2b48;
+    --hc-bg: #050914;
+    --hc-surface: #0c1222;
+    --hc-surface-elevated: #141c30;
+    --hc-surface-hover: #1c253b;
+    --hc-border: #212a3f;
+    --hc-border-subtle: #151c2c;
     --hc-text: #f4f6f8;
     --hc-text-secondary: #9aa4b6;
     --hc-text-muted: #5b667a;
