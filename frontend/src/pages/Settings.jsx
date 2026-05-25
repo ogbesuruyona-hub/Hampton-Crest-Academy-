@@ -149,10 +149,10 @@ export default function Settings() {
         </Panel>
 
         <Panel overline="Billing" title="Membership" testid="panel-billing">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+            <div className="min-w-0 max-w-md">
               <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-[var(--hc-gold)]" strokeWidth={1.5} />
+                <CreditCard className="h-4 w-4 text-[var(--hc-gold)] shrink-0" strokeWidth={1.5} />
                 <span className="text-[var(--hc-text)]">
                   {user?.role === "admin"
                     ? "Steward account — no subscription on file"
@@ -165,7 +165,7 @@ export default function Settings() {
               </div>
               <p
                 data-testid="billing-description"
-                className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-2 max-w-md leading-relaxed"
+                className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed"
               >
                 Manage your payment method, view past invoices, or cancel your subscription via the
                 Stripe customer portal. You'll be redirected to a secure Stripe-hosted page and
@@ -178,7 +178,7 @@ export default function Settings() {
                 billingLoading || user?.role === "admin" || user?.complimentary
               }
               data-testid="billing-portal-button"
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 self-start disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {billingLoading ? "Opening…" : "Manage Subscription"}
               <ExternalLink className="h-3 w-3" strokeWidth={1.5} />

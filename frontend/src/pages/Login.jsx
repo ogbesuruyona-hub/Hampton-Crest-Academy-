@@ -83,6 +83,11 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/95 via-[var(--hc-bg)]/75 to-[var(--hc-bg)]" />
 
         <div className="relative z-10 flex items-center gap-4">
+          <img
+            src={LOGO_URL}
+            alt="Hampton Crest"
+            className="h-14 w-14 object-cover rounded-full border border-[var(--hc-gold)]/30"
+          />
           <div className="leading-tight">
             <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
@@ -114,6 +119,11 @@ export default function Login() {
       {/* Form panel */}
       <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
         <div className="lg:hidden flex items-center gap-3 mb-12">
+          <img
+            src={LOGO_URL}
+            alt="Hampton Crest"
+            className="h-11 w-11 object-cover rounded-full border border-[var(--hc-gold)]/30"
+          />
           <div className="leading-tight">
             <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
