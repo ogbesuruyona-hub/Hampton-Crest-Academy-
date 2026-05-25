@@ -3,9 +3,10 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { TwoFASetupDialog, TwoFADisableDialog } from "../components/TwoFADialogs";
 import { Switch } from "../components/ui/switch";
-import { api } from "../lib/api";
+import { api, formatApiErrorDetail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { ShieldCheck, ShieldOff } from "lucide-react";
+import { ShieldCheck, ShieldOff, CreditCard, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 const Row = ({ label, value, action, testid }) => (
   <div
@@ -55,6 +56,19 @@ export default function Settings() {
       setDigestOptIn(!next);
     } finally {
       setSavingPrefs(false);
+    }
+  };
+
+  const [billingLoading, setBillingLoading] = useState(false);
+  const openBillingPortal = async () => {
+    setBillingLoading(true);
+    try {
+      const { data } = await api.post("/billing/portal");
+      window.location.href = data.url;
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -131,6 +145,44 @@ export default function Settings() {
           <div className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed">
             We email new research notes, education modules, and monthly reports as they are
             published. You can opt out anytime.
+          </div>
+        </Panel>
+
+        <Panel overline="Billing" title="Membership" testid="panel-billing">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                <CreditCard className="h-4 w-4 text-[var(--hc-gold)]" strokeWidth={1.5} />
+                <span className="text-[var(--hc-text)]">
+                  {user?.role === "admin"
+                    ? "Steward account — no subscription on file"
+                    : user?.complimentary
+                    ? "Complimentary access — no subscription required"
+                    : user?.membership_status === "active"
+                    ? "Active charter membership"
+                    : "Inactive membership"}
+                </span>
+              </div>
+              <p
+                data-testid="billing-description"
+                className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-2 max-w-md leading-relaxed"
+              >
+                Manage your payment method, view past invoices, or cancel your subscription via the
+                Stripe customer portal. You'll be redirected to a secure Stripe-hosted page and
+                returned to Settings when done.
+              </p>
+            </div>
+            <button
+              onClick={openBillingPortal}
+              disabled={
+                billingLoading || user?.role === "admin" || user?.complimentary
+              }
+              data-testid="billing-portal-button"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {billingLoading ? "Opening…" : "Manage Subscription"}
+              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+            </button>
           </div>
         </Panel>
 

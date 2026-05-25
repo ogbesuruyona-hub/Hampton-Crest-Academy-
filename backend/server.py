@@ -1574,6 +1574,49 @@ async def admin_invite_link(user_id: str, current_user: dict = Depends(require_a
     return {"invite_link": link, "expires_in_days": INVITE_TOKEN_TTL_DAYS}
 
 
+# ---------------- Billing portal ----------------
+@api_router.post("/billing/portal")
+async def billing_portal(current_user: dict = Depends(get_current_user)):
+    """Creates a Stripe Customer Portal session for the signed-in member."""
+    if not stripe.api_key or stripe.api_key in ("", "sk_test_emergent"):
+        raise HTTPException(503, "Billing portal is not configured. Set a real STRIPE_API_KEY.")
+    raw = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    customer_id = (raw or {}).get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No subscription on file for this account.")
+    return_url = f"{PUBLIC_URL}/settings" if PUBLIC_URL else "/settings"
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=return_url,
+        )
+        return {"url": session.url}
+    except stripe.error.StripeError as e:
+        logger.error("Stripe portal create failed: %s", e)
+        raise HTTPException(502, "Could not open the billing portal. Please try again.")
+
+
+# ---------------- Admin: test email ----------------
+@api_router.post("/admin/email/test")
+async def admin_email_test(current_user: dict = Depends(require_admin)):
+    """Sends a small test email to the current admin to verify Resend delivery."""
+    subject = "Hampton Crest Academy · Email delivery test"
+    html = _digest_html(
+        title="Email delivery test",
+        summary="If you can read this, Resend is wired up and the verified sender domain is delivering correctly.",
+        category="Operations",
+        content_type_label="System Test",
+        link=PUBLIC_URL or "#",
+    )
+    result = await send_email(current_user["email"], subject, html)
+    return {
+        "sent_to": current_user["email"],
+        "emails_enabled": os.environ.get("EMAILS_ENABLED", "false").lower() == "true",
+        "sender": os.environ.get("SENDER_EMAIL", ""),
+        "resend_response": result,
+    }
+
+
 # ---------------- Lifecycle ----------------
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@hamptoncrest.com").lower().strip()
