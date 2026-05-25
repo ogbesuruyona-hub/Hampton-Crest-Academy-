@@ -31,6 +31,15 @@ export const CONTENT_TYPES = {
     detailRoute: (id) => `/companies/${id}`,
     listRoute: "/companies",
   },
+  books: {
+    key: "books",
+    api: "books",
+    singular: "Library Book",
+    plural: "Research Library",
+    detailRoute: () => "/research",
+    listRoute: "/research",
+    external: true,
+  },
 };
 
 export const RESEARCH_CATEGORIES = [
@@ -40,6 +49,16 @@ export const RESEARCH_CATEGORIES = [
   "Alternatives",
   "Sector",
   "Commodities",
+];
+
+export const LIBRARY_CATEGORIES = [
+  "Investing Classics",
+  "Value Investing",
+  "Macro & Cycles",
+  "Behavioural Finance",
+  "Markets History",
+  "Strategy & Mental Models",
+  "Founders & Operators",
 ];
 
 export const COMPANY_SECTORS = [

@@ -40,18 +40,19 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
     <div className="flex flex-col h-full" data-testid="sidebar-content">
       {/* Brand */}
       <div
-        className={`flex items-center gap-3 ${
+        className={`flex items-center ${
           collapsed ? "justify-center px-2" : "px-6"
         } py-6 border-b border-[var(--hc-border)]`}
       >
-        <img
-          src={LOGO_URL}
-          alt="Hampton Crest Academy"
-          className="h-9 w-9 object-contain shrink-0"
-          data-testid="sidebar-logo"
-        />
-        {!collapsed && (
-          <div className="flex flex-col leading-tight">
+        {collapsed ? (
+          <div
+            data-testid="sidebar-logo"
+            className="text-[0.7rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold"
+          >
+            HC
+          </div>
+        ) : (
+          <div className="flex flex-col leading-tight" data-testid="sidebar-logo">
             <span className="text-[0.7rem] tracking-[0.22em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
             </span>

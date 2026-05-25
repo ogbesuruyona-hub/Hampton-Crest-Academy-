@@ -58,6 +58,7 @@ CONTENT_COLLECTIONS = {
     "education": "education_modules",
     "reports": "monthly_reports",
     "companies": "companies",
+    "books": "books",
 }
 
 # Resend init
@@ -759,8 +760,18 @@ class MemoIn(BaseModel):
 
 
 class BookmarkIn(BaseModel):
-    content_type: str = Field(pattern="^(research|education|reports|companies)$")
+    content_type: str = Field(pattern="^(research|education|reports|companies|books)$")
     content_id: str
+
+
+class BookIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    author: str = Field(default="", max_length=200)
+    cover_url: Optional[str] = None
+    description: Optional[str] = ""
+    category: Optional[str] = None
+    external_url: str = Field(min_length=1, max_length=2000)
+    status: str = Field(default="published", pattern="^(draft|published)$")
 
 
 # ---------------- Content helpers ----------------
@@ -1072,6 +1083,50 @@ async def delete_company_memo(company_id: str, memo_id: str, current_user: dict 
     return {"ok": True}
 
 
+# ---------------- Routes: books (academy library) ----------------
+@api_router.get("/books")
+async def list_books(
+    current_user: dict = Depends(get_current_user),
+    status: Optional[str] = None,
+    category: Optional[str] = None,
+    q: Optional[str] = None,
+):
+    query = _published_filter(current_user, status)
+    if category:
+        query["category"] = category
+    _apply_search(query, q, ["title", "author", "description"])
+    docs = await db.books.find(query).sort([("created_at", -1)]).limit(500).to_list(500)
+    return [serialize_doc(d) for d in docs]
+
+
+@api_router.get("/books/{content_id}")
+async def get_book(content_id: str, current_user: dict = Depends(get_current_user)):
+    return serialize_doc(await _get_or_404("books", content_id, current_user))
+
+
+@api_router.post("/books")
+async def create_book(payload: BookIn, current_user: dict = Depends(require_admin)):
+    doc = _build_content_doc(payload.model_dump(), current_user)
+    await db.books.insert_one(doc)
+    return serialize_doc(doc)
+
+
+@api_router.put("/books/{content_id}")
+async def update_book(content_id: str, payload: BookIn, current_user: dict = Depends(require_admin)):
+    existing = await db.books.find_one({"_id": content_id})
+    if not existing:
+        raise HTTPException(404, "Not found")
+    update = _patch_update(payload.model_dump(), existing)
+    await db.books.update_one({"_id": content_id}, {"$set": update})
+    return serialize_doc({**existing, **update})
+
+
+@api_router.delete("/books/{content_id}")
+async def delete_book(content_id: str, current_user: dict = Depends(require_admin)):
+    await db.books.delete_one({"_id": content_id})
+    return {"ok": True}
+
+
 # ---------------- Routes: bookmarks ----------------
 @api_router.get("/bookmarks")
 async def list_bookmarks(current_user: dict = Depends(get_current_user)):
@@ -1097,7 +1152,7 @@ async def list_bookmarks(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/bookmarks/check")
 async def check_bookmark(
-    content_type: str = Query(..., pattern="^(research|education|reports|companies)$"),
+    content_type: str = Query(..., pattern="^(research|education|reports|companies|books)$"),
     content_id: str = Query(...),
     current_user: dict = Depends(get_current_user),
 ):
@@ -1140,7 +1195,7 @@ async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(get_cur
 
 @api_router.delete("/bookmarks")
 async def remove_bookmark(
-    content_type: str = Query(..., pattern="^(research|education|reports|companies)$"),
+    content_type: str = Query(..., pattern="^(research|education|reports|companies|books)$"),
     content_id: str = Query(...),
     current_user: dict = Depends(get_current_user),
 ):
