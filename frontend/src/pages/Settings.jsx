@@ -148,43 +148,39 @@ export default function Settings() {
           </div>
         </Panel>
 
-        <Panel overline="Facturación" title="Membresía" testid="panel-billing">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
-            <div className="min-w-0 max-w-md">
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-[var(--hc-gold)] shrink-0" strokeWidth={1.5} />
-                <span className="text-[var(--hc-text)]">
-                  {user?.role === "admin"
-                    ? "Cuenta administrador — sin suscripción"
-                    : user?.complimentary
-                    ? "Acceso de cortesía — sin suscripción"
-                    : user?.membership_status === "active"
-                    ? "Membresía activa"
-                    : "Membresía inactiva"}
-                </span>
+        {user?.role !== "admin" && !user?.complimentary && (
+          <Panel overline="Facturación" title="Membresía" testid="panel-billing">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+              <div className="min-w-0 max-w-md">
+                <div className="flex items-center gap-2 text-sm">
+                  <CreditCard className="h-4 w-4 text-[var(--hc-gold)] shrink-0" strokeWidth={1.5} />
+                  <span className="text-[var(--hc-text)]">
+                    {user?.membership_status === "active"
+                      ? "Membresía activa"
+                      : "Membresía inactiva"}
+                  </span>
+                </div>
+                <p
+                  data-testid="billing-description"
+                  className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed"
+                >
+                  Administra tu método de pago, consulta facturas o cancela tu suscripción desde el
+                  portal seguro de Stripe. Te redirige a una página externa y regresas a Ajustes al
+                  terminar.
+                </p>
               </div>
-              <p
-                data-testid="billing-description"
-                className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed"
+              <button
+                onClick={openBillingPortal}
+                disabled={billingLoading}
+                data-testid="billing-portal-button"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 self-start disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Administra tu método de pago, consulta facturas o cancela tu suscripción desde el
-                portal seguro de Stripe. Te redirige a una página externa y regresas a Ajustes al
-                terminar.
-              </p>
+                {billingLoading ? "Abriendo…" : "Administrar suscripción"}
+                <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+              </button>
             </div>
-            <button
-              onClick={openBillingPortal}
-              disabled={
-                billingLoading || user?.role === "admin" || user?.complimentary
-              }
-              data-testid="billing-portal-button"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0 self-start disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {billingLoading ? "Abriendo…" : "Administrar suscripción"}
-              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-            </button>
-          </div>
-        </Panel>
+          </Panel>
+        )}
 
         <Panel overline="Cuenta" title="Perfil" testid="panel-account">
           <Row label="Nombre completo" value={user?.name || "—"} testid="setting-name" />

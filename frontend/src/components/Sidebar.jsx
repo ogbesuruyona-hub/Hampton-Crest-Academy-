@@ -21,12 +21,12 @@ const NAV = [
   { to: "/education", label: "Educación", icon: GraduationCap, testid: "nav-education" },
   { to: "/reports", label: "Reportes Mensuales", icon: FileText, testid: "nav-reports" },
   { to: "/companies", label: "Análisis de Empresas", icon: BarChart3, testid: "nav-companies" },
-  { to: "/directory", label: "Directorio de Miembros", icon: UserCircle, testid: "nav-directory" },
   { to: "/saved", label: "Guardados", icon: Bookmark, testid: "nav-saved" },
   { to: "/settings", label: "Ajustes", icon: SettingsIcon, testid: "nav-settings" },
 ];
 
 const ADMIN_NAV = [
+  { to: "/directory", label: "Directorio de Miembros", icon: UserCircle, testid: "nav-directory" },
   { to: "/admin/members", label: "Miembros", icon: Users, testid: "nav-admin-members" },
 ];
 

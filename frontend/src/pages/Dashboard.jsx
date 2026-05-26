@@ -29,10 +29,10 @@ const KPI = ({ label, value, sub, testid }) => (
 );
 
 const FOCUS = [
-  { icon: BookOpen, label: "Research Library", to: "/research" },
-  { icon: GraduationCap, label: "Investment Education", to: "/education" },
-  { icon: FileText, label: "Monthly Reports", to: "/reports" },
-  { icon: BarChart3, label: "Company Analysis", to: "/companies" },
+  { icon: BookOpen, label: "Biblioteca", to: "/research" },
+  { icon: GraduationCap, label: "Educación", to: "/education" },
+  { icon: FileText, label: "Reportes Mensuales", to: "/reports" },
+  { icon: BarChart3, label: "Análisis de Empresas", to: "/companies" },
 ];
 
 export default function Dashboard() {

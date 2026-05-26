@@ -64,7 +64,7 @@ export default function InvestmentEducation() {
         <button
           onClick={() => setTrack("")}
           data-testid="track-filter-all"
-          className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors ${
+          className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
             !track
               ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
               : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
