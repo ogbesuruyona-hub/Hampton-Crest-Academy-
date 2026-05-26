@@ -185,17 +185,7 @@ export default function Settings() {
         <Panel overline="Cuenta" title="Perfil" testid="panel-account">
           <Row label="Nombre completo" value={user?.name || "—"} testid="setting-name" />
           <Row label="Email" value={user?.email || "—"} testid="setting-email" />
-          <Row
-            label="Rol"
-            value={user?.role === "admin" ? "administrador" : "miembro"}
-            testid="setting-role"
-          />
-        </Panel>
-
-        <Panel overline="Preferencias" title="Visualización" testid="panel-display">
-          <Row label="Tema" value="Oscuro institucional" testid="setting-theme" />
-          <Row label="Idioma" value="Español" testid="setting-language" />
-          <Row label="Zona horaria" value="Automática" testid="setting-tz" />
+          <Row label="Teléfono" value={user?.phone || "—"} testid="setting-phone" />
         </Panel>
       </div>
 

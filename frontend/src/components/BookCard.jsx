@@ -33,14 +33,29 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
     }
   };
 
+  const open = () => {
+    if (book.external_url) {
+      window.open(book.external_url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <div
       data-testid={`book-card-${book.id}`}
-      className="group relative bg-[var(--hc-surface)] border border-[var(--hc-border)] hover:border-[var(--hc-text-muted)] transition-colors flex flex-col"
+      onClick={open}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+      className="group relative bg-[var(--hc-surface)] border border-[var(--hc-border)] hover:border-[var(--hc-gold)]/60 transition-colors flex flex-col cursor-pointer focus:outline-none focus:border-[var(--hc-gold)]"
     >
       {/* Cover */}
       <div
-        className="relative aspect-[2/3] w-full bg-[var(--hc-bg)] overflow-hidden"
+        className="relative aspect-[3/4] w-full max-h-[260px] bg-[var(--hc-bg)] overflow-hidden"
         data-testid={`book-cover-${book.id}`}
       >
         {book.cover_url ? (
@@ -68,42 +83,47 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
             <StatusBadge status="draft" />
           </div>
         )}
-        <div className="absolute top-3 right-3">
+        <div
+          className="absolute top-3 right-3"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           <BookmarkButton contentType="books" contentId={book.id} />
         </div>
       </div>
 
       {/* Body */}
-      <div className="p-5 flex-1 flex flex-col">
+      <div className="p-4 flex-1 flex flex-col">
         {book.category && (
-          <div className="hc-overline mb-2 text-[var(--hc-gold)]/80">{book.category}</div>
+          <div className="hc-overline mb-1.5 text-[var(--hc-gold)]/80">{book.category}</div>
         )}
-        <h3 className="text-base font-medium tracking-tight text-[var(--hc-text)] leading-snug">
+        <h3 className="text-sm font-medium tracking-tight text-[var(--hc-text)] leading-snug group-hover:text-[var(--hc-gold)] transition-colors">
           {book.title}
         </h3>
         {book.author && (
           <div className="mt-1 text-xs text-[var(--hc-text-secondary)] tracking-tight">
-            by {book.author}
+            por {book.author}
           </div>
         )}
         {book.description && (
-          <p className="mt-3 text-xs text-[var(--hc-text-secondary)] leading-relaxed line-clamp-3">
+          <p className="mt-2 text-xs text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2">
             {book.description}
           </p>
         )}
 
-        <div className="mt-5 pt-4 border-t border-[var(--hc-border)] flex items-center justify-between gap-2">
-          <a
-            href={book.external_url}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="mt-3 pt-3 border-t border-[var(--hc-border)] flex items-center justify-between gap-2">
+          <span
             data-testid={`book-open-${book.id}`}
-            className="inline-flex items-center gap-1.5 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4"
+            className="inline-flex items-center gap-1.5 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-gold)] group-hover:underline underline-offset-4"
           >
-            Open book <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-          </a>
+            Abrir libro <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+          </span>
           {isAdmin && (
-            <div className="flex items-center gap-1">
+            <div
+              className="flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={onEdit}
                 data-testid={`book-edit-${book.id}`}
@@ -126,7 +146,10 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
       </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
+        <AlertDialogContent
+          className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none"
+          onClick={(e) => e.stopPropagation()}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este libro?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">

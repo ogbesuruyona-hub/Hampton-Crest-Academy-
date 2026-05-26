@@ -145,13 +145,10 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
       {/* Footer */}
       {!collapsed ? (
         <div className="px-6 py-5 border-t border-[var(--hc-border)]">
-          <div className="hc-overline mb-1">Estado</div>
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--hc-gold)]" />
-            <span className="text-xs text-[var(--hc-text-secondary)] tracking-tight">
-              Miembro fundador
-            </span>
-          </div>
+          <div className="hc-overline mb-2 text-[var(--hc-gold)]">Hampton Crest</div>
+          <p className="text-xs text-[var(--hc-text-secondary)] tracking-tight leading-relaxed italic">
+            «La paciencia y el estudio son las dos disciplinas que separan al inversionista del especulador.»
+          </p>
         </div>
       ) : (
         <div className="py-5 flex justify-center border-t border-[var(--hc-border)]">
