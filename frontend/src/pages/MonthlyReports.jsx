@@ -51,7 +51,7 @@ export default function MonthlyReports() {
       <PageHeader
         overline="Academia · Reportes"
         title="Reportes Mensuales"
-        description="Un informe mensual de inteligencia — postura macro, reflexiones de cartera y la carta del analista."
+        description="Cada mes te enviamos un resumen claro del mercado, ideas y lo que estamos viendo."
         actions={
           isAdmin && (
             <AdminAction

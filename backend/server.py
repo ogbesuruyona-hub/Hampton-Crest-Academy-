@@ -685,10 +685,10 @@ async def update_profile(payload: ProfileUpdateIn, current_user: dict = Depends(
 # ---------------- Routes: member directory ----------------
 @api_router.get("/directory")
 async def member_directory(
-    current_user: dict = Depends(require_member),
+    current_user: dict = Depends(require_admin),
     q: Optional[str] = None,
 ):
-    """Active members + admins. Returns minimal contact info (name, email, phone)."""
+    """Admin-only roster. Returns minimal contact info (name, email, phone)."""
     query: dict = {
         "$or": [
             {"role": "admin"},
