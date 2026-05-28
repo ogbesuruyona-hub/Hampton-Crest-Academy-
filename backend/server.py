@@ -1761,6 +1761,7 @@ async def shutdown_db_client():
 # ---------------- App wiring ----------------
 # Register modular routers (see backend/routers/ + ARCHITECTURE.md)
 from routers.search import register_search_routes  # noqa: E402
+from routers.chat import register_chat_routes  # noqa: E402
 
 search_router = register_search_routes(
     db=db,
@@ -1768,6 +1769,12 @@ search_router = register_search_routes(
     serialize_doc=serialize_doc,
 )
 app.include_router(search_router)
+
+chat_router = register_chat_routes(
+    db=db,
+    require_member=require_member,
+)
+app.include_router(chat_router)
 
 app.include_router(api_router)
 

@@ -81,6 +81,12 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Landing público en `/`**: `PublicLanding.jsx` con hero institucional, 4 pilares de propuesta de valor, trust strip (acceso privado, círculo discreto, Stripe), CTAs a Stripe Payment Link y al sitio Framer. Usuarios sin sesión llegan a `/`, miembros pasan directo del login a `/dashboard`. La ruta `*` ahora redirige al landing (era `/dashboard`).
 - **Modularización pragmática del backend**: nuevo directorio `/app/backend/routers/` con `search.py` extraído usando patrón de factory `register_search_routes(*, db, require_member, serialize_doc)`. Server.py inyecta las dependencias y monta el router. Documento `ARCHITECTURE.md` explica el patrón y la orden recomendado para extraer el resto (uploads → billing → members → content → auth). Tests existentes siguen pasando.
 
+## 2026-05-28 — AI Chat Support (GPT-4o)
+- **In-app chat assistant**: `routers/chat.py` exposes `POST /api/chat`, `GET /api/chat/history`, `DELETE /api/chat/history`. Uses **OpenAI GPT-4o** via the `emergentintegrations` library with the Universal Key already in `.env`.
+- **System prompt en español**: asistente discreto de Hampton Crest Academy, tono institucional, áreas de ayuda definidas (navegación, conceptos financieros, recomendaciones de libros, dudas de membresía). Multi-turn con memoria por `session_id` persistida en `chat_messages` collection.
+- **Frontend widget** (`ChatWidget.jsx`): burbuja flotante (abajo-derecha, encima del badge Made-with-Emergent), panel deslizable con header, área de mensajes con burbujas diferenciadas por rol, indicador "escribiendo…", botón reiniciar conversación, persistencia de `session_id` en `sessionStorage`. Visible solo para usuarios autenticados (montado en `AppLayout`).
+- **Verificado**: respuesta multi-turn coherente ("¿Cómo activo 2FA?" → "Ajustes → Seguridad → Autenticación de Dos Factores"), reset borra historial server-side, sin token devuelve 401.
+
 ## Prioritized Backlog
 ### P2 — Remaining
 - (none — all P2 features shipped)
