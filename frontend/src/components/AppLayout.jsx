@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { DesktopSidebar, SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Sheet, SheetContent } from "./ui/sheet";
+import ChatWidget from "./ChatWidget";
 
 export const AppLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -35,6 +36,7 @@ export const AppLayout = () => {
           </div>
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 };
