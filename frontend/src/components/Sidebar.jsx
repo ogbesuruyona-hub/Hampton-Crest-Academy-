@@ -12,6 +12,7 @@ import {
   UserCircle,
   ChevronsLeft,
   ChevronsRight,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/education", label: "Educación", icon: GraduationCap, testid: "nav-education" },
   { to: "/reports", label: "Reportes Mensuales", icon: FileText, testid: "nav-reports" },
   { to: "/companies", label: "Análisis de Empresas", icon: BarChart3, testid: "nav-companies" },
+  { to: "/valuation", label: "Valoración de Activos", icon: Sparkles, testid: "nav-valuation" },
   { to: "/saved", label: "Guardados", icon: Bookmark, testid: "nav-saved" },
   { to: "/settings", label: "Ajustes", icon: SettingsIcon, testid: "nav-settings" },
 ];

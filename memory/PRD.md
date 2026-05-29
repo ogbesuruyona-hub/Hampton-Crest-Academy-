@@ -87,6 +87,20 @@ Premium private investment academy web app for paying members. Luxury institutio
 - **Frontend widget** (`ChatWidget.jsx`): burbuja flotante (abajo-derecha, encima del badge Made-with-Emergent), panel deslizable con header, área de mensajes con burbujas diferenciadas por rol, indicador "escribiendo…", botón reiniciar conversación, persistencia de `session_id` en `sessionStorage`. Visible solo para usuarios autenticados (montado en `AppLayout`).
 - **Verificado**: respuesta multi-turn coherente ("¿Cómo activo 2FA?" → "Ajustes → Seguridad → Autenticación de Dos Factores"), reset borra historial server-side, sin token devuelve 401.
 
+## Asset Valuation Engine (2026-02-12)
+- **Backend**: `routers/valuation.py` (registered in `server.py` L1780). Endpoints:
+  - `POST /api/valuation` — body `{ticker}` → fetches yfinance data (price, multiples, 10yr financials, balance, dividends), computes proprietary DCF (bear/base/bull, WACC 9%, terminal 2.5%, 5yr horizon), invokes GPT-4o (Emergent Universal Key) for institutional-grade JSON thesis (executive summary, drivers/moat/catalysts/risks, weighted scoring 0-100 across 5 dimensions, rating EXCEPTIONAL→AVOID, verdict STRONG_BUY→AVOID, fair-value summary). Persists to `db.valuations`.
+  - `GET /api/valuation/history?limit=N` — user-scoped history.
+- **Frontend**: new sidebar item "Valoración de Activos" (`Sparkles` icon, route `/valuation`). Page `AssetValuation.jsx`:
+  - Hero ticker search with 3-phase animated progress (Market data → DCF → AI thesis)
+  - Header card: ticker · sector · rating · price · market cap · upside vs DCF base · verdict badge · executive summary
+  - Scoring panel: SVG ring score (0-100) + 5 weighted sub-bars + analyst verdict explanation
+  - DCF panel: bear/base/bull cards with fair value, growth assumption, upside vs price; full assumption row
+  - Multiples / Profitability / Growth+Balance panels
+  - Thesis panel: drivers · moat · catalysts · risks · financial-quality & valuation comments
+  - History panel (click-to-rerun)
+- **Verified**: `curl POST /api/valuation` for AAPL returned rating HIGH_QUALITY, verdict BUY, score 84, DCF base $108.36 — matches expectation (Apple trading rich vs intrinsic).
+
 ## Prioritized Backlog
 ### P2 — Remaining
 - (none — all P2 features shipped)
