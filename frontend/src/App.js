@@ -19,6 +19,7 @@ import MonthlyReports from "@/pages/MonthlyReports";
 import ReportDetail from "@/pages/ReportDetail";
 import CompanyAnalysis from "@/pages/CompanyAnalysis";
 import CompanyDetail from "@/pages/CompanyDetail";
+import AssetValuation from "@/pages/AssetValuation";
 import SavedResources from "@/pages/SavedResources";
 import Settings from "@/pages/Settings";
 import MemberProfile from "@/pages/MemberProfile";
@@ -52,6 +53,7 @@ function App() {
               <Route path="/reports/:id" element={<ReportDetail />} />
               <Route path="/companies" element={<CompanyAnalysis />} />
               <Route path="/companies/:id" element={<CompanyDetail />} />
+              <Route path="/valuation" element={<AssetValuation />} />
               <Route path="/saved" element={<SavedResources />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<MemberProfile />} />
