@@ -1762,6 +1762,7 @@ async def shutdown_db_client():
 # Register modular routers (see backend/routers/ + ARCHITECTURE.md)
 from routers.search import register_search_routes  # noqa: E402
 from routers.chat import register_chat_routes  # noqa: E402
+from routers.valuation import register_valuation_routes  # noqa: E402
 
 search_router = register_search_routes(
     db=db,
@@ -1775,6 +1776,12 @@ chat_router = register_chat_routes(
     require_member=require_member,
 )
 app.include_router(chat_router)
+
+valuation_router = register_valuation_routes(
+    db=db,
+    require_member=require_member,
+)
+app.include_router(valuation_router)
 
 app.include_router(api_router)
 
