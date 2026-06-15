@@ -73,6 +73,11 @@ agenthub/agents/youtube/db
 *.deb
 *.dylib
 
+# Export/review artifacts
+README_FOR_CODEX.md
+SOURCE.md
+/yarn.lock
+
 # Build caches
 .cache/
 
