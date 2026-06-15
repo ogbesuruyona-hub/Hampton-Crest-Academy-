@@ -23,7 +23,7 @@ api.interceptors.request.use((config) => {
 });
 
 export function formatApiErrorDetail(detail) {
-  if (detail == null) return "Something went wrong. Please try again.";
+  if (detail == null) return "Algo salió mal. Inténtalo de nuevo.";
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
     return detail

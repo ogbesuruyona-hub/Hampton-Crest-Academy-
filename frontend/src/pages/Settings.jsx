@@ -127,9 +127,9 @@ export default function Settings() {
           </div>
         </Panel>
 
-        <Panel overline="Notificaciones" title="Entrega por email" testid="panel-email">
+        <Panel overline="Notificaciones" title="Entrega por correo" testid="panel-email">
           <Row
-            label="Resúmenes por email"
+            label="Resúmenes por correo"
             value={digestOptIn ? "Activado — recibirás nuevas publicaciones" : "Desactivado"}
             testid="setting-digest"
             action={
@@ -143,7 +143,7 @@ export default function Settings() {
             }
           />
           <div className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed">
-            Te enviamos por email cada nueva investigación, módulo educativo y reporte mensual
+            Te enviamos por correo cada nueva investigación, módulo educativo y reporte mensual
             cuando se publica. Puedes desactivarlo en cualquier momento.
           </div>
         </Panel>
@@ -184,7 +184,7 @@ export default function Settings() {
 
         <Panel overline="Cuenta" title="Perfil" testid="panel-account">
           <Row label="Nombre completo" value={user?.name || "—"} testid="setting-name" />
-          <Row label="Email" value={user?.email || "—"} testid="setting-email" />
+          <Row label="Correo electrónico" value={user?.email || "—"} testid="setting-email" />
           <Row label="Teléfono" value={user?.phone || "—"} testid="setting-phone" />
         </Panel>
       </div>

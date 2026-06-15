@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { BookOpen, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BookOpen, ArrowUpRight, Pencil, Trash2 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { BookmarkButton } from "./BookmarkButton";
 import { api, formatApiErrorDetail } from "../lib/api";
@@ -16,6 +17,7 @@ import {
 } from "./ui/alert-dialog";
 
 export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, onDeleted }) => {
+  const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -34,8 +36,8 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
   };
 
   const open = () => {
-    if (book.external_url) {
-      window.open(book.external_url, "_blank", "noopener,noreferrer");
+    if (book.id) {
+      navigate(`/books/${book.id}`);
     }
   };
 
@@ -117,7 +119,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
             data-testid={`book-open-${book.id}`}
             className="inline-flex items-center gap-1.5 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-gold)] group-hover:underline underline-offset-4"
           >
-            Abrir libro <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+            Ver detalle <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
           </span>
           {isAdmin && (
             <div
@@ -166,7 +168,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
               data-testid={`confirm-delete-book-${book.id}`}
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
             >
-              {deleting ? "Eliminando…" : "Eliminar"}
+              {deleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

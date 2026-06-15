@@ -115,7 +115,7 @@ export default function AcceptInvite() {
         {(state === "ready" || state === "submitting") && (
           <form onSubmit={submit} className="mt-8 space-y-5" data-testid="invite-form">
             <div>
-              <label className="hc-overline block mb-2">Email</label>
+              <label className="hc-overline block mb-2">Correo electrónico</label>
               <input
                 type="email"
                 value={email}

@@ -96,12 +96,12 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
         data-testid="editor-dialog-company"
       >
         <DialogHeader>
-          <div className="hc-overline mb-1">Coverage</div>
+          <div className="hc-overline mb-1">Cobertura</div>
           <DialogTitle className="text-xl font-medium tracking-tight">
-            {initial ? "Edit Company" : "Add Company"}
+            {initial ? "Editar compañía" : "Añadir compañía"}
           </DialogTitle>
           <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
-            Define the coverage entry — thesis, sector, and key metrics.
+            Define la entrada de cobertura: tesis, sector y métricas clave.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,7 +120,7 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
               />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelCls}>Company Name</label>
+              <label className={labelCls}>Nombre de la compañía</label>
               <input
                 type="text"
                 value={form.name}
@@ -142,14 +142,14 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
                 data-testid="company-sector"
                 className={inputCls}
               >
-                <option value="">— None —</option>
+                <option value="">— Ninguno —</option>
                 {COMPANY_SECTORS.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls}>Status</label>
+              <label className={labelCls}>Estado</label>
               <div className="flex gap-2">
                 {COMPANY_STATUSES.map((s) => (
                   <button
@@ -171,23 +171,23 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
           </div>
 
           <div>
-            <label className={labelCls}>Thesis Summary</label>
+            <label className={labelCls}>Resumen de tesis</label>
             <input
               type="text"
               value={form.thesis_summary}
               onChange={(e) => update("thesis_summary", e.target.value)}
               data-testid="company-thesis-summary"
               className={inputCls}
-              placeholder="One-line investment thesis"
+              placeholder="Tesis de inversión en una línea"
             />
           </div>
 
           <div>
-            <label className={labelCls}>Thesis Body</label>
+            <label className={labelCls}>Cuerpo de tesis</label>
             <RichTextEditor
               value={form.thesis_body}
               onChange={(html) => update("thesis_body", html)}
-              placeholder="The full investment case. Use headings, lists, and emphasis."
+              placeholder="Caso de inversión completo. Usa encabezados, listas y énfasis."
               testid="company-thesis-body"
             />
           </div>
@@ -207,20 +207,20 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
           {/* Key metrics */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className={labelCls}>Key Metrics</span>
+              <span className={labelCls}>Métricas clave</span>
               <button
                 type="button"
                 onClick={addMetric}
                 data-testid="add-metric-button"
                 className="flex items-center gap-1 text-[0.7rem] tracking-[0.18em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4"
               >
-                <Plus className="h-3 w-3" strokeWidth={1.5} /> Add
+                <Plus className="h-3 w-3" strokeWidth={1.5} /> Añadir
               </button>
             </div>
             <div className="space-y-2">
               {form.key_metrics.length === 0 && (
                 <div className="text-xs text-[var(--hc-text-muted)] border border-dashed border-[var(--hc-border)] p-3">
-                  No metrics yet. Add labelled key figures like "Book Value" or "ROIC".
+                  Aún no hay métricas. Añade cifras clave como "Valor en libros" o "ROIC".
                 </div>
               )}
               {form.key_metrics.map((m, i) => (
@@ -229,7 +229,7 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
                     type="text"
                     value={m.label}
                     onChange={(e) => updateMetric(i, "label", e.target.value)}
-                    placeholder="Label"
+                    placeholder="Etiqueta"
                     data-testid={`metric-label-${i}`}
                     className={inputCls}
                   />
@@ -237,14 +237,14 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
                     type="text"
                     value={m.value}
                     onChange={(e) => updateMetric(i, "value", e.target.value)}
-                    placeholder="Value"
+                    placeholder="Valor"
                     data-testid={`metric-value-${i}`}
                     className={inputCls}
                   />
                   <button
                     type="button"
                     onClick={() => removeMetric(i)}
-                    aria-label="Remove metric"
+                    aria-label="Eliminar métrica"
                     className="h-9 w-9 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[var(--hc-text)] transition-colors"
                   >
                     <X className="h-4 w-4" strokeWidth={1.5} />
@@ -267,7 +267,7 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
               data-testid="company-editor-cancel"
               className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -275,7 +275,7 @@ export const CompanyEditorDialog = ({ open, onOpenChange, initial, onSaved }) =>
               data-testid="company-editor-save"
               className="px-6 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-60"
             >
-              {saving ? "Saving…" : initial ? "Save Changes" : "Add Company"}
+              {saving ? "Guardando..." : initial ? "Guardar cambios" : "Añadir compañía"}
             </button>
           </DialogFooter>
         </form>

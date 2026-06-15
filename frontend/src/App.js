@@ -11,6 +11,8 @@ import PublicLanding from "@/pages/PublicLanding";
 import AccessDenied from "@/pages/AccessDenied";
 import AcceptInvite from "@/pages/AcceptInvite";
 import Dashboard from "@/pages/Dashboard";
+import BooksLibrary from "@/pages/BooksLibrary";
+import BookDetail from "@/pages/BookDetail";
 import ResearchLibrary from "@/pages/ResearchLibrary";
 import ResearchDetail from "@/pages/ResearchDetail";
 import InvestmentEducation from "@/pages/InvestmentEducation";
@@ -45,6 +47,8 @@ function App() {
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/books" element={<BooksLibrary />} />
+              <Route path="/books/:id" element={<BookDetail />} />
               <Route path="/research" element={<ResearchLibrary />} />
               <Route path="/research/:id" element={<ResearchDetail />} />
               <Route path="/education" element={<InvestmentEducation />} />

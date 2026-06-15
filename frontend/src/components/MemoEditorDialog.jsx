@@ -31,7 +31,7 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !body || body === "<p></p>") {
-      setError("Title and body are required.");
+      setError("El título y el cuerpo son obligatorios.");
       return;
     }
     setSaving(true);
@@ -54,16 +54,16 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
         data-testid="memo-editor-dialog"
       >
         <DialogHeader>
-          <div className="hc-overline mb-1">Analyst Memo</div>
-          <DialogTitle className="text-xl font-medium tracking-tight">Add Memo</DialogTitle>
+          <div className="hc-overline mb-1">Memo del analista</div>
+          <DialogTitle className="text-xl font-medium tracking-tight">Añadir memo</DialogTitle>
           <DialogDescription className="text-[var(--hc-text-secondary)] text-sm tracking-tight">
-            Publish an analyst observation to this company's memo feed.
+            Publica una observación del analista en el historial de la compañía.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4">
           <div>
-            <label className={labelCls}>Title</label>
+            <label className={labelCls}>Título</label>
             <input
               type="text"
               value={title}
@@ -74,11 +74,11 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
             />
           </div>
           <div>
-            <label className={labelCls}>Body</label>
+            <label className={labelCls}>Cuerpo</label>
             <RichTextEditor
               value={body}
               onChange={(html) => setBody(html)}
-              placeholder="The analyst observation, in detail."
+              placeholder="Observación del analista, en detalle."
               testid="memo-body"
             />
           </div>
@@ -95,7 +95,7 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
               onClick={() => onOpenChange(false)}
               className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               type="submit"
@@ -103,7 +103,7 @@ export const MemoEditorDialog = ({ open, onOpenChange, companyId, onSaved }) => 
               data-testid="memo-save"
               className="px-6 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Publish Memo"}
+              {saving ? "Guardando..." : "Publicar memo"}
             </button>
           </DialogFooter>
         </form>

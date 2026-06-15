@@ -66,18 +66,18 @@ export default function CompanyDetail() {
   };
 
   if (loading) {
-    return <div className="text-sm text-[var(--hc-text-muted)] py-16 text-center">Cargando…</div>;
+    return <div className="text-sm text-[var(--hc-text-muted)] py-16 text-center">Cargando...</div>;
   }
   if (error || !company) {
     return (
       <div className="py-16 text-center">
-        <div className="hc-overline mb-2">Unavailable</div>
-        <div className="text-[var(--hc-text-secondary)] text-sm">{error || "Not found"}</div>
+        <div className="hc-overline mb-2">No disponible</div>
+        <div className="text-[var(--hc-text-secondary)] text-sm">{error || "No encontrado"}</div>
         <Link
           to="/companies"
           className="inline-flex items-center gap-2 mt-6 text-xs tracking-[0.18em] uppercase text-[var(--hc-gold)] hover:underline underline-offset-4"
         >
-          <ArrowLeft className="h-3 w-3" /> Back to coverage
+          <ArrowLeft className="h-3 w-3" /> Volver a cobertura
         </Link>
       </div>
     );
@@ -92,7 +92,7 @@ export default function CompanyDetail() {
         data-testid="company-back"
         className="inline-flex items-center gap-2 text-xs tracking-[0.18em] uppercase text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
       >
-        <ArrowLeft className="h-3 w-3" /> Coverage
+        <ArrowLeft className="h-3 w-3" /> Cobertura
       </Link>
 
       {/* Header */}
@@ -134,20 +134,20 @@ export default function CompanyDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-10">
         {/* Thesis body */}
         <div className="lg:col-span-2">
-          <Panel overline="Thesis" title="Investment Case" testid="panel-thesis">
+          <Panel overline="Tesis" title="Caso de inversión" testid="panel-thesis">
             {company.thesis_body ? (
               <div className="text-[var(--hc-text)] tracking-tight leading-[1.75] whitespace-pre-wrap text-[1rem]">
                 {company.thesis_body}
               </div>
             ) : (
-              <div className="text-sm text-[var(--hc-text-muted)] italic">No thesis written yet.</div>
+              <div className="text-sm text-[var(--hc-text-muted)] italic">Aún no hay tesis escrita.</div>
             )}
           </Panel>
 
           {/* Memos */}
           <div className="mt-6">
             <Panel
-              overline="Analyst Memo Feed"
+              overline="Comentarios del analista"
               title={`Memos${memos.length ? ` · ${memos.length}` : ""}`}
               testid="panel-memos"
               action={
@@ -157,14 +157,14 @@ export default function CompanyDetail() {
                     data-testid="add-memo-button"
                     className="flex items-center gap-1.5 px-3 py-1.5 text-[0.7rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-gold)] hover:bg-[var(--hc-gold-soft)] transition-colors"
                   >
-                    <Plus className="h-3 w-3" strokeWidth={1.5} /> Add Memo
+                    <Plus className="h-3 w-3" strokeWidth={1.5} /> Añadir memo
                   </button>
                 )
               }
             >
               {memos.length === 0 ? (
                 <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center italic">
-                  No memos yet.
+                  Aún no hay memos.
                 </div>
               ) : (
                 <div className="space-y-6 divide-y divide-[var(--hc-border)]">
@@ -265,7 +265,7 @@ export default function CompanyDetail() {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar esta empresa?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar esta compañía?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
               Se eliminarán todos los memos y comentarios del analista.
             </AlertDialogDescription>

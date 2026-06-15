@@ -42,12 +42,12 @@ export default function CompanyAnalysis() {
     <div data-testid="companies-page">
       <PageHeader
         overline="Academia · Cobertura"
-        title="Análisis de Empresas"
+        title="Análisis de compañías"
         description="Cobertura profunda de empresas — tesis, fundamentales y seguimiento del analista."
         actions={
           isAdmin && (
             <AdminAction
-              label="Añadir empresa"
+          label="Añadir compañía"
               testid="new-company-button"
               onClick={() => setEditorOpen(true)}
             />
@@ -65,7 +65,7 @@ export default function CompanyAnalysis() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por ticker o empresa…"
+            placeholder="Buscar por ticker o compañía..."
             data-testid="companies-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
           />
@@ -95,15 +95,16 @@ export default function CompanyAnalysis() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando...</div>
       ) : items.length === 0 ? (
         <EmptyState
           icon={BarChart3}
+          overline="Cobertura"
           title="Lista de cobertura pendiente"
           description={
             isAdmin
-              ? "Usa «Añadir empresa» para construir la cobertura."
-              : "Las empresas de nuestra cobertura aparecerán aquí con tesis, métricas y memos del analista."
+              ? "Usa «Añadir compañía» para construir la cobertura."
+              : "Las compañías de nuestra cobertura aparecerán aquí con tesis, métricas y memos del analista."
           }
         />
       ) : (
@@ -113,7 +114,7 @@ export default function CompanyAnalysis() {
               key={c.id}
               to={`/companies/${c.id}`}
               data-testid={`company-row-${c.ticker}`}
-              className="group grid grid-cols-[110px_1fr_120px_80px_24px] items-center gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
+              className="group grid grid-cols-1 md:grid-cols-[110px_1fr_120px_80px_24px] items-start md:items-center gap-3 md:gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
             >
               <div className="text-sm font-semibold tracking-[0.1em] text-[var(--hc-text)] uppercase">
                 {c.ticker}
@@ -135,7 +136,7 @@ export default function CompanyAnalysis() {
                 <StatusBadge status={c.status} />
               </div>
               <ArrowUpRight
-                className="h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)] transition-colors"
+                className="hidden md:block h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)] transition-colors"
                 strokeWidth={1.5}
               />
             </Link>

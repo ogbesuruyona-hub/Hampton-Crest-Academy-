@@ -13,7 +13,7 @@ export const ProtectedRoute = ({ children }) => {
       >
         <div className="flex flex-col items-center gap-3">
           <div className="w-1 h-1 bg-[var(--hc-gold)] rounded-full animate-pulse" />
-          <div className="hc-overline">Authenticating</div>
+          <div className="hc-overline">Autenticando</div>
         </div>
       </div>
     );
