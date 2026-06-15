@@ -1,24 +1,30 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
-import { ContentCard } from "../components/ContentCard";
-import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
+import { BookEditorDialog } from "../components/BookEditorDialog";
+import { BookCard } from "../components/BookCard";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
-import { RESEARCH_CATEGORIES } from "../lib/content";
-import { FileSearch, Search } from "lucide-react";
+import { LIBRARY_CATEGORIES } from "../lib/content";
+import { BookOpen, Search } from "lucide-react";
 
-export default function ResearchLibrary() {
+export default function BooksLibrary() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(searchParams.get("q") || "");
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    setQ(searchParams.get("q") || "");
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -27,7 +33,7 @@ export default function ResearchLibrary() {
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/research", { params });
+      const { data } = await api.get("/books", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -43,22 +49,22 @@ export default function ResearchLibrary() {
     setEditorOpen(true);
   };
 
-  const openEdit = (item) => {
-    setEditing(item);
+  const openEdit = (book) => {
+    setEditing(book);
     setEditorOpen(true);
   };
 
   return (
-    <div data-testid="research-page">
+    <div data-testid="books-page">
       <PageHeader
-        overline="Academia · Investigación"
-        title="Investigación Interna"
-        description="Notas internas, tesis y análisis publicados por Hampton Crest para miembros de la academia."
+        overline="Academia · Libros"
+        title="Biblioteca de Libros"
+        description="Una estantería curada de libros seleccionados por Hampton Crest. Cada volumen abre en su fuente original."
         actions={
           isAdmin && (
             <AdminAction
-              label="Nueva nota"
-              testid="new-research-button"
+              label="Nuevo libro"
+              testid="new-book-button"
               onClick={openNew}
             />
           )
@@ -75,8 +81,8 @@ export default function ResearchLibrary() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar investigación..."
-            data-testid="research-search"
+            placeholder="Buscar libro, autor o tema..."
+            data-testid="books-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           />
         </div>
@@ -84,7 +90,7 @@ export default function ResearchLibrary() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            data-testid="research-status-filter"
+            data-testid="books-status-filter"
             className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           >
             <option value="">Todos</option>
@@ -94,10 +100,10 @@ export default function ResearchLibrary() {
         )}
       </div>
 
-      <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="research-categories">
+      <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="books-categories">
         <button
           onClick={() => setCategory("")}
-          data-testid="research-category-all"
+          data-testid="book-category-all"
           className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
             !category
               ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
@@ -106,7 +112,7 @@ export default function ResearchLibrary() {
         >
           Todas
         </button>
-        {RESEARCH_CATEGORIES.map((c) => (
+        {LIBRARY_CATEGORIES.map((c) => (
           <button
             key={c}
             onClick={() => setCategory(c)}
@@ -123,39 +129,37 @@ export default function ResearchLibrary() {
 
       {loading ? (
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
-          Cargando investigación...
+          Cargando biblioteca...
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          icon={FileSearch}
-          overline="Investigación interna"
-          title="Investigación en preparación"
+          icon={BookOpen}
+          overline="Biblioteca"
+          title="La biblioteca se está preparando"
           description={
             isAdmin
-              ? "Usa «Nueva nota» para publicar la primera investigación interna."
-              : "Las notas internas aparecerán aquí cuando sean publicadas por el equipo de Hampton Crest."
+              ? "Usa «Nuevo libro» para añadir el primer volumen."
+              : "Los libros curados aparecerán aquí cuando estén disponibles. Mientras tanto, puedes continuar con educación o investigación interna."
           }
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="research-list">
-          {items.map((it) => (
-            <ContentCard
-              key={it.id}
-              item={it}
-              contentType="research"
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="books-list">
+          {items.map((b) => (
+            <BookCard
+              key={b.id}
+              book={b}
               showStatus={isAdmin}
               isAdmin={isAdmin}
-              onEdit={openEdit}
+              onEdit={() => openEdit(b)}
               onDeleted={load}
             />
           ))}
         </div>
       )}
 
-      <ContentEditorDialog
+      <BookEditorDialog
         open={editorOpen}
         onOpenChange={setEditorOpen}
-        contentType="research"
         initial={editing}
         onSaved={load}
       />

@@ -19,7 +19,7 @@ export const RichContent = ({ html, testid }) => {
   if (!html) {
     return (
       <span data-testid={testid} className="text-[var(--hc-text-muted)] italic">
-        No body content.
+        Sin contenido.
       </span>
     );
   }

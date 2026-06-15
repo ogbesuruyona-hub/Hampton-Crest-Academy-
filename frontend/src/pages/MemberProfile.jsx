@@ -158,7 +158,7 @@ export default function MemberProfile() {
                   placeholder="+1 555 123 4567"
                   maxLength={40}
                 />
-                <Field label="Email" value={user?.email} testid="profile-email" />
+                <Field label="Correo electrónico" value={user?.email} testid="profile-email" />
                 <Field
                   label="Rol"
                   value={user?.role === "admin" ? "administrador" : "miembro"}
@@ -170,7 +170,7 @@ export default function MemberProfile() {
               <>
                 <Field label="Nombre completo" value={user?.name} testid="profile-name" />
                 <Field label="Teléfono" value={user?.phone} testid="profile-phone" />
-                <Field label="Email" value={user?.email} testid="profile-email" />
+                <Field label="Correo electrónico" value={user?.email} testid="profile-email" />
                 <Field
                   label="Rol"
                   value={user?.role === "admin" ? "administrador" : "miembro"}

@@ -4,26 +4,27 @@ import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
 import { api } from "../lib/api";
 import { CONTENT_TYPES, formatDate, formatPeriod } from "../lib/content";
-import { Search, ArrowUpRight, ExternalLink } from "lucide-react";
+import { Search, ArrowUpRight } from "lucide-react";
 
 const SECTIONS = [
   { key: "books", icon: "Libros", api: "books", external: true },
   { key: "research", icon: "Investigación", api: "research" },
   { key: "education", icon: "Educación", api: "education" },
   { key: "reports", icon: "Reportes", api: "reports" },
-  { key: "companies", icon: "Empresas", api: "companies" },
+  { key: "companies", icon: "Compañías", api: "companies" },
 ];
 
 const ResultRow = ({ item, section }) => {
   const cfg = CONTENT_TYPES[section];
   if (section === "books") {
+    const bookTo = item.id
+      ? `/books/${item.id}`
+      : `/books?q=${encodeURIComponent(item.title || "")}`;
     return (
-      <a
-        href={item.external_url}
-        target="_blank"
-        rel="noopener noreferrer"
+      <Link
+        to={bookTo}
         data-testid={`result-${section}-${item.id}`}
-        className="group grid grid-cols-[100px_1fr_24px] gap-4 items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
+        className="group grid grid-cols-1 sm:grid-cols-[100px_1fr_24px] gap-2 sm:gap-4 items-start sm:items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
       >
         <span className="hc-overline">{item.author || item.category || "Libro"}</span>
         <div className="min-w-0">
@@ -36,8 +37,8 @@ const ResultRow = ({ item, section }) => {
             </div>
           )}
         </div>
-        <ExternalLink className="h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]" strokeWidth={1.5} />
-      </a>
+        <ArrowUpRight className="hidden sm:block h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]" strokeWidth={1.5} />
+      </Link>
     );
   }
   const dateLabel = section === "reports"
@@ -50,7 +51,7 @@ const ResultRow = ({ item, section }) => {
     <Link
       to={cfg.detailRoute(item.id)}
       data-testid={`result-${section}-${item.id}`}
-      className="group grid grid-cols-[140px_1fr_24px] gap-4 items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
+      className="group grid grid-cols-1 sm:grid-cols-[140px_1fr_24px] gap-2 sm:gap-4 items-start sm:items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
     >
       <span className="hc-overline">{dateLabel}</span>
       <div className="min-w-0">
@@ -63,7 +64,7 @@ const ResultRow = ({ item, section }) => {
           </div>
         )}
       </div>
-      <ArrowUpRight className="h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]" strokeWidth={1.5} />
+      <ArrowUpRight className="hidden sm:block h-4 w-4 text-[var(--hc-text-muted)] group-hover:text-[var(--hc-gold)]" strokeWidth={1.5} />
     </Link>
   );
 };
@@ -125,12 +126,15 @@ export default function SearchResults() {
           Escribe arriba para buscar contenido.
         </div>
       ) : loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Buscando…</div>
+        <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
+          Buscando en la academia...
+        </div>
       ) : !results || results.total === 0 ? (
         <EmptyState
           icon={Search}
+          overline="Búsqueda"
           title="Sin resultados"
-          description={`No encontramos contenido para "${q}". Prueba otras palabras clave.`}
+          description={`No encontramos contenido para "${q}". Prueba con otro concepto, ticker, autor o tema de inversión.`}
         />
       ) : (
         <div className="space-y-10">

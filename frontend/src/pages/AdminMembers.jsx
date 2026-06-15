@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const StatusPill = ({ user }) => {
   if (user.role === "admin") {
@@ -85,7 +86,7 @@ export default function AdminMembers() {
       await api.put(`/admin/members/${user.id}`, { complimentary: !user.complimentary });
       await load();
     } catch (e) {
-      alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
   };
 
@@ -94,7 +95,7 @@ export default function AdminMembers() {
       await api.post(`/admin/members/${user.id}/revoke`);
       await load();
     } catch (e) {
-      alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
   };
 
@@ -102,13 +103,13 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/resend-invite`);
       if (data.email_sent) {
-        alert("Email de invitación enviado.");
+        toast.success("Correo de invitación enviado.");
       } else {
         await navigator.clipboard?.writeText(data.invite_link);
-        alert(`Envío de email desactivado. Enlace de invitación copiado al portapapeles:\n\n${data.invite_link}`);
+        toast.success("Correo desactivado. Enlace de invitación copiado.");
       }
     } catch (e) {
-      alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
   };
 
@@ -116,9 +117,9 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/invite-link`);
       await navigator.clipboard?.writeText(data.invite_link);
-      alert(`Enlace copiado al portapapeles (expira en ${data.expires_in_days} días):\n\n${data.invite_link}`);
+      toast.success(`Enlace copiado. Expira en ${data.expires_in_days} días.`);
     } catch (e) {
-      alert(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
   };
 
@@ -161,7 +162,7 @@ export default function AdminMembers() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por email o nombre…"
+            placeholder="Buscar por correo o nombre..."
             data-testid="members-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
           />
@@ -228,7 +229,7 @@ export default function AdminMembers() {
                       <button
                         onClick={() => resendInvite(m)}
                         data-testid={`resend-invite-${m.id}`}
-                        title="Reenviar invitación (email si está activo, enlace si no)"
+                        title="Reenviar invitación (correo si está activo, enlace si no)"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />

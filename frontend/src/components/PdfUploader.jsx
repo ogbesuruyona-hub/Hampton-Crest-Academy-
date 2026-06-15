@@ -16,11 +16,11 @@ export const PdfUploader = ({ value, onChange, testid }) => {
     if (!file) return;
     setError("");
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Only PDF files are accepted.");
+      setError("Solo se aceptan archivos PDF.");
       return;
     }
     if (file.size > 25 * 1024 * 1024) {
-      setError("File exceeds 25 MB limit.");
+      setError("El archivo supera el límite de 25 MB.");
       return;
     }
     setUploading(true);
@@ -36,7 +36,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
         size: data.size,
       });
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Upload failed");
+      setError(err.response?.data?.detail || err.message || "No se pudo subir el archivo.");
     } finally {
       setUploading(false);
     }
@@ -76,7 +76,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
           <button
             type="button"
             onClick={remove}
-            aria-label="Remove PDF"
+            aria-label="Quitar PDF"
             data-testid="pdf-remove"
             className="h-8 w-8 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[#E07A7A] transition-colors"
           >
@@ -97,7 +97,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
             <Upload className="h-4 w-4" strokeWidth={1.5} />
           )}
           <span className="text-xs tracking-[0.18em] uppercase">
-            {uploading ? "Uploading…" : "Attach PDF (max 25 MB)"}
+            {uploading ? "Subiendo..." : "Adjuntar PDF (máx. 25 MB)"}
           </span>
         </button>
       )}

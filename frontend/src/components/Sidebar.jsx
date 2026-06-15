@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
   BookOpen,
+  FileSearch,
   GraduationCap,
   FileText,
   BarChart3,
@@ -18,10 +19,11 @@ import { useAuth } from "../context/AuthContext";
 
 const NAV = [
   { to: "/dashboard", label: "Panel", icon: LayoutGrid, testid: "nav-dashboard" },
-  { to: "/research", label: "Biblioteca", icon: BookOpen, testid: "nav-research" },
+  { to: "/books", label: "Libros", icon: BookOpen, testid: "nav-books" },
+  { to: "/research", label: "Investigación", icon: FileSearch, testid: "nav-research" },
   { to: "/education", label: "Educación", icon: GraduationCap, testid: "nav-education" },
   { to: "/reports", label: "Reportes Mensuales", icon: FileText, testid: "nav-reports" },
-  { to: "/companies", label: "Análisis de Empresas", icon: BarChart3, testid: "nav-companies" },
+  { to: "/companies", label: "Análisis de compañías", icon: BarChart3, testid: "nav-companies" },
   { to: "/valuation", label: "Valoración de Activos", icon: Sparkles, testid: "nav-valuation" },
   { to: "/saved", label: "Guardados", icon: Bookmark, testid: "nav-saved" },
   { to: "/settings", label: "Ajustes", icon: SettingsIcon, testid: "nav-settings" },

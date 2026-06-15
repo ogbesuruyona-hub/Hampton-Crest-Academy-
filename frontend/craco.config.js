@@ -61,6 +61,8 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  devServerConfig.historyApiFallback = true;
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
@@ -96,5 +98,43 @@ if (isDevServer) {
     }
   }
 }
+
+const configuredDevServer = webpackConfig.devServer;
+webpackConfig.devServer = (devServerConfig) => {
+  const resolvedConfig =
+    typeof configuredDevServer === "function"
+      ? configuredDevServer(devServerConfig)
+      : { ...devServerConfig, ...(configuredDevServer || {}) };
+  const setupMiddlewares = resolvedConfig.setupMiddlewares;
+
+  return {
+    ...resolvedConfig,
+    historyApiFallback: {
+      disableDotRule: true,
+    },
+    setupMiddlewares: (middlewares, devServer) => {
+      if (typeof setupMiddlewares === "function") {
+        middlewares = setupMiddlewares(middlewares, devServer);
+      }
+
+      middlewares.unshift({
+        name: "spa-route-fallback",
+        middleware: (req, _res, next) => {
+          if (
+            req.method === "GET" &&
+            req.headers.accept?.includes("text/html") &&
+            !req.path.includes(".") &&
+            !req.path.startsWith("/api")
+          ) {
+            req.url = "/";
+          }
+          next();
+        },
+      });
+
+      return middlewares;
+    },
+  };
+};
 
 module.exports = webpackConfig;

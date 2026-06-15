@@ -56,13 +56,13 @@ export default function MemberDirectory() {
     <div data-testid="directory-page">
       <PageHeader
         overline="Academia · Directorio"
-        title="Member Directory"
-        description="A discreet roster of fellow Hampton Crest members. Use it to find a name, drop a line, or pick up the phone."
+        title="Directorio de miembros"
+        description="Un directorio discreto de miembros de Hampton Crest. Úsalo para encontrar un nombre, escribir un correo o hacer una llamada."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5">
-          <div className="hc-overline">Listed</div>
+          <div className="hc-overline">Miembros listados</div>
           <div
             data-testid="directory-total"
             className="mt-2 text-2xl font-medium tracking-tight text-[var(--hc-text)]"
@@ -71,10 +71,9 @@ export default function MemberDirectory() {
           </div>
         </div>
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5 sm:col-span-2">
-          <div className="hc-overline">Confidentiality</div>
+          <div className="hc-overline">Confidencialidad</div>
           <div className="mt-2 text-xs text-[var(--hc-text-secondary)] tracking-tight leading-relaxed">
-            Contact details are visible only to active charter members. Treat with the discretion
-            this circle expects.
+            Los datos de contacto son visibles solo para miembros activos. Trátalos con la discreción que este círculo espera.
           </div>
         </div>
       </div>
@@ -89,7 +88,7 @@ export default function MemberDirectory() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, email, or phone…"
+            placeholder="Buscar por nombre, email o teléfono..."
             data-testid="directory-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
           />
@@ -97,10 +96,11 @@ export default function MemberDirectory() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando...</div>
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
+          overline="Directorio"
           title="No hay miembros para mostrar"
           description="A medida que el círculo crezca, los miembros aparecerán aquí."
         />

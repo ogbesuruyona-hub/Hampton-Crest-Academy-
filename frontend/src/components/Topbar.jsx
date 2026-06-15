@@ -42,7 +42,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
         <button
           className="lg:hidden p-2 -ml-2 text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
           onClick={onOpenMobileSidebar}
-          aria-label="Open navigation"
+          aria-label="Abrir navegación"
           data-testid="mobile-menu-button"
         >
           <Menu className="h-5 w-5" strokeWidth={1.5} />
@@ -67,7 +67,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
         <div className="flex items-center gap-2">
           <button
             className="hidden sm:flex items-center justify-center h-9 w-9 text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface)] transition-colors"
-            aria-label="Notifications"
+            aria-label="Notificaciones"
             data-testid="topbar-notifications"
           >
             <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
