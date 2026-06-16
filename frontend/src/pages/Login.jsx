@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api, formatApiErrorDetail } from "../lib/api";
 
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
@@ -9,13 +10,14 @@ export default function Login() {
   const { user, login, register, verify2fa } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [mode, setMode] = useState("login"); // "login" | "register" | "2fa"
+  const [mode, setMode] = useState("login"); // "login" | "register" | "2fa" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [tempToken, setTempToken] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(location.state?.passwordReset ? "Tu contraseña fue actualizada. Ya puedes iniciar sesión." : "");
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
@@ -26,7 +28,20 @@ export default function Login() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setNotice("");
     setSubmitting(true);
+    if (mode === "forgot") {
+      try {
+        await api.post("/auth/password-reset/request", { email });
+        setNotice("Si existe una cuenta con ese correo, enviaremos un enlace para restablecer la contraseña.");
+        setEmail("");
+      } catch (e2) {
+        setError(formatApiErrorDetail(e2.response?.data?.detail) || e2.message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (mode === "2fa") {
       const res = await verify2fa(tempToken, code);
       setSubmitting(false);
@@ -66,6 +81,7 @@ export default function Login() {
 
   const isLogin = mode === "login";
   const is2fa = mode === "2fa";
+  const isForgot = mode === "forgot";
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--hc-bg)] text-[var(--hc-text)]">
@@ -140,16 +156,20 @@ export default function Login() {
           <div className="hc-overline mb-3">
             {is2fa
               ? "Verificación en dos pasos"
+              : isForgot
+                ? "Recuperar acceso"
               : isLogin
                 ? "Acceso de miembro"
                 : "Registro de miembro"}
           </div>
           <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] text-[var(--hc-text)]">
-            {is2fa ? "Ingresa tu código" : isLogin ? "Accede a la academia" : "Crea tu cuenta"}
+            {is2fa ? "Ingresa tu código" : isForgot ? "Restablece tu contraseña" : isLogin ? "Accede a la academia" : "Crea tu cuenta"}
           </h1>
           <p className="mt-3 text-sm text-[var(--hc-text-secondary)] tracking-tight">
             {is2fa
               ? "Abre tu app de autenticación e ingresa el código de 6 dígitos, o usa un código de respaldo."
+              : isForgot
+                ? "Ingresa tu correo y te enviaremos un enlace privado para crear una nueva contraseña."
               : isLogin
                 ? "Ingresa tus credenciales para continuar."
                 : "Reservado para miembros verificados de la academia."}
@@ -177,6 +197,19 @@ export default function Login() {
                   data-testid="twofa-code-input"
                   className={`${inputCls} tracking-[0.4em] text-center text-lg`}
                   placeholder="••••••"
+                />
+              </div>
+            ) : isForgot ? (
+              <div>
+                <label className="hc-overline block mb-2">Correo electrónico</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  data-testid="forgot-email-input"
+                  className={inputCls}
                 />
               </div>
             ) : (
@@ -212,9 +245,19 @@ export default function Login() {
                   <div className="flex items-center justify-between mb-2">
                     <label className="hc-overline">Contraseña</label>
                     {isLogin && (
-                      <span className="text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
-                        mín. 8 caracteres
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("forgot");
+                          setPassword("");
+                          setError("");
+                          setNotice("");
+                        }}
+                        data-testid="forgot-password-link"
+                        className="text-[0.7rem] text-[var(--hc-gold)] tracking-tight hover:underline underline-offset-4"
+                      >
+                        Olvidé mi contraseña
+                      </button>
                     )}
                   </div>
                   <input
@@ -240,6 +283,15 @@ export default function Login() {
               </div>
             )}
 
+            {notice && (
+              <div
+                data-testid="auth-notice"
+                className="text-xs tracking-tight text-[var(--hc-text)] border border-[var(--hc-border)] bg-[var(--hc-surface)] px-3 py-2"
+              >
+                {notice}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={submitting}
@@ -247,9 +299,11 @@ export default function Login() {
               className="w-full bg-[var(--hc-platinum)] text-[var(--hc-bg)] py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-white transition-colors disabled:opacity-60"
             >
               {submitting
-                ? "Autenticando…"
+                ? isForgot ? "Enviando..." : "Autenticando…"
                 : is2fa
                   ? "Verificar"
+                  : isForgot
+                    ? "Enviar enlace"
                   : isLogin
                     ? "Iniciar sesión"
                     : "Crear cuenta"}
@@ -268,6 +322,19 @@ export default function Login() {
                 className="w-full text-xs tracking-tight text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] underline underline-offset-4 transition-colors"
               >
                 Cancelar y volver a iniciar sesión
+              </button>
+            ) : isForgot ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                  setNotice("");
+                }}
+                data-testid="forgot-back"
+                className="w-full text-xs tracking-tight text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] underline underline-offset-4 transition-colors"
+              >
+                Volver al inicio de sesión
               </button>
             ) : (
               <div className="text-xs text-[var(--hc-text-secondary)] text-center tracking-tight">

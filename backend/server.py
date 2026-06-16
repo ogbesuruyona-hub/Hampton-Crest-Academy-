@@ -70,6 +70,18 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 FRAMER_URL = os.environ.get("FRAMER_URL", "")
 PAYMENT_LINK_URL = os.environ.get("PAYMENT_LINK_URL", "")
 INVITE_TOKEN_TTL_DAYS = 7
+MEMBERSHIP_PENDING = "pending"
+MEMBERSHIP_ACTIVE = "active"
+MEMBERSHIP_PAST_DUE = "past_due"
+MEMBERSHIP_CANCELED = "canceled"
+MEMBERSHIP_EXPIRED = "expired"
+MEMBERSHIP_STATES = {
+    MEMBERSHIP_PENDING,
+    MEMBERSHIP_ACTIVE,
+    MEMBERSHIP_PAST_DUE,
+    MEMBERSHIP_CANCELED,
+    MEMBERSHIP_EXPIRED,
+}
 
 # Object storage config
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
@@ -197,6 +209,7 @@ async def get_current_user(
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        user = await refresh_membership_state(user)
         return serialize_user(user)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -363,7 +376,7 @@ def _digest_html(*, title: str, summary: str, category: Optional[str], content_t
           <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:12px 24px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:600;">Read on Hampton Crest</a>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
-          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
         </td></tr>
       </table>
     </td></tr>
@@ -443,9 +456,15 @@ class UserPublic(BaseModel):
     created_at: Optional[datetime] = None
     totp_enabled: bool = False
     email_digest_opt_in: bool = True
-    membership_status: str = "inactive"
+    membership_status: str = MEMBERSHIP_PENDING
+    subscription_status: Optional[str] = None
     complimentary: bool = False
+    current_period_start: Optional[datetime] = None
     current_period_end: Optional[datetime] = None
+    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
+    last_payment_status: Optional[str] = None
+    last_payment_at: Optional[datetime] = None
     phone: Optional[str] = None
 
 
@@ -458,6 +477,15 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
 
 
 class AuthResponse(BaseModel):
@@ -516,6 +544,9 @@ async def register(payload: RegisterRequest):
         "created_at": now_utc(),
         "totp_enabled": False,
         "email_digest_opt_in": True,
+        "membership_status": MEMBERSHIP_PENDING,
+        "subscription_status": MEMBERSHIP_PENDING,
+        "complimentary": False,
     }
     result = await db.users.insert_one(doc)
     token = create_access_token(str(result.inserted_id), email)
@@ -525,13 +556,52 @@ async def register(payload: RegisterRequest):
     )
 
 
+def _normalise_membership_status(status: Optional[str]) -> str:
+    if status == "inactive":
+        return MEMBERSHIP_EXPIRED
+    if status in MEMBERSHIP_STATES:
+        return status
+    return MEMBERSHIP_PENDING
+
+
+def _period_is_current(user_doc: dict) -> bool:
+    period_end = ensure_utc(user_doc.get("current_period_end"))
+    return bool(period_end and period_end >= now_utc())
+
+
 def has_access(user_doc: dict) -> bool:
-    """Admin always; members need active subscription or complimentary flag."""
+    """Admin always; members need active paid access or complimentary access."""
     if user_doc.get("role") == "admin":
         return True
     if user_doc.get("complimentary"):
         return True
-    return user_doc.get("membership_status") == "active"
+    status = _normalise_membership_status(user_doc.get("membership_status"))
+    if status == MEMBERSHIP_ACTIVE:
+        period_end = ensure_utc(user_doc.get("current_period_end"))
+        return period_end is None or period_end >= now_utc()
+    if status in {MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED}:
+        return _period_is_current(user_doc)
+    return False
+
+
+async def refresh_membership_state(user_doc: dict) -> dict:
+    """Expire paid access once a non-renewed billing period has elapsed."""
+    if not user_doc or user_doc.get("role") == "admin" or user_doc.get("complimentary"):
+        return user_doc
+    status = _normalise_membership_status(user_doc.get("membership_status"))
+    period_end = ensure_utc(user_doc.get("current_period_end"))
+    if status in {MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED} and period_end and period_end < now_utc():
+        updates = {
+            "membership_status": MEMBERSHIP_EXPIRED,
+            "subscription_status": MEMBERSHIP_EXPIRED,
+            "membership_inactive_reason": "period_ended",
+            "updated_at": now_utc(),
+        }
+        await db.users.update_one({"_id": user_doc["_id"]}, {"$set": updates})
+        return {**user_doc, **updates}
+    if user_doc.get("membership_status") == "inactive":
+        user_doc = {**user_doc, "membership_status": MEMBERSHIP_EXPIRED}
+    return user_doc
 
 
 async def require_member(current_user: dict = Depends(get_current_user)) -> dict:
@@ -549,6 +619,7 @@ async def login(payload: LoginRequest, request: Request):
         await record_failure(request, email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
     await clear_attempts(request, email)
+    user = await refresh_membership_state(user)
     if not has_access(user):
         raise HTTPException(status_code=403, detail="membership_inactive")
     if user.get("totp_enabled"):
@@ -571,6 +642,7 @@ async def two_fa_verify(payload: TwoFAVerify):
     user = await db.users.find_one({"_id": ObjectId(decoded["sub"])})
     if not user or not user.get("totp_enabled"):
         raise HTTPException(401, "Invalid state")
+    user = await refresh_membership_state(user)
     if not _verify_totp_or_backup(user, payload.code):
         raise HTTPException(401, "Invalid 2FA code")
     if not has_access(user):
@@ -693,7 +765,13 @@ async def member_directory(
         "$or": [
             {"role": "admin"},
             {"complimentary": True},
-            {"membership_status": "active"},
+            {"membership_status": MEMBERSHIP_ACTIVE},
+            {
+                "$and": [
+                    {"membership_status": {"$in": [MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]}},
+                    {"current_period_end": {"$gte": now_utc()}},
+                ],
+            },
         ],
     }
     if q:
@@ -1128,7 +1206,7 @@ async def delete_book(content_id: str, current_user: dict = Depends(require_admi
 
 
 # ---------------- Routes: search ----------------
-# Extracted to routers/search.py — registered after api_router is fully built.
+# Extracted to routers/search.py â€” registered after api_router is fully built.
 
 
 # ---------------- Routes: bookmarks ----------------
@@ -1311,14 +1389,14 @@ def _welcome_email_html(name: str, link: str) -> str:
         <tr><td style="padding:28px 36px 24px 36px;">
           <div style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:12px;">Welcome, {safe_name}</div>
           <h1 style="margin:0 0 16px 0;color:#f4f6f8;font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;">Your charter has been issued.</h1>
-          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Your subscription is active. Set your password to access the members' suite — research, education, monthly reports, and company coverage.</p>
+          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Your subscription is active. Set your password to access the members' suite â€” research, education, monthly reports, and company coverage.</p>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;">
           <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:14px 28px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;">Set my password</a>
           <p style="color:#5b667a;font-size:11px;line-height:1.7;margin:20px 0 0 0;">This invitation link expires in 7 days. If you didn't expect this email, ignore it.</p>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
-          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
         </td></tr>
       </table>
     </td></tr>
@@ -1347,7 +1425,70 @@ async def _send_welcome_email(email: str, name: str, token: str):
     await send_email(email, "Welcome to Hampton Crest Academy", html)
 
 
-async def _activate_or_create_member(*, email: str, name: Optional[str], stripe_customer_id: Optional[str], stripe_subscription_id: Optional[str], current_period_end: Optional[datetime]):
+def _password_reset_email_html(name: str, link: str) -> str:
+    safe_name = (name or "Member").replace("<", "&lt;").replace(">", "&gt;")
+    return f"""<!doctype html>
+<html><body style="margin:0;padding:0;background:#050914;font-family:Helvetica,Arial,sans-serif;color:#f4f6f8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050914;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0c1222;border:1px solid #212a3f;">
+        <tr><td style="padding:32px 36px 8px 36px;">
+          <div style="color:#d4af37;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;font-weight:600;">Hampton Crest</div>
+          <div style="color:#5b667a;font-size:10px;letter-spacing:0.4em;text-transform:uppercase;margin-top:2px;">Academy</div>
+        </td></tr>
+        <tr><td style="padding:24px 36px 0 36px;">
+          <div style="height:1px;background:linear-gradient(to right,transparent,#d4af37,transparent);opacity:0.6;"></div>
+        </td></tr>
+        <tr><td style="padding:28px 36px 24px 36px;">
+          <div style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:12px;">Password reset</div>
+          <h1 style="margin:0 0 16px 0;color:#f4f6f8;font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;">Reset your Hampton Crest password.</h1>
+          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Hello {safe_name}, use this private link to set a new password for your account.</p>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;">
+          <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:14px 28px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;">Reset password</a>
+          <p style="color:#5b667a;font-size:11px;line-height:1.7;margin:20px 0 0 0;">This link expires in 1 hour. If you did not request it, ignore this email.</p>
+        </td></tr>
+        <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+async def _create_password_reset(user_id: str, email: str) -> str:
+    token = secrets.token_urlsafe(32)
+    await db.password_resets.insert_one({
+        "_id": token,
+        "user_id": user_id,
+        "email": email,
+        "expires_at": now_utc() + timedelta(hours=1),
+        "consumed_at": None,
+        "created_at": now_utc(),
+    })
+    return token
+
+
+async def _send_password_reset_email(email: str, name: str, token: str):
+    if not PUBLIC_URL:
+        logger.warning("APP_PUBLIC_URL unset; password reset email link will be relative")
+    link = f"{PUBLIC_URL}/reset-password?token={token}"
+    html = _password_reset_email_html(name, link)
+    await send_email(email, "Reset your Hampton Crest Academy password", html)
+
+
+async def _activate_or_create_member(
+    *,
+    email: str,
+    name: Optional[str],
+    stripe_customer_id: Optional[str],
+    stripe_subscription_id: Optional[str],
+    current_period_start: Optional[datetime],
+    current_period_end: Optional[datetime],
+    subscription_status: Optional[str] = MEMBERSHIP_ACTIVE,
+    last_payment_status: Optional[str] = "paid",
+):
     """Idempotent: activates an existing user (matched by email) or creates a new one with a welcome invite."""
     email = (email or "").lower().strip()
     if not email:
@@ -1355,10 +1496,14 @@ async def _activate_or_create_member(*, email: str, name: Optional[str], stripe_
         return
     user = await db.users.find_one({"email": email})
     update_fields = {
-        "membership_status": "active",
+        "membership_status": MEMBERSHIP_ACTIVE,
+        "subscription_status": subscription_status or MEMBERSHIP_ACTIVE,
         "stripe_customer_id": stripe_customer_id,
         "stripe_subscription_id": stripe_subscription_id,
+        "current_period_start": current_period_start,
         "current_period_end": current_period_end,
+        "last_payment_status": last_payment_status,
+        "last_payment_at": now_utc() if last_payment_status else None,
         "updated_at": now_utc(),
     }
     if user is None:
@@ -1384,7 +1529,7 @@ async def _activate_or_create_member(*, email: str, name: Optional[str], stripe_
     else:
         await db.users.update_one({"_id": user["_id"]}, {"$set": update_fields})
         if not user.get("password_hash"):
-            # First activation but never set password — re-send invite
+            # First activation but never set password â€” re-send invite
             token = await _create_invite(str(user["_id"]), email)
             try:
                 await _send_welcome_email(email, user.get("name", ""), token)
@@ -1393,22 +1538,41 @@ async def _activate_or_create_member(*, email: str, name: Optional[str], stripe_
         logger.info("Activated existing member %s", email)
 
 
-async def _deactivate_by_subscription(subscription_id: str, status_reason: str = "canceled"):
+async def _mark_subscription_canceled_or_expired(subscription_id: str, status_reason: str = MEMBERSHIP_CANCELED):
     user = await db.users.find_one({"stripe_subscription_id": subscription_id})
     if not user:
         logger.info("No user found for subscription %s", subscription_id)
         return
+    period_end = ensure_utc(user.get("current_period_end"))
+    next_status = MEMBERSHIP_CANCELED if period_end and period_end >= now_utc() else MEMBERSHIP_EXPIRED
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"membership_status": "inactive", "membership_inactive_reason": status_reason, "updated_at": now_utc()}},
+        {"$set": {
+            "membership_status": next_status,
+            "subscription_status": status_reason,
+            "membership_inactive_reason": status_reason,
+            "updated_at": now_utc(),
+        }},
     )
-    logger.info("Deactivated %s (reason=%s)", user["email"], status_reason)
+    logger.info("Updated %s to %s (reason=%s)", user["email"], next_status, status_reason)
 
 
 def _ts_to_dt(ts: Optional[int]) -> Optional[datetime]:
     if not ts:
         return None
     return datetime.fromtimestamp(ts, tz=timezone.utc)
+
+
+def _membership_from_subscription_status(status: Optional[str], period_end: Optional[datetime]) -> str:
+    if status in ("active", "trialing"):
+        return MEMBERSHIP_ACTIVE
+    if status == "past_due":
+        return MEMBERSHIP_PAST_DUE
+    if status in ("canceled", "cancelled"):
+        return MEMBERSHIP_CANCELED if period_end and period_end >= now_utc() else MEMBERSHIP_EXPIRED
+    if status in ("unpaid", "incomplete_expired"):
+        return MEMBERSHIP_EXPIRED
+    return MEMBERSHIP_PENDING
 
 
 @api_router.post("/webhook/stripe")
@@ -1445,10 +1609,14 @@ async def stripe_webhook(request: Request):
             name = (obj.get("customer_details") or {}).get("name")
             customer_id = obj.get("customer")
             subscription_id = obj.get("subscription")
+            period_start = None
             period_end = None
+            subscription_status = MEMBERSHIP_ACTIVE
             if subscription_id:
                 try:
                     sub = stripe.Subscription.retrieve(subscription_id)
+                    subscription_status = sub.get("status") or MEMBERSHIP_ACTIVE
+                    period_start = _ts_to_dt(sub.get("current_period_start"))
                     period_end = _ts_to_dt(sub.get("current_period_end"))
                     if not email and sub.get("customer"):
                         try:
@@ -1462,29 +1630,58 @@ async def stripe_webhook(request: Request):
             await _activate_or_create_member(
                 email=email, name=name,
                 stripe_customer_id=customer_id, stripe_subscription_id=subscription_id,
+                current_period_start=period_start,
                 current_period_end=period_end,
+                subscription_status=subscription_status,
+                last_payment_status="paid",
             )
         elif etype == "customer.subscription.updated":
             status = obj.get("status")
             sub_id = obj.get("id")
+            period_start = _ts_to_dt(obj.get("current_period_start"))
             period_end = _ts_to_dt(obj.get("current_period_end"))
             user = await db.users.find_one({"stripe_subscription_id": sub_id})
             if user:
-                if status in ("active", "trialing"):
-                    await db.users.update_one(
-                        {"_id": user["_id"]},
-                        {"$set": {"membership_status": "active", "current_period_end": period_end, "updated_at": now_utc()}},
-                    )
-                elif status in ("canceled", "unpaid", "incomplete_expired"):
-                    await _deactivate_by_subscription(sub_id, status_reason=status)
-                else:
-                    # past_due → keep active but flag
-                    await db.users.update_one(
-                        {"_id": user["_id"]},
-                        {"$set": {"membership_inactive_reason": status, "updated_at": now_utc()}},
-                    )
+                membership_status = _membership_from_subscription_status(status, period_end)
+                await db.users.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {
+                        "membership_status": membership_status,
+                        "subscription_status": status,
+                        "current_period_start": period_start,
+                        "current_period_end": period_end,
+                        "membership_inactive_reason": None if membership_status == MEMBERSHIP_ACTIVE else status,
+                        "updated_at": now_utc(),
+                    }},
+                )
         elif etype == "customer.subscription.deleted":
-            await _deactivate_by_subscription(obj.get("id"), status_reason="deleted")
+            await _mark_subscription_canceled_or_expired(obj.get("id"), status_reason="deleted")
+        elif etype == "invoice.payment_succeeded":
+            sub_id = obj.get("subscription")
+            if sub_id:
+                user = await db.users.find_one({"stripe_subscription_id": sub_id})
+                if user:
+                    period_start = ensure_utc(user.get("current_period_start"))
+                    period_end = ensure_utc(user.get("current_period_end"))
+                    try:
+                        sub = stripe.Subscription.retrieve(sub_id)
+                        period_start = _ts_to_dt(sub.get("current_period_start"))
+                        period_end = _ts_to_dt(sub.get("current_period_end"))
+                    except Exception as e:
+                        logger.warning("Could not retrieve subscription %s after invoice success: %s", sub_id, e)
+                    await db.users.update_one(
+                        {"_id": user["_id"]},
+                        {"$set": {
+                            "membership_status": MEMBERSHIP_ACTIVE,
+                            "subscription_status": MEMBERSHIP_ACTIVE,
+                            "current_period_start": period_start,
+                            "current_period_end": period_end,
+                            "last_payment_status": "paid",
+                            "last_payment_at": _ts_to_dt(obj.get("status_transitions", {}).get("paid_at")) or now_utc(),
+                            "membership_inactive_reason": None,
+                            "updated_at": now_utc(),
+                        }},
+                    )
         elif etype == "invoice.payment_failed":
             sub_id = obj.get("subscription")
             if sub_id:
@@ -1492,7 +1689,14 @@ async def stripe_webhook(request: Request):
                 if user:
                     await db.users.update_one(
                         {"_id": user["_id"]},
-                        {"$set": {"membership_inactive_reason": "payment_failed", "updated_at": now_utc()}},
+                        {"$set": {
+                            "membership_status": MEMBERSHIP_PAST_DUE,
+                            "subscription_status": MEMBERSHIP_PAST_DUE,
+                            "last_payment_status": "failed",
+                            "last_payment_at": now_utc(),
+                            "membership_inactive_reason": "payment_failed",
+                            "updated_at": now_utc(),
+                        }},
                     )
         else:
             logger.info("Unhandled Stripe event type: %s", etype)
@@ -1536,6 +1740,55 @@ async def accept_invite(payload: AcceptInviteIn):
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
 
+@api_router.post("/auth/password-reset/request")
+async def request_password_reset(payload: PasswordResetRequest):
+    email = payload.email.lower().strip()
+    user = await db.users.find_one({"email": email})
+    if user:
+        token = await _create_password_reset(str(user["_id"]), email)
+        try:
+            await _send_password_reset_email(email, user.get("name", ""), token)
+        except Exception as e:
+            logger.error("password reset email failed: %s", e)
+    return {
+        "ok": True,
+        "message": "If an account exists for that email, a reset link has been sent.",
+    }
+
+
+@api_router.get("/auth/password-reset/{token}")
+async def check_password_reset(token: str):
+    reset = await db.password_resets.find_one({"_id": token})
+    if not reset:
+        raise HTTPException(404, "Reset link not found")
+    if reset.get("consumed_at"):
+        raise HTTPException(400, "Reset link already used")
+    exp = ensure_utc(reset.get("expires_at"))
+    if exp and exp < now_utc():
+        raise HTTPException(400, "Reset link expired")
+    return {"email": reset["email"], "valid": True}
+
+
+@api_router.post("/auth/password-reset/confirm")
+async def confirm_password_reset(payload: PasswordResetConfirm):
+    reset = await db.password_resets.find_one({"_id": payload.token})
+    if not reset or reset.get("consumed_at"):
+        raise HTTPException(400, "Invalid or used reset link")
+    exp = ensure_utc(reset.get("expires_at"))
+    if exp and exp < now_utc():
+        raise HTTPException(400, "Reset link expired")
+    user = await db.users.find_one({"_id": ObjectId(reset["user_id"])})
+    if not user:
+        raise HTTPException(404, "Account not found")
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password_hash": hash_password(payload.password), "updated_at": now_utc()}},
+    )
+    await db.password_resets.update_one({"_id": payload.token}, {"$set": {"consumed_at": now_utc()}})
+    await db.login_attempts.delete_one({"_id": f"login:{reset['email'].lower().strip()}"})
+    return {"ok": True}
+
+
 @api_router.get("/membership/config")
 async def membership_config():
     """Public config for the access-denied screen and other UI surfaces."""
@@ -1554,12 +1807,22 @@ async def admin_list_members(
 ):
     query: dict = {}
     if status == "active":
-        query["$or"] = [{"membership_status": "active"}, {"complimentary": True}, {"role": "admin"}]
+        query["$or"] = [
+            {"membership_status": MEMBERSHIP_ACTIVE},
+            {
+                "$and": [
+                    {"membership_status": {"$in": [MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]}},
+                    {"current_period_end": {"$gte": now_utc()}},
+                ],
+            },
+            {"complimentary": True},
+            {"role": "admin"},
+        ]
     elif status == "inactive":
         query["$and"] = [
             {"role": {"$ne": "admin"}},
             {"complimentary": {"$ne": True}},
-            {"membership_status": {"$ne": "active"}},
+            {"membership_status": {"$in": [MEMBERSHIP_PENDING, MEMBERSHIP_EXPIRED]}},
         ]
     if q:
         regex = {"$regex": re.escape(q), "$options": "i"}
@@ -1567,7 +1830,8 @@ async def admin_list_members(
         existing.append({"$or": [{"email": regex}, {"name": regex}]})
         query["$and"] = existing
     docs = await db.users.find(query).sort("created_at", -1).limit(500).to_list(500)
-    return [serialize_user(d) for d in docs]
+    refreshed = [await refresh_membership_state(d) for d in docs]
+    return [serialize_user(d) for d in refreshed]
 
 
 @api_router.put("/admin/members/{user_id}")
@@ -1593,9 +1857,11 @@ async def admin_revoke_member(user_id: str, current_user: dict = Depends(require
     result = await db.users.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": {
-            "membership_status": "inactive",
+            "membership_status": MEMBERSHIP_EXPIRED,
+            "subscription_status": MEMBERSHIP_CANCELED,
             "complimentary": False,
             "membership_inactive_reason": "admin_revoked",
+            "current_period_end": now_utc(),
             "updated_at": now_utc(),
         }},
     )
@@ -1659,7 +1925,7 @@ async def billing_portal(current_user: dict = Depends(get_current_user)):
 @api_router.post("/admin/email/test")
 async def admin_email_test(current_user: dict = Depends(require_admin)):
     """Sends a small test email to the current admin to verify Resend delivery."""
-    subject = "Hampton Crest Academy · Email delivery test"
+    subject = "Hampton Crest Academy Â· Email delivery test"
     html = _digest_html(
         title="Email delivery test",
         summary="If you can read this, Resend is wired up and the verified sender domain is delivering correctly.",
@@ -1678,8 +1944,12 @@ async def admin_email_test(current_user: dict = Depends(require_admin)):
 
 # ---------------- Lifecycle ----------------
 async def seed_admin():
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@hamptoncrest.com").lower().strip()
-    admin_password = os.environ.get("ADMIN_PASSWORD", "Hampton#2026")
+    admin_email = os.environ.get("ADMIN_EMAIL", "").lower().strip()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
+    if not admin_email or not admin_password:
+        logger.warning("Admin bootstrap skipped; set ADMIN_EMAIL and ADMIN_PASSWORD to enable it.")
+        return
+
     existing = await db.users.find_one({"email": admin_email})
     if existing is None:
         await db.users.insert_one({
@@ -1690,9 +1960,21 @@ async def seed_admin():
             "created_at": now_utc(),
             "totp_enabled": False,
             "email_digest_opt_in": True,
+            "membership_status": MEMBERSHIP_ACTIVE,
+            "subscription_status": "admin",
+            "complimentary": True,
         })
         logger.info("Seeded admin user %s", admin_email)
     else:
+        await db.users.update_one(
+            {"email": admin_email},
+            {"$set": {
+                "membership_status": MEMBERSHIP_ACTIVE,
+                "subscription_status": "admin",
+                "complimentary": True,
+                "updated_at": now_utc(),
+            }},
+        )
         if not verify_password(admin_password, existing.get("password_hash", "")):
             await db.users.update_one(
                 {"email": admin_email},
@@ -1702,16 +1984,25 @@ async def seed_admin():
 
 
 async def seed_test_member():
-    """Seed a complimentary test member so admins can review the member experience."""
-    email = os.environ.get("TEST_MEMBER_EMAIL", "prueba@hamptoncrest.com").lower().strip()
-    password = os.environ.get("TEST_MEMBER_PASSWORD", "Prueba#2026")
+    """Optionally seed a complimentary test member for non-production review."""
+    if os.environ.get("ENABLE_TEST_MEMBER_SEED", "false").lower() != "true":
+        logger.info("Test member seed disabled.")
+        return
+
+    email = os.environ.get("TEST_MEMBER_EMAIL", "").lower().strip()
+    password = os.environ.get("TEST_MEMBER_PASSWORD", "")
     name = os.environ.get("TEST_MEMBER_NAME", "Miembro de Prueba")
+    if not email or not password:
+        logger.warning("Test member seed skipped; set TEST_MEMBER_EMAIL and TEST_MEMBER_PASSWORD to enable it.")
+        return
+
     existing = await db.users.find_one({"email": email})
     base_fields = {
         "name": name,
         "role": "member",
         "complimentary": True,
-        "membership_status": "active",
+        "membership_status": MEMBERSHIP_ACTIVE,
+        "subscription_status": "complimentary",
         "email_digest_opt_in": True,
         "totp_enabled": False,
         "updated_at": now_utc(),
@@ -1743,6 +2034,7 @@ async def on_startup():
     await db.bookmarks.create_index([("user_id", 1), ("content_type", 1), ("content_id", 1)], unique=True)
     await db.login_attempts.create_index("locked_until", expireAfterSeconds=60 * 60 * 24)
     await db.invites.create_index("expires_at", expireAfterSeconds=60 * 60 * 24 * 14)
+    await db.password_resets.create_index("expires_at", expireAfterSeconds=60 * 60 * 24)
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
     await seed_admin()
     await seed_test_member()
