@@ -10,6 +10,7 @@ import Login from "@/pages/Login";
 import PublicLanding from "@/pages/PublicLanding";
 import AccessDenied from "@/pages/AccessDenied";
 import AcceptInvite from "@/pages/AcceptInvite";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 import BooksLibrary from "@/pages/BooksLibrary";
 import BookDetail from "@/pages/BookDetail";
@@ -39,6 +40,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/access-denied" element={<AccessDenied />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               element={
                 <ProtectedRoute>

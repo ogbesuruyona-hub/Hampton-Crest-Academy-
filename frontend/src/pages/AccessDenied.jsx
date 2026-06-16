@@ -7,14 +7,13 @@ const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
 
 export default function AccessDenied() {
-  const [config, setConfig] = useState({ framer_url: "", payment_link_url: "" });
+  const [config, setConfig] = useState({ payment_link_url: "" });
 
   useEffect(() => {
-    api.get("/membership/config").then(({ data }) => setConfig(data)).catch(() => {});
+    api.get("/membership/config").then(({ data }) => setConfig(data || {})).catch(() => {});
   }, []);
 
-  const cta = config.payment_link_url || config.framer_url || "#";
-  const ctaLabel = config.payment_link_url ? "Quiero ser miembro" : "Ver planes";
+  const paymentLink = config.payment_link_url || "";
 
   return (
     <div
@@ -40,16 +39,26 @@ export default function AccessDenied() {
           no tiene una suscripción activa o tu membresía expiró.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-          {cta !== "#" ? (
+          {paymentLink ? (
             <a
-              href={cta}
+              href={paymentLink}
               data-testid="access-denied-cta"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors"
             >
-              {ctaLabel}
+              Quiero ser miembro
               <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
             </a>
-          ) : null}
+          ) : (
+            <div
+              data-testid="access-denied-payment-not-configured"
+              className="max-w-sm border border-[var(--hc-border)] bg-[var(--hc-surface)] px-5 py-3 text-xs leading-relaxed text-[var(--hc-text-secondary)]"
+            >
+              El pago de membresía aún no está configurado. Contacta al equipo de Hampton Crest
+              para activar tu acceso.
+            </div>
+          )}
           <Link
             to="/login"
             data-testid="access-denied-signin"

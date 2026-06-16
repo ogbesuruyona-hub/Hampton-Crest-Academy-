@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
@@ -28,7 +28,7 @@ const StatusPill = ({ user }) => {
   if (user.complimentary) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-gold)]/40 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]">
-        Cortesía
+        CortesÃ­a
       </span>
     );
   }
@@ -39,11 +39,47 @@ const StatusPill = ({ user }) => {
       </span>
     );
   }
+  if (user.membership_status === "past_due") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[#B98B3F]/50 text-[#D8B36A] bg-[#2B2110]">
+        Pago pendiente
+      </span>
+    );
+  }
+  if (user.membership_status === "canceled") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)]">
+        Cancelado
+      </span>
+    );
+  }
+  if (user.membership_status === "pending") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-muted)]">
+        Pendiente
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-muted)]">
-      Inactivo
+      Expirado
     </span>
   );
+};
+
+const statusLabel = (value) => {
+  const labels = {
+    active: "Activo",
+    past_due: "Pago pendiente",
+    canceled: "Cancelado",
+    expired: "Expirado",
+    pending: "Pendiente",
+    complimentary: "CortesÃ­a",
+    admin: "Admin",
+    paid: "Pagado",
+    failed: "Fallido",
+  };
+  return labels[value] || value || "â€”";
 };
 
 export default function AdminMembers() {
@@ -74,7 +110,12 @@ export default function AdminMembers() {
   const counts = members.reduce(
     (acc, m) => {
       if (m.role === "admin") acc.admin += 1;
-      else if (m.complimentary || m.membership_status === "active") acc.active += 1;
+      else if (
+        m.complimentary ||
+        m.membership_status === "active" ||
+        m.membership_status === "past_due" ||
+        m.membership_status === "canceled"
+      ) acc.active += 1;
       else acc.inactive += 1;
       return acc;
     },
@@ -103,10 +144,10 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/resend-invite`);
       if (data.email_sent) {
-        toast.success("Correo de invitación enviado.");
+        toast.success("Correo de invitaciÃ³n enviado.");
       } else {
         await navigator.clipboard?.writeText(data.invite_link);
-        toast.success("Correo desactivado. Enlace de invitación copiado.");
+        toast.success("Correo desactivado. Enlace de invitaciÃ³n copiado.");
       }
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -117,7 +158,7 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/invite-link`);
       await navigator.clipboard?.writeText(data.invite_link);
-      toast.success(`Enlace copiado. Expira en ${data.expires_in_days} días.`);
+      toast.success(`Enlace copiado. Expira en ${data.expires_in_days} dÃ­as.`);
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
@@ -126,9 +167,9 @@ export default function AdminMembers() {
   return (
     <div data-testid="admin-members-page">
       <PageHeader
-        overline="Administración · Miembros"
+        overline="AdministraciÃ³n Â· Miembros"
         title="Miembros"
-        description="Miembros activos, accesos de cortesía y cuentas caducadas. Administra la lista, revoca acceso o reenvía invitaciones."
+        description="Miembros activos, accesos de cortesÃ­a y cuentas caducadas. Administra la lista, revoca acceso o reenvÃ­a invitaciones."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -180,12 +221,12 @@ export default function AdminMembers() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargandoâ€¦</div>
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="Aún no hay miembros"
-          description="Los miembros aparecerán aquí en cuanto se suscriban vía el enlace de pago de Stripe."
+          title="AÃºn no hay miembros"
+          description="Los miembros aparecerÃ¡n aquÃ­ en cuanto se suscriban vÃ­a el enlace de pago de Stripe."
         />
       ) : (
         <Panel testid="members-table">
@@ -194,7 +235,7 @@ export default function AdminMembers() {
               <div
                 key={m.id}
                 data-testid={`member-row-${m.id}`}
-                className="grid grid-cols-1 lg:grid-cols-[1fr_140px_140px_auto] items-center gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
+                className="grid grid-cols-1 xl:grid-cols-[minmax(180px,1.2fr)_140px_150px_150px_130px_auto] items-center gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium tracking-tight text-[var(--hc-text)] truncate">
@@ -206,7 +247,16 @@ export default function AdminMembers() {
                 </div>
                 <StatusPill user={m} />
                 <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  Se unió {formatDate(m.created_at)}
+                  <div className="hc-overline mb-1">Suscripción</div>
+                  <div>{statusLabel(m.subscription_status)}</div>
+                </div>
+                <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                  <div className="hc-overline mb-1">Fin de periodo</div>
+                  <div>{formatDate(m.current_period_end)}</div>
+                </div>
+                <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                  <div className="hc-overline mb-1">Último pago</div>
+                  <div>{statusLabel(m.last_payment_status)}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
                   {m.role !== "admin" && (
@@ -216,12 +266,12 @@ export default function AdminMembers() {
                         data-testid={`toggle-comp-${m.id}`}
                         className="px-3 py-1.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
                       >
-                        {m.complimentary ? "Quitar cortesía" : "Marcar cortesía"}
+                        {m.complimentary ? "Quitar cortesÃ­a" : "Marcar cortesÃ­a"}
                       </button>
                       <button
                         onClick={() => copyInviteLink(m)}
                         data-testid={`copy-invite-${m.id}`}
-                        title="Copiar enlace de invitación"
+                        title="Copiar enlace de invitaciÃ³n"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -229,7 +279,7 @@ export default function AdminMembers() {
                       <button
                         onClick={() => resendInvite(m)}
                         data-testid={`resend-invite-${m.id}`}
-                        title="Reenviar invitación (correo si está activo, enlace si no)"
+                        title="Reenviar invitaciÃ³n (correo si estÃ¡ activo, enlace si no)"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -265,10 +315,10 @@ export default function AdminMembers() {
       >
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Revocar acceso?</AlertDialogTitle>
+            <AlertDialogTitle>Â¿Revocar acceso?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              {actionTarget?.email} será marcado como inactivo y no podrá iniciar sesión hasta que
-              la suscripción se reactive.
+              {actionTarget?.email} serÃ¡ marcado como inactivo y no podrÃ¡ iniciar sesiÃ³n hasta que
+              la suscripciÃ³n se reactive.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
