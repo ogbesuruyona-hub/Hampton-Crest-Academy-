@@ -1,7 +1,5 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "installCommand": "cd frontend && npm install --legacy-peer-deps",
   "builds": [
     {
       "src": "backend/server.py",
@@ -22,23 +20,23 @@
     },
     {
       "src": "/static/(.*)",
-      "dest": "frontend/static/$1"
+      "dest": "frontend/build/static/$1"
     },
     {
       "src": "/asset-manifest.json",
-      "dest": "frontend/asset-manifest.json"
+      "dest": "frontend/build/asset-manifest.json"
     },
     {
       "src": "/favicon.ico",
-      "dest": "frontend/favicon.ico"
+      "dest": "frontend/build/favicon.ico"
     },
     {
       "src": "/manifest.json",
-      "dest": "frontend/manifest.json"
+      "dest": "frontend/build/manifest.json"
     },
     {
       "src": "/(.*)",
-      "dest": "frontend/index.html"
+      "dest": "frontend/build/index.html"
     }
   ]
 }
