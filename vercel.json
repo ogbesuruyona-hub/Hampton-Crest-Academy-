@@ -35,7 +35,7 @@
       "dest": "frontend/build/manifest.json"
     },
     {
-      "src": "/(.*)",
+      "src": "/((?!api/).*)",
       "dest": "frontend/build/index.html"
     }
   ]
