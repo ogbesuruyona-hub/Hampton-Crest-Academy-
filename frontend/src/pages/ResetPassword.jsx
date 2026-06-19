@@ -24,6 +24,7 @@ export default function ResetPassword() {
       setError("Falta el token de recuperación.");
       return;
     }
+
     api
       .get(`/auth/password-reset/${encodeURIComponent(token)}`)
       .then(({ data }) => {
@@ -47,6 +48,7 @@ export default function ResetPassword() {
       setError("Las contraseñas no coinciden.");
       return;
     }
+
     setState("submitting");
     try {
       await api.post("/auth/password-reset/confirm", { token, password });
