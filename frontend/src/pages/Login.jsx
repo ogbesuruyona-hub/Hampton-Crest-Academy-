@@ -17,7 +17,9 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [tempToken, setTempToken] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState(location.state?.passwordReset ? "Tu contraseña fue actualizada. Ya puedes iniciar sesión." : "");
+  const [notice, setNotice] = useState(
+    location.state?.passwordReset ? "Tu contraseña fue actualizada. Ya puedes iniciar sesión." : ""
+  );
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
@@ -58,7 +60,6 @@ export default function Login() {
         ? await login(email, password)
         : await register(name, email, password);
     setSubmitting(false);
-    // Always clear credentials after a submit attempt
     setEmail("");
     setPassword("");
     setName("");
@@ -85,7 +86,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--hc-bg)] text-[var(--hc-text)]">
-      {/* Brand panel */}
       <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.55]"
@@ -122,7 +122,7 @@ export default function Login() {
           </h2>
           <p className="mt-6 text-[var(--hc-text-secondary)] text-sm leading-relaxed max-w-sm">
             Una academia privada para inversionistas serios. Investigación de grado institucional,
-            educación curada e inteligencia mensual — reservado para nuestros miembros.
+            educación curada e inteligencia mensual, reservado para nuestros miembros.
           </p>
         </div>
 
@@ -133,7 +133,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Form panel */}
       <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
         <div className="lg:hidden flex items-center gap-3 mb-12">
           <img
@@ -158,9 +157,9 @@ export default function Login() {
               ? "Verificación en dos pasos"
               : isForgot
                 ? "Recuperar acceso"
-              : isLogin
-                ? "Acceso de miembro"
-                : "Registro de miembro"}
+                : isLogin
+                  ? "Acceso de miembro"
+                  : "Registro de miembro"}
           </div>
           <h1 className="text-3xl sm:text-4xl font-medium tracking-[-0.02em] text-[var(--hc-text)]">
             {is2fa ? "Ingresa tu código" : isForgot ? "Restablece tu contraseña" : isLogin ? "Accede a la academia" : "Crea tu cuenta"}
@@ -170,9 +169,9 @@ export default function Login() {
               ? "Abre tu app de autenticación e ingresa el código de 6 dígitos, o usa un código de respaldo."
               : isForgot
                 ? "Ingresa tu correo y te enviaremos un enlace privado para crear una nueva contraseña."
-              : isLogin
-                ? "Ingresa tus credenciales para continuar."
-                : "Reservado para miembros verificados de la academia."}
+                : isLogin
+                  ? "Ingresa tus credenciales para continuar."
+                  : "Reservado para miembros verificados de la academia."}
           </p>
 
           <div className="mt-8 hc-gold-rule" />
@@ -299,14 +298,14 @@ export default function Login() {
               className="w-full bg-[var(--hc-platinum)] text-[var(--hc-bg)] py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-white transition-colors disabled:opacity-60"
             >
               {submitting
-                ? isForgot ? "Enviando..." : "Autenticando…"
+                ? isForgot ? "Enviando..." : "Autenticando..."
                 : is2fa
                   ? "Verificar"
                   : isForgot
                     ? "Enviar enlace"
-                  : isLogin
-                    ? "Iniciar sesión"
-                    : "Crear cuenta"}
+                    : isLogin
+                      ? "Iniciar sesión"
+                      : "Crear cuenta"}
             </button>
 
             {is2fa ? (
