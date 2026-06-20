@@ -62,11 +62,44 @@ def _row(d: dict, *names: str) -> list[float | None]:
     return []
 
 
+def _normalize_ticker(ticker: str) -> str:
+    return re.sub(r"\s+", "", ticker or "").upper()
+
+
 def _fetch_company_data(ticker: str) -> dict:
-    t = yf.Ticker(ticker)
-    info = t.info or {}
-    if not info or info.get("currentPrice") is None and info.get("regularMarketPrice") is None:
-        raise ValueError(f"No data for ticker {ticker}")
+    normalized = _normalize_ticker(ticker)
+    logger.info("[valuation:data-fetch-start] provider=yfinance ticker=%s", normalized)
+    t = yf.Ticker(normalized)
+    try:
+        info = t.info or {}
+    except Exception as e:
+        logger.exception("[valuation:yfinance-info-error] ticker=%s error=%s", normalized, e)
+        info = {}
+    try:
+        fast_info = dict(t.fast_info or {})
+    except Exception as e:
+        logger.warning("[valuation:yfinance-fast-info-error] ticker=%s error=%s", normalized, e)
+        fast_info = {}
+
+    logger.info(
+        "[valuation:yfinance-response] ticker=%s info_keys=%s fast_info_keys=%s",
+        normalized,
+        sorted(list(info.keys()))[:40],
+        sorted(list(fast_info.keys()))[:40],
+    )
+
+    price = (
+        _safe(info.get("currentPrice"))
+        or _safe(info.get("regularMarketPrice"))
+        or _safe(fast_info.get("last_price"))
+        or _safe(fast_info.get("lastPrice"))
+        or _safe(fast_info.get("regularMarketPrice"))
+    )
+    company_name = info.get("shortName") or info.get("longName") or normalized
+    if not info and not fast_info:
+        raise ValueError(f"No yfinance payload for ticker {normalized}")
+    if price is None and company_name == normalized:
+        raise ValueError(f"No usable price or company profile for ticker {normalized}")
 
     income = _fmt_financials(t.income_stmt)
     balance = _fmt_financials(t.balance_sheet)
@@ -83,14 +116,12 @@ def _fetch_company_data(ticker: str) -> dict:
             fcf = [(o or 0) + (c or 0) for o, c in zip(op_cf, capex)]
     total_debt = _row(balance, "Total Debt", "TotalDebt")
     cash = _row(balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash")
-    price = _safe(info.get("currentPrice")) or _safe(info.get("regularMarketPrice"))
-
     return {
-        "ticker": ticker.upper(),
-        "name": info.get("shortName") or info.get("longName") or ticker.upper(),
+        "ticker": normalized,
+        "name": company_name,
         "long_name": info.get("longName"),
         "exchange": info.get("exchange"),
-        "currency": info.get("currency"),
+        "currency": info.get("currency") or fast_info.get("currency"),
         "country": info.get("country"),
         "sector": info.get("sector"),
         "industry": info.get("industry"),
@@ -99,9 +130,9 @@ def _fetch_company_data(ticker: str) -> dict:
         "website": info.get("website"),
         "long_business_summary": info.get("longBusinessSummary"),
         "price": price,
-        "market_cap": _safe(info.get("marketCap")),
+        "market_cap": _safe(info.get("marketCap")) or _safe(fast_info.get("market_cap")),
         "enterprise_value": _safe(info.get("enterpriseValue")),
-        "shares_outstanding": _safe(info.get("sharesOutstanding")),
+        "shares_outstanding": _safe(info.get("sharesOutstanding")) or _safe(fast_info.get("shares")),
         "pe_trailing": _safe(info.get("trailingPE")),
         "pe_forward": _safe(info.get("forwardPE")),
         "peg": _safe(info.get("pegRatio")),
@@ -263,19 +294,31 @@ def register_valuation_routes(*, db, require_member):
 
     @router.post("")
     async def run_valuation(payload: ValuationIn, current_user: dict = Depends(require_member)):
-        ticker = payload.ticker.strip().upper()
+        ticker = _normalize_ticker(payload.ticker)
+        logger.info("[valuation:request] user_id=%s raw_ticker=%s normalized_ticker=%s", current_user["id"], payload.ticker, ticker)
+        if not ticker:
+            raise HTTPException(400, "Ticker inválido.")
         if client is None:
+            logger.warning("[valuation:openai-not-configured] ticker=%s", ticker)
             raise HTTPException(503, "El análisis con IA no está configurado.")
 
         try:
             data = await asyncio.to_thread(_fetch_company_data, ticker)
         except Exception as e:
-            logger.error("yfinance fetch failed: %s", e)
+            logger.exception("[valuation:data-fetch-failed] provider=yfinance ticker=%s error=%s", ticker, e)
             raise HTTPException(404, f"No se encontró información para «{ticker}». Verifica el ticker.")
 
         dcf = _simple_dcf(data)
+        logger.info(
+            "[valuation:data-fetch-success] ticker=%s name=%s price=%s dcf_available=%s",
+            ticker,
+            data.get("name"),
+            data.get("price"),
+            dcf.get("available"),
+        )
 
         try:
+            logger.info("[valuation:openai-start] ticker=%s model=%s", ticker, model)
             response = await client.chat.completions.create(
                 model=model,
                 messages=[
@@ -291,7 +334,7 @@ def register_valuation_routes(*, db, require_member):
             raw = response.choices[0].message.content or "{}"
             analysis = _parse_json_strict(raw)
         except Exception as e:
-            logger.error("LLM analysis failed for %s: %s", ticker, e)
+            logger.exception("[valuation:openai-failed] ticker=%s model=%s error=%s", ticker, model, e)
             raise HTTPException(502, "No se pudo generar el análisis. Inténtalo de nuevo.")
 
         record = {

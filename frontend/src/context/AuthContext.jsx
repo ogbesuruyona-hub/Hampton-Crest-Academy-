@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { api, tokenStore, formatApiErrorDetail } from "../lib/api";
 
 const AuthContext = createContext(null);
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   // user states: undefined = checking, null = unauthenticated, object = authenticated
@@ -25,6 +26,37 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     fetchMe();
   }, [fetchMe]);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // ignore
+    }
+    tokenStore.clear();
+    setUser(null);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    let timeoutId;
+    const resetTimer = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        logout();
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "visibilitychange"];
+    events.forEach((eventName) => window.addEventListener(eventName, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
+    };
+  }, [user, logout]);
 
   const login = async (email, password) => {
     try {
@@ -68,16 +100,6 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       return { ok: false, error: formatApiErrorDetail(e.response?.data?.detail) || e.message };
     }
-  };
-
-  const logout = async () => {
-    try {
-      await api.post("/auth/logout");
-    } catch {
-      // ignore
-    }
-    tokenStore.clear();
-    setUser(null);
   };
 
   return (

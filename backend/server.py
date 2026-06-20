@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
 
 # ---------------- Setup ----------------
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRES_MINUTES = 60 * 24  # 24h
+ACCESS_TOKEN_EXPIRES_MINUTES = 60  # 1h
 PENDING_2FA_TOKEN_EXPIRES_MINUTES = 5
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15

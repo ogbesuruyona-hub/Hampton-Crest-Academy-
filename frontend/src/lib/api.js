@@ -6,9 +6,15 @@ export const API = `${BACKEND_URL}/api`;
 const TOKEN_KEY = "hc_access_token";
 
 export const tokenStore = {
-  get: () => localStorage.getItem(TOKEN_KEY),
-  set: (t) => localStorage.setItem(TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(TOKEN_KEY),
+  get: () => sessionStorage.getItem(TOKEN_KEY),
+  set: (t) => {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.setItem(TOKEN_KEY, t);
+  },
+  clear: () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  },
 };
 
 export const api = axios.create({ baseURL: API });
@@ -21,6 +27,16 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      tokenStore.clear();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export function formatApiErrorDetail(detail) {
   if (detail == null) return "Algo salió mal. Inténtalo de nuevo.";
