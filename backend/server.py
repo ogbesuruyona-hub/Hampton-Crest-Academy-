@@ -400,9 +400,17 @@ def _send_email_sync(to: str, subject: str, html: str) -> Optional[dict]:
         "html": html,
     }
     try:
-        return resend.Emails.send(params)
+        logger.info(
+            "[email:send-attempt] to=%s subject=%s sender=%s",
+            to,
+            subject,
+            sender_email,
+        )
+        response = resend.Emails.send(params)
+        logger.info("[email:resend-response] to=%s subject=%s response=%s", to, subject, response)
+        return response
     except Exception as e:
-        logger.error("Resend send failed for %s: %s", to, e)
+        logger.exception("Resend send failed for %s: %s", to, e)
         return None
 
 
@@ -1459,14 +1467,22 @@ def _password_reset_email_html(name: str, link: str) -> str:
 
 async def _create_password_reset(user_id: str, email: str) -> str:
     token = secrets.token_urlsafe(32)
+    expires_at = now_utc() + timedelta(hours=1)
     await db.password_resets.insert_one({
         "_id": token,
         "user_id": user_id,
         "email": email,
-        "expires_at": now_utc() + timedelta(hours=1),
+        "expires_at": expires_at,
         "consumed_at": None,
         "created_at": now_utc(),
     })
+    logger.info(
+        "[password-reset:token-generated] email=%s user_id=%s token_digest=%s expires_at=%s",
+        email,
+        user_id,
+        hashlib.sha256(token.encode("utf-8")).hexdigest()[:12],
+        expires_at.isoformat(),
+    )
     return token
 
 
@@ -1475,7 +1491,10 @@ async def _send_password_reset_email(email: str, name: str, token: str):
         logger.warning("APP_PUBLIC_URL unset; password reset email link will be relative")
     link = f"{PUBLIC_URL}/reset-password?token={token}"
     html = _password_reset_email_html(name, link)
-    await send_email(email, "Reset your Hampton Crest Academy password", html)
+    logger.info("[password-reset:email-attempt] email=%s public_url_configured=%s", email, bool(PUBLIC_URL))
+    response = await send_email(email, "Reset your Hampton Crest Academy password", html)
+    logger.info("[password-reset:email-response] email=%s response=%s", email, response)
+    return response
 
 
 async def _activate_or_create_member(
@@ -1743,13 +1762,35 @@ async def accept_invite(payload: AcceptInviteIn):
 @api_router.post("/auth/password-reset/request")
 async def request_password_reset(payload: PasswordResetRequest):
     email = payload.email.lower().strip()
+    logger.info("[password-reset:request] email=%s", email)
     user = await db.users.find_one({"email": email})
-    if user:
-        token = await _create_password_reset(str(user["_id"]), email)
-        try:
-            await _send_password_reset_email(email, user.get("name", ""), token)
-        except Exception as e:
-            logger.error("password reset email failed: %s", e)
+    if not user:
+        logger.info("[password-reset:user-not-found] email=%s collection=users", email)
+        return {
+            "ok": True,
+            "message": "If an account exists for that email, a reset link has been sent.",
+        }
+
+    user_id = str(user["_id"])
+    logger.info(
+        "[password-reset:user-found] email=%s user_id=%s role=%s membership_status=%s",
+        email,
+        user_id,
+        user.get("role"),
+        user.get("membership_status"),
+    )
+    token = await _create_password_reset(user_id, email)
+    logger.info(
+        "[password-reset:send-start] email=%s user_id=%s token_digest=%s",
+        email,
+        user_id,
+        hashlib.sha256(token.encode("utf-8")).hexdigest()[:12],
+    )
+    try:
+        response = await _send_password_reset_email(email, user.get("name", ""), token)
+        logger.info("[password-reset:send-complete] email=%s user_id=%s response=%s", email, user_id, response)
+    except Exception as e:
+        logger.exception("password reset email failed for %s: %s", email, e)
     return {
         "ok": True,
         "message": "If an account exists for that email, a reset link has been sent.",
