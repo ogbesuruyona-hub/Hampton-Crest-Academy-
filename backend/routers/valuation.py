@@ -287,6 +287,19 @@ def _parse_json_strict(text: str) -> dict:
     return json.loads(cleaned)
 
 
+def _extract_score_total(analysis: dict) -> int | float | None:
+    if not isinstance(analysis, dict):
+        return None
+
+    score = analysis.get("score")
+    if isinstance(score, dict):
+        total = score.get("total")
+        return total if isinstance(total, (int, float)) and not isinstance(total, bool) else None
+    if isinstance(score, (int, float)) and not isinstance(score, bool):
+        return score
+    return None
+
+
 def register_valuation_routes(*, db, require_member):
     api_key = os.environ.get("OPENAI_API_KEY", "")
     model = os.environ.get("VALUATION_MODEL", os.environ.get("CHAT_MODEL", "gpt-4o"))
@@ -344,7 +357,7 @@ def register_valuation_routes(*, db, require_member):
             "price": data.get("price"),
             "rating": analysis.get("rating"),
             "verdict": analysis.get("verdict"),
-            "score_total": ((analysis.get("score") or {}).get("total")),
+            "score_total": _extract_score_total(analysis),
             "created_at": datetime.now(timezone.utc),
         }
         await db.valuations.insert_one(record)
