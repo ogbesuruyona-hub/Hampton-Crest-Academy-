@@ -740,10 +740,6 @@ export default function AssetValuation() {
                 label="PE (TTM)"
                 value={fmtNum(result.data?.pe_trailing, { digits: 1 })}
               />
-              <Metric
-                label="PE forward"
-                value={fmtNum(result.data?.pe_forward, { digits: 1 })}
-              />
               <Metric label="PEG" value={fmtNum(result.data?.peg, { digits: 2 })} />
               <Metric
                 label="EV / EBITDA"
