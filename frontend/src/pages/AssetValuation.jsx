@@ -19,10 +19,10 @@ import {
 
 // ---------- helpers ----------
 const fmtNum = (v, opts = {}) => {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  if (v === null || v === undefined || Number.isNaN(v)) return "No disponible";
   const { currency = false, pct = false, abbr = false, digits = 2 } = opts;
   const n = Number(v);
-  if (Number.isNaN(n)) return "—";
+  if (Number.isNaN(n)) return "No disponible";
   if (pct) return `${(n * 100).toFixed(digits)}%`;
   if (abbr) {
     const abs = Math.abs(n);
@@ -145,23 +145,39 @@ const getScoreDisplay = (value) => {
 
 const fmtScore = (value) => {
   const display = getScoreDisplay(value);
-  return display.value === null ? "—" : `${Math.round(display.value)}/${display.scale}`;
+  return display.value === null ? "No disponible" : `${Math.round(display.value)}/${display.scale}`;
 };
+
+const humanizeKey = (key) =>
+  String(key || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const toDisplayText = (value) => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return value.map(toDisplayText).filter(Boolean).join("; ");
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, item]) => `${humanizeKey(key)}: ${toDisplayText(item)}`)
+      .filter(Boolean)
+      .join("; ");
   }
+  return String(value);
 };
+
+const hasDcfScenarioValues = (value) =>
+  Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      ["bear_case", "base_case", "bull_case"].some((key) => value[key] !== undefined)
+  );
 
 const isScoreBreakdown = (score) =>
   Boolean(score && typeof score === "object" && !Array.isArray(score));
+
 
 // ---------- subcomponents ----------
 const ScoreBar = ({ value }) => {
@@ -239,6 +255,63 @@ const Metric = ({ label, value, accent = false }) => (
     </span>
   </div>
 );
+
+const DcfScenarioCards = ({ value }) => {
+  const scenarios = [
+    { key: "bear_case", label: "Pesimista", color: "text-[#E07A7A]" },
+    { key: "base_case", label: "Base", color: "text-[var(--hc-gold)]" },
+    { key: "bull_case", label: "Optimista", color: "text-[#7BD3A0]" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 not-italic">
+      {scenarios.map((scenario) => (
+        <div key={scenario.key} className="border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] p-4">
+          <div className="hc-overline mb-2">{scenario.label}</div>
+          <div className={`text-lg font-medium tracking-tight ${scenario.color}`}>
+            {fmtNum(value?.[scenario.key], { currency: true })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const NarrativeValue = ({ value }) => {
+  if (value === null || value === undefined || value === "") return null;
+
+  if (hasDcfScenarioValues(value)) {
+    return <DcfScenarioCards value={value} />;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <ul className="space-y-2">
+        {value.map((item, index) => (
+          <li key={index} className="flex gap-2">
+            <span className="text-[var(--hc-gold)] shrink-0">-</span>
+            <div className="flex-1">{hasDcfScenarioValues(item) ? <DcfScenarioCards value={item} /> : toDisplayText(item)}</div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (typeof value === "object") {
+    return (
+      <div className="space-y-2">
+        {Object.entries(value).map(([key, item]) => (
+          <div key={key}>
+            <span className="font-medium text-[var(--hc-text)]">{humanizeKey(key)}: </span>
+            <span>{toDisplayText(item)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return <>{toDisplayText(value)}</>;
+};
 
 // ---------- main page ----------
 export default function AssetValuation() {
@@ -456,7 +529,7 @@ export default function AssetValuation() {
                         RATING_STYLES[result.analysis.rating]?.color || "text-[var(--hc-text)]"
                       }`}
                     >
-                      ★ {RATING_STYLES[result.analysis.rating]?.label || result.analysis.rating}
+                      ★ {RATING_STYLES[result.analysis.rating]?.label || toDisplayText(result.analysis.rating)}
                     </span>
                   )}
                 </div>
@@ -495,9 +568,9 @@ export default function AssetValuation() {
             </div>
 
             {result.analysis?.executive_summary && (
-              <p className="mt-6 text-[var(--hc-text-secondary)] tracking-tight leading-relaxed max-w-4xl">
-                {toDisplayText(result.analysis.executive_summary)}
-              </p>
+              <div className="mt-6 text-[var(--hc-text-secondary)] tracking-tight leading-relaxed max-w-4xl">
+                <NarrativeValue value={result.analysis.executive_summary} />
+              </div>
             )}
           </div>
 
@@ -546,9 +619,9 @@ export default function AssetValuation() {
               {result.analysis?.verdict_explanation && (
                 <div className="mt-8 pt-6 border-t border-[var(--hc-border)]">
                   <div className="hc-overline mb-2">Veredicto del analista</div>
-                  <p className="text-[var(--hc-text)] tracking-tight leading-relaxed">
-                    {toDisplayText(result.analysis.verdict_explanation)}
-                  </p>
+                  <div className="text-[var(--hc-text)] tracking-tight leading-relaxed">
+                    <NarrativeValue value={result.analysis.verdict_explanation} />
+                  </div>
                 </div>
               )}
             </Panel>
@@ -642,10 +715,14 @@ export default function AssetValuation() {
                         {fmtNum(result.data?.price, { currency: true })}
                       </div>
                     </div>
-                    {result.analysis?.fair_value_summary && (
-                      <div className="mt-5 pt-5 border-t border-[var(--hc-border)] text-sm text-[var(--hc-text)] tracking-tight leading-relaxed italic">
-                        <Gem className="inline h-4 w-4 mr-2 text-[var(--hc-gold)]" strokeWidth={1.5} />
-                        {toDisplayText(result.analysis.fair_value_summary)}
+                    {result.analysis?.fair_value_summary &&
+                      !hasDcfScenarioValues(result.analysis.fair_value_summary) && (
+                      <div className="mt-5 pt-5 border-t border-[var(--hc-border)] text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
+                        <div className="mb-3 flex items-center gap-2 text-[var(--hc-gold)]">
+                          <Gem className="h-4 w-4" strokeWidth={1.5} />
+                          <span className="hc-overline">Resumen de valor justo</span>
+                        </div>
+                        <NarrativeValue value={result.analysis.fair_value_summary} />
                       </div>
                     )}
                   </>
@@ -757,7 +834,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[var(--hc-gold)] shrink-0">▸</span>
-                            <span>{toDisplayText(d)}</span>
+                            <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
                       </ul>
@@ -766,9 +843,9 @@ export default function AssetValuation() {
                 {result.analysis.thesis.moat && (
                   <div>
                     <div className="hc-overline mb-3 text-[var(--hc-gold)]">Moat</div>
-                    <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                      {toDisplayText(result.analysis.thesis.moat)}
-                    </p>
+                    <div className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
+                      <NarrativeValue value={result.analysis.thesis.moat} />
+                    </div>
                   </div>
                 )}
                 {Array.isArray(result.analysis.thesis.catalysts) &&
@@ -782,7 +859,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[var(--hc-gold)] shrink-0">●</span>
-                            <span>{toDisplayText(d)}</span>
+                            <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
                       </ul>
@@ -801,7 +878,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[#E07A7A] shrink-0">▲</span>
-                            <span>{toDisplayText(d)}</span>
+                            <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
                       </ul>
@@ -815,17 +892,17 @@ export default function AssetValuation() {
                   {result.analysis?.financial_quality_comment && (
                     <div>
                       <div className="hc-overline mb-2">Comentario financiero</div>
-                      <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                        {toDisplayText(result.analysis.financial_quality_comment)}
-                      </p>
+                      <div className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
+                        <NarrativeValue value={result.analysis.financial_quality_comment} />
+                      </div>
                     </div>
                   )}
                   {result.analysis?.valuation_comment && (
                     <div>
                       <div className="hc-overline mb-2">Comentario de valoración</div>
-                      <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                        {toDisplayText(result.analysis.valuation_comment)}
-                      </p>
+                      <div className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
+                        <NarrativeValue value={result.analysis.valuation_comment} />
+                      </div>
                     </div>
                   )}
                 </div>
