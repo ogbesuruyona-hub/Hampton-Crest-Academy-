@@ -85,9 +85,53 @@ const SCORE_LABELS = {
   risk: "Riesgo (mayor = menor riesgo)",
 };
 
+const asFiniteNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const getScoreTotal = (score) => {
+  if (score && typeof score === "object" && !Array.isArray(score)) {
+    return asFiniteNumber(score.total);
+  }
+  return asFiniteNumber(score);
+};
+
+const getScoreDisplay = (value) => {
+  const n = asFiniteNumber(value);
+  if (n === null) return { value: null, scale: 100, percent: 0 };
+  const scale = n <= 10 ? 10 : 100;
+  const percent = scale === 10 ? n * 10 : n;
+  return {
+    value: n,
+    scale,
+    percent: Math.max(0, Math.min(100, percent)),
+  };
+};
+
+const fmtScore = (value) => {
+  const display = getScoreDisplay(value);
+  return display.value === null ? "—" : `${Math.round(display.value)}/${display.scale}`;
+};
+
+const toDisplayText = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(toDisplayText).filter(Boolean).join("; ");
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const isScoreBreakdown = (score) =>
+  Boolean(score && typeof score === "object" && !Array.isArray(score));
+
 // ---------- subcomponents ----------
 const ScoreBar = ({ value }) => {
-  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const v = getScoreDisplay(value).percent;
   return (
     <div className="relative h-1.5 w-full bg-[var(--hc-surface-elevated)]">
       <div
@@ -99,7 +143,8 @@ const ScoreBar = ({ value }) => {
 };
 
 const RingScore = ({ value }) => {
-  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const display = getScoreDisplay(value);
+  const v = display.percent;
   const c = 2 * Math.PI * 54;
   const dash = (v / 100) * c;
   return (
@@ -126,9 +171,9 @@ const RingScore = ({ value }) => {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-medium tracking-tight text-[var(--hc-text)]">
-          {Math.round(v)}
+          {display.value === null ? "—" : Math.round(display.value)}
         </span>
-        <span className="hc-overline mt-1">de 100</span>
+        <span className="hc-overline mt-1">de {display.scale}</span>
       </div>
     </div>
   );
@@ -171,6 +216,13 @@ export default function AssetValuation() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  const scoreTotal = getScoreTotal(result?.analysis?.score);
+  const hasScoreBreakdown = isScoreBreakdown(result?.analysis?.score);
+  const resultWarning =
+    result && (!result.data || !result.analysis)
+      ? "La valoración se completó, pero la respuesta llegó incompleta. Se muestran los campos disponibles."
+      : "";
+
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
@@ -199,13 +251,14 @@ export default function AssetValuation() {
     };
   }, [loading]);
 
-  const submit = async (e) => {
+  const submit = async (e, tickerOverride = "") => {
     e?.preventDefault();
-    const t = ticker.trim().toUpperCase();
+    const t = (tickerOverride || ticker).trim().toUpperCase();
     if (!t) return;
     setLoading(true);
     setError("");
     setResult(null);
+    setTicker(t);
     try {
       const { data } = await api.post("/valuation", { ticker: t });
       setResult(data);
@@ -329,6 +382,13 @@ export default function AssetValuation() {
             {error}
           </div>
         )}
+
+        {resultWarning && (
+          <div className="mt-6 text-xs tracking-tight text-[#E0B97A] border border-[#6A4C1C] bg-[#251D0D] px-4 py-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            {resultWarning}
+          </div>
+        )}
       </Panel>
 
       {/* Results */}
@@ -393,17 +453,17 @@ export default function AssetValuation() {
 
             {result.analysis?.executive_summary && (
               <p className="mt-6 text-[var(--hc-text-secondary)] tracking-tight leading-relaxed max-w-4xl">
-                {result.analysis.executive_summary}
+                {toDisplayText(result.analysis.executive_summary)}
               </p>
             )}
           </div>
 
           {/* Scoring */}
-          {result.analysis?.score && (
+          {scoreTotal !== null && (
             <Panel overline="Scoring Institucional" title="Calidad ponderada" testid="panel-scoring">
               <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-stretch">
                 <div className="flex flex-col items-center justify-center shrink-0">
-                  <RingScore value={result.analysis.score.total} />
+                  <RingScore value={scoreTotal} />
                   {result.analysis?.verdict && (
                     <div className="mt-4">
                       <VerdictBadge verdict={result.analysis.verdict} />
@@ -411,27 +471,40 @@ export default function AssetValuation() {
                   )}
                 </div>
                 <div className="flex-1 w-full space-y-4">
-                  {Object.entries(SCORE_LABELS).map(([k, label]) => {
-                    const v = result.analysis.score?.[k];
-                    return (
+                  {hasScoreBreakdown ? (
+                    Object.entries(SCORE_LABELS).map(([k, label]) => {
+                      const v = result.analysis.score?.[k];
+                      return (
                       <div key={k} data-testid={`score-${k}`}>
                         <div className="flex items-baseline justify-between mb-1.5">
                           <span className="hc-overline">{label}</span>
                           <span className="text-sm font-medium tracking-tight text-[var(--hc-text)]">
-                            {v ?? "—"}
+                            {fmtScore(v)}
                           </span>
                         </div>
                         <ScoreBar value={v} />
                       </div>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    <div className="border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] px-4 py-5">
+                      <div className="hc-overline mb-2">Score recibido</div>
+                      <p className="text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed">
+                        El análisis devolvió una puntuación total sin desglose por categorías.
+                        Se muestra el score total y el resto del reporte generado.
+                      </p>
+                      <div className="mt-4">
+                        <ScoreBar value={scoreTotal} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               {result.analysis?.verdict_explanation && (
                 <div className="mt-8 pt-6 border-t border-[var(--hc-border)]">
                   <div className="hc-overline mb-2">Veredicto del analista</div>
                   <p className="text-[var(--hc-text)] tracking-tight leading-relaxed">
-                    {result.analysis.verdict_explanation}
+                    {toDisplayText(result.analysis.verdict_explanation)}
                   </p>
                 </div>
               )}
@@ -529,7 +602,7 @@ export default function AssetValuation() {
                     {result.analysis?.fair_value_summary && (
                       <div className="mt-5 pt-5 border-t border-[var(--hc-border)] text-sm text-[var(--hc-text)] tracking-tight leading-relaxed italic">
                         <Gem className="inline h-4 w-4 mr-2 text-[var(--hc-gold)]" strokeWidth={1.5} />
-                        {result.analysis.fair_value_summary}
+                        {toDisplayText(result.analysis.fair_value_summary)}
                       </div>
                     )}
                   </>
@@ -641,7 +714,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[var(--hc-gold)] shrink-0">▸</span>
-                            <span>{d}</span>
+                            <span>{toDisplayText(d)}</span>
                           </li>
                         ))}
                       </ul>
@@ -651,7 +724,7 @@ export default function AssetValuation() {
                   <div>
                     <div className="hc-overline mb-3 text-[var(--hc-gold)]">Moat</div>
                     <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                      {result.analysis.thesis.moat}
+                      {toDisplayText(result.analysis.thesis.moat)}
                     </p>
                   </div>
                 )}
@@ -666,7 +739,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[var(--hc-gold)] shrink-0">●</span>
-                            <span>{d}</span>
+                            <span>{toDisplayText(d)}</span>
                           </li>
                         ))}
                       </ul>
@@ -685,7 +758,7 @@ export default function AssetValuation() {
                             className="flex gap-3 text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed"
                           >
                             <span className="text-[#E07A7A] shrink-0">▲</span>
-                            <span>{d}</span>
+                            <span>{toDisplayText(d)}</span>
                           </li>
                         ))}
                       </ul>
@@ -700,7 +773,7 @@ export default function AssetValuation() {
                     <div>
                       <div className="hc-overline mb-2">Comentario financiero</div>
                       <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                        {result.analysis.financial_quality_comment}
+                        {toDisplayText(result.analysis.financial_quality_comment)}
                       </p>
                     </div>
                   )}
@@ -708,7 +781,7 @@ export default function AssetValuation() {
                     <div>
                       <div className="hc-overline mb-2">Comentario de valoración</div>
                       <p className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
-                        {result.analysis.valuation_comment}
+                        {toDisplayText(result.analysis.valuation_comment)}
                       </p>
                     </div>
                   )}
@@ -750,10 +823,7 @@ export default function AssetValuation() {
                 return (
                   <button
                     key={i}
-                    onClick={() => {
-                      setTicker(h.ticker);
-                      setTimeout(() => submit(), 50);
-                    }}
+                    onClick={() => submit(null, h.ticker)}
                     data-testid={`history-row-${h.ticker}`}
                     className="w-full grid grid-cols-[90px_1fr_90px_60px_90px] items-center gap-4 py-3 text-left hover:bg-[var(--hc-surface-elevated)] transition-colors px-2 -mx-2"
                   >
@@ -767,7 +837,7 @@ export default function AssetValuation() {
                       {fmtNum(h.price, { currency: true })}
                     </span>
                     <span className="text-sm font-medium tracking-tight text-[var(--hc-gold)]">
-                      {h.score_total ?? "—"}
+                      {fmtScore(h.score_total)}
                     </span>
                     <span
                       className={`text-[0.65rem] tracking-[0.18em] uppercase font-semibold text-right ${v.text}`}
