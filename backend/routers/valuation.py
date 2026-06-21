@@ -117,6 +117,25 @@ def _first_available(*values):
     return None
 
 
+FUNDAMENTAL_INFO_KEYS = (
+    "trailingPE",
+    "forwardPE",
+    "pegRatio",
+    "enterpriseToEbitda",
+    "enterpriseToRevenue",
+    "priceToBook",
+    "priceToSalesTrailing12Months",
+    "grossMargins",
+    "operatingMargins",
+    "profitMargins",
+    "ebitdaMargins",
+    "returnOnEquity",
+    "returnOnAssets",
+    "debtToEquity",
+    "currentRatio",
+)
+
+
 def _normalize_ticker(ticker: str) -> str:
     return re.sub(r"\s+", "", ticker or "").upper()
 
@@ -178,6 +197,21 @@ def _fetch_company_data(ticker: str) -> dict:
     quarterly_income = _fmt_financials(_get_statement(t, "quarterly_income_stmt"))
     quarterly_balance = _fmt_financials(_get_statement(t, "quarterly_balance_sheet"))
     quarterly_cashflow = _fmt_financials(_get_statement(t, "quarterly_cashflow"))
+    raw_fundamentals = {key: _safe(info.get(key)) for key in FUNDAMENTAL_INFO_KEYS}
+    logger.info(
+        "[valuation:yfinance-diagnostics] ticker=%s info_key_count=%s info_keys=%s raw_fundamentals=%s fast_info_used=%s income_stmt_used=%s balance_sheet_used=%s cashflow_used=%s quarterly_income_used=%s quarterly_balance_used=%s quarterly_cashflow_used=%s",
+        normalized,
+        len(info.keys()),
+        sorted(list(info.keys())),
+        raw_fundamentals,
+        bool(fast_info),
+        bool(income),
+        bool(balance),
+        bool(cashflow),
+        bool(quarterly_income),
+        bool(quarterly_balance),
+        bool(quarterly_cashflow),
+    )
 
     revenue = _row(income, "Total Revenue", "TotalRevenue")
     quarterly_revenue = _row(quarterly_income, "Total Revenue", "TotalRevenue")
@@ -279,29 +313,7 @@ def _fetch_company_data(ticker: str) -> dict:
     logger.info(
         "[valuation:fundamentals] ticker=%s info_fields=%s derived_fields=%s empty_fields=%s",
         normalized,
-        sorted(
-            [
-                key
-                for key in (
-                    "trailingPE",
-                    "forwardPE",
-                    "pegRatio",
-                    "enterpriseToEbitda",
-                    "enterpriseToRevenue",
-                    "priceToBook",
-                    "priceToSalesTrailing12Months",
-                    "grossMargins",
-                    "operatingMargins",
-                    "profitMargins",
-                    "ebitdaMargins",
-                    "returnOnEquity",
-                    "returnOnAssets",
-                    "debtToEquity",
-                    "currentRatio",
-                )
-                if _safe(info.get(key)) is not None
-            ]
-        ),
+        sorted([key for key in FUNDAMENTAL_INFO_KEYS if _safe(info.get(key)) is not None]),
         sorted([field for field, value in fallback_fields.items() if value is not None]),
         empty_fields,
     )
