@@ -487,7 +487,35 @@ def _fetch_company_data(ticker: str) -> dict:
     current_assets_latest = _latest(quarterly_current_assets) or _latest(current_assets)
     current_liabilities_latest = _latest(quarterly_current_liabilities) or _latest(current_liabilities)
 
-    market_cap = _first_available(info.get("marketCap"), yahooquery_fundamentals.get("marketCap"), fmp_fundamentals.get("marketCap"), fast_info.get("market_cap"))
+    shares_outstanding = _first_available(
+        info.get("sharesOutstanding"),
+        fast_info.get("shares"),
+        fast_info.get("sharesOutstanding"),
+        fast_info.get("shares_outstanding"),
+        info.get("shares_outstanding"),
+        _latest(_row(balance, "Ordinary Shares Number", "OrdinarySharesNumber", "Share Issued", "ShareIssued")),
+        _latest(_row(quarterly_balance, "Ordinary Shares Number", "OrdinarySharesNumber", "Share Issued", "ShareIssued")),
+    )
+    market_cap_candidates = (
+        ("info.marketCap", info.get("marketCap")),
+        ("fast_info.marketCap", fast_info.get("marketCap")),
+        ("fast_info.market_cap", fast_info.get("market_cap")),
+        ("info.market_cap", info.get("market_cap")),
+        ("yahooquery.marketCap", yahooquery_fundamentals.get("marketCap")),
+        ("fmp.marketCap", fmp_fundamentals.get("marketCap")),
+    )
+    market_cap = None
+    market_cap_source = None
+    for source, value in market_cap_candidates:
+        safe_value = _safe(value)
+        if safe_value is not None:
+            market_cap = safe_value
+            market_cap_source = source
+            break
+    if market_cap is None and price is not None and shares_outstanding is not None:
+        market_cap = price * shares_outstanding
+        market_cap_source = "price*sharesOutstanding"
+
     derived_enterprise_value = (
         market_cap + total_debt_latest - cash_latest
         if market_cap is not None and total_debt_latest is not None and cash_latest is not None
@@ -507,6 +535,9 @@ def _fetch_company_data(ticker: str) -> dict:
         sorted([key for key, value in derived_multiples.items() if value is not None]),
         {
             "marketCap": market_cap,
+            "marketCap_source": market_cap_source,
+            "price": price,
+            "sharesOutstanding": shares_outstanding,
             "netIncome": net_income_ttm,
             "revenue": revenue_ttm,
             "equity": equity_latest,
@@ -515,7 +546,6 @@ def _fetch_company_data(ticker: str) -> dict:
             "ebitda": ebitda_ttm,
         },
     )
-    shares_outstanding = _first_available(info.get("sharesOutstanding"), fast_info.get("shares"))
     enterprise_value = _first_available(
         info.get("enterpriseValue"),
         yahooquery_fundamentals.get("enterpriseValue"),
