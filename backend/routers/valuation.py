@@ -10,11 +10,11 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-import requests
 import yfinance as yf
 from fastapi import APIRouter, Depends, HTTPException
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
+from yahooquery import Ticker as YahooQueryTicker
 
 router = APIRouter(prefix="/api/valuation", tags=["valuation"])
 logger = logging.getLogger(__name__)
@@ -142,57 +142,24 @@ FUNDAMENTAL_INFO_KEYS = (
 )
 
 
-YAHOO_QUOTE_SUMMARY_MODULES = (
-    "summaryDetail",
-    "defaultKeyStatistics",
-    "financialData",
+YAHOOQUERY_MODULES = (
+    "summary_detail",
+    "key_stats",
+    "financial_data",
 )
 
 
-def _fetch_yahoo_quote_summary_fundamentals(ticker: str) -> dict[str, Any]:
-    modules = ",".join(YAHOO_QUOTE_SUMMARY_MODULES)
-    url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}"
-    params = {"modules": modules}
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
+def _fetch_yahooquery_fundamentals(ticker: str) -> dict[str, Any]:
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        json_error = None
-        payload = {}
-        try:
-            payload = response.json()
-        except Exception as e:
-            json_error = repr(e)
-        logger.warning(
-            "[valuation:yahoo-summary-debug] ticker=%s url=%s status_code=%s content_type=%s response_preview=%s json_error=%s modules=%s",
-            ticker,
-            response.url,
-            response.status_code,
-            response.headers.get("content-type"),
-            (response.text or "")[:1000],
-            json_error,
-            modules,
-        )
-        response.raise_for_status()
-        if json_error:
-            return {}
-        result = ((payload.get("quoteSummary") or {}).get("result") or [{}])[0] or {}
+        yq = YahooQueryTicker(ticker)
+        modules_payload = {
+            "summary_detail": (yq.summary_detail or {}).get(ticker, {}) or {},
+            "key_stats": (yq.key_stats or {}).get(ticker, {}) or {},
+            "financial_data": (yq.financial_data or {}).get(ticker, {}) or {},
+        }
     except Exception as e:
-        logger.exception("[valuation:yahoo-summary-error] ticker=%s error=%s", ticker, e)
+        logger.exception("[valuation:yahooquery-error] ticker=%s error=%s", ticker, e)
         return {}
-
-    modules_payload = {
-        "summaryDetail": result.get("summaryDetail") or {},
-        "defaultKeyStatistics": result.get("defaultKeyStatistics") or {},
-        "financialData": result.get("financialData") or {},
-    }
 
     def pick(*locations):
         for module_name, key in locations:
@@ -202,28 +169,35 @@ def _fetch_yahoo_quote_summary_fundamentals(ticker: str) -> dict[str, Any]:
         return None
 
     fundamentals = {
-        "trailingPE": pick(("summaryDetail", "trailingPE"), ("defaultKeyStatistics", "trailingPE")),
-        "forwardPE": pick(("summaryDetail", "forwardPE"), ("defaultKeyStatistics", "forwardPE")),
-        "pegRatio": pick(("defaultKeyStatistics", "pegRatio")),
-        "enterpriseToEbitda": pick(("defaultKeyStatistics", "enterpriseToEbitda")),
-        "enterpriseToRevenue": pick(("defaultKeyStatistics", "enterpriseToRevenue")),
-        "priceToBook": pick(("defaultKeyStatistics", "priceToBook")),
+        "trailingPE": pick(("summary_detail", "trailingPE"), ("key_stats", "trailingPE")),
+        "forwardPE": pick(("summary_detail", "forwardPE"), ("key_stats", "forwardPE")),
+        "pegRatio": pick(("key_stats", "pegRatio")),
+        "enterpriseToEbitda": pick(("key_stats", "enterpriseToEbitda")),
+        "enterpriseToRevenue": pick(("key_stats", "enterpriseToRevenue")),
+        "priceToBook": pick(("key_stats", "priceToBook")),
         "priceToSalesTrailing12Months": pick(
-            ("summaryDetail", "priceToSalesTrailing12Months"),
-            ("defaultKeyStatistics", "priceToSalesTrailing12Months"),
+            ("summary_detail", "priceToSalesTrailing12Months"),
+            ("key_stats", "priceToSalesTrailing12Months"),
         ),
-        "grossMargins": pick(("financialData", "grossMargins")),
-        "operatingMargins": pick(("financialData", "operatingMargins")),
-        "profitMargins": pick(("financialData", "profitMargins")),
-        "ebitdaMargins": pick(("financialData", "ebitdaMargins")),
-        "returnOnEquity": pick(("financialData", "returnOnEquity")),
-        "returnOnAssets": pick(("financialData", "returnOnAssets")),
-        "debtToEquity": pick(("financialData", "debtToEquity")),
-        "currentRatio": pick(("financialData", "currentRatio")),
-        "enterpriseValue": pick(("defaultKeyStatistics", "enterpriseValue")),
-        "marketCap": pick(("summaryDetail", "marketCap"), ("defaultKeyStatistics", "marketCap")),
+        "grossMargins": pick(("financial_data", "grossMargins")),
+        "operatingMargins": pick(("financial_data", "operatingMargins")),
+        "profitMargins": pick(("financial_data", "profitMargins")),
+        "ebitdaMargins": pick(("financial_data", "ebitdaMargins")),
+        "returnOnEquity": pick(("financial_data", "returnOnEquity")),
+        "returnOnAssets": pick(("financial_data", "returnOnAssets")),
+        "debtToEquity": pick(("financial_data", "debtToEquity")),
+        "currentRatio": pick(("financial_data", "currentRatio")),
+        "enterpriseValue": pick(("key_stats", "enterpriseValue")),
+        "marketCap": pick(("summary_detail", "marketCap"), ("key_stats", "marketCap")),
     }
-    return {key: value for key, value in fundamentals.items() if value is not None}
+    clean = {key: value for key, value in fundamentals.items() if value is not None}
+    logger.warning(
+        "[valuation:yahooquery-source] ticker=%s field_count=%s fields=%s",
+        ticker,
+        len(clean.keys()),
+        sorted(list(clean.keys())),
+    )
+    return clean
 
 
 def _normalize_ticker(ticker: str) -> str:
@@ -260,12 +234,12 @@ def _fetch_company_data(ticker: str) -> dict:
     except Exception as e:
         logger.warning("[valuation:yfinance-fast-info-error] ticker=%s error=%s", normalized, e)
         fast_info = {}
-    yahoo_summary_fundamentals = _fetch_yahoo_quote_summary_fundamentals(normalized)
+    yahooquery_fundamentals = _fetch_yahooquery_fundamentals(normalized)
     logger.warning(
-        "[valuation:alternate-source-loaded] ticker=%s yahoo_summary_field_count=%s yahoo_summary_fields=%s",
+        "[valuation:alternate-source-loaded] ticker=%s yahooquery_field_count=%s yahooquery_fields=%s",
         normalized,
-        len(yahoo_summary_fundamentals.keys()),
-        sorted(list(yahoo_summary_fundamentals.keys())),
+        len(yahooquery_fundamentals.keys()),
+        sorted(list(yahooquery_fundamentals.keys())),
     )
 
     logger.warning(
@@ -295,8 +269,8 @@ def _fetch_company_data(ticker: str) -> dict:
     quarterly_balance = _fmt_financials(_get_statement(t, "quarterly_balance_sheet"))
     quarterly_cashflow = _fmt_financials(_get_statement(t, "quarterly_cashflow"))
     raw_fundamentals = {key: _safe(info.get(key)) for key in FUNDAMENTAL_INFO_KEYS}
-    yahoo_summary_raw_fundamentals = {
-        key: _safe(yahoo_summary_fundamentals.get(key)) for key in FUNDAMENTAL_INFO_KEYS
+    yahooquery_raw_fundamentals = {
+        key: _safe(yahooquery_fundamentals.get(key)) for key in FUNDAMENTAL_INFO_KEYS
     }
     logger.warning(
         "[valuation:yfinance-diagnostics] ticker=%s info_key_count=%s info_keys=%s raw_fundamentals=%s fast_info_used=%s income_stmt_used=%s balance_sheet_used=%s cashflow_used=%s quarterly_income_used=%s quarterly_balance_used=%s quarterly_cashflow_used=%s",
@@ -313,11 +287,11 @@ def _fetch_company_data(ticker: str) -> dict:
         bool(quarterly_cashflow),
     )
     logger.warning(
-        "[valuation:fundamental-source-compare] ticker=%s yfinance_info=%s yahoo_summary=%s yahoo_summary_fields=%s",
+        "[valuation:fundamental-source-compare] ticker=%s yfinance_info=%s yahooquery=%s yahooquery_fields=%s",
         normalized,
         raw_fundamentals,
-        yahoo_summary_raw_fundamentals,
-        sorted([key for key, value in yahoo_summary_raw_fundamentals.items() if value is not None]),
+        yahooquery_raw_fundamentals,
+        sorted([key for key, value in yahooquery_raw_fundamentals.items() if value is not None]),
     )
 
     revenue = _row(income, "Total Revenue", "TotalRevenue")
@@ -373,32 +347,32 @@ def _fetch_company_data(ticker: str) -> dict:
     current_assets_latest = _latest(quarterly_current_assets) or _latest(current_assets)
     current_liabilities_latest = _latest(quarterly_current_liabilities) or _latest(current_liabilities)
 
-    market_cap = _first_available(info.get("marketCap"), yahoo_summary_fundamentals.get("marketCap"), fast_info.get("market_cap"))
+    market_cap = _first_available(info.get("marketCap"), yahooquery_fundamentals.get("marketCap"), fast_info.get("market_cap"))
     shares_outstanding = _first_available(info.get("sharesOutstanding"), fast_info.get("shares"))
     enterprise_value = _first_available(
         info.get("enterpriseValue"),
-        yahoo_summary_fundamentals.get("enterpriseValue"),
+        yahooquery_fundamentals.get("enterpriseValue"),
         market_cap + total_debt_latest - cash_latest
         if market_cap is not None and total_debt_latest is not None and cash_latest is not None
         else None,
     )
-    pe_trailing = _first_available(info.get("trailingPE"), yahoo_summary_fundamentals.get("trailingPE"), _ratio(market_cap, net_income_ttm))
-    pe_forward = _first_available(info.get("forwardPE"), yahoo_summary_fundamentals.get("forwardPE"))
-    peg = _first_available(info.get("pegRatio"), yahoo_summary_fundamentals.get("pegRatio"))
-    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahoo_summary_fundamentals.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
-    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahoo_summary_fundamentals.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
-    price_to_book = _first_available(info.get("priceToBook"), yahoo_summary_fundamentals.get("priceToBook"), _ratio(market_cap, equity_latest))
-    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahoo_summary_fundamentals.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
-    gross_margin = _first_available(info.get("grossMargins"), yahoo_summary_fundamentals.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
-    operating_margin = _first_available(info.get("operatingMargins"), yahoo_summary_fundamentals.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
-    profit_margin = _first_available(info.get("profitMargins"), yahoo_summary_fundamentals.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
-    ebitda_margin = _first_available(info.get("ebitdaMargins"), yahoo_summary_fundamentals.get("ebitdaMargins"), _ratio(ebitda_ttm, revenue_ttm))
-    roe = _first_available(info.get("returnOnEquity"), yahoo_summary_fundamentals.get("returnOnEquity"), _ratio(net_income_ttm, equity_latest))
-    roa = _first_available(info.get("returnOnAssets"), yahoo_summary_fundamentals.get("returnOnAssets"), _ratio(net_income_ttm, total_assets_latest))
-    debt_to_equity = _first_available(info.get("debtToEquity"), yahoo_summary_fundamentals.get("debtToEquity"), _ratio(total_debt_latest, equity_latest))
+    pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), _ratio(market_cap, net_income_ttm))
+    pe_forward = _first_available(info.get("forwardPE"), yahooquery_fundamentals.get("forwardPE"))
+    peg = _first_available(info.get("pegRatio"), yahooquery_fundamentals.get("pegRatio"))
+    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
+    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
+    price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), _ratio(market_cap, equity_latest))
+    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahooquery_fundamentals.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
+    gross_margin = _first_available(info.get("grossMargins"), yahooquery_fundamentals.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
+    operating_margin = _first_available(info.get("operatingMargins"), yahooquery_fundamentals.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
+    profit_margin = _first_available(info.get("profitMargins"), yahooquery_fundamentals.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
+    ebitda_margin = _first_available(info.get("ebitdaMargins"), yahooquery_fundamentals.get("ebitdaMargins"), _ratio(ebitda_ttm, revenue_ttm))
+    roe = _first_available(info.get("returnOnEquity"), yahooquery_fundamentals.get("returnOnEquity"), _ratio(net_income_ttm, equity_latest))
+    roa = _first_available(info.get("returnOnAssets"), yahooquery_fundamentals.get("returnOnAssets"), _ratio(net_income_ttm, total_assets_latest))
+    debt_to_equity = _first_available(info.get("debtToEquity"), yahooquery_fundamentals.get("debtToEquity"), _ratio(total_debt_latest, equity_latest))
     if debt_to_equity is not None and debt_to_equity > 10:
         debt_to_equity = debt_to_equity / 100
-    current_ratio = _first_available(info.get("currentRatio"), yahoo_summary_fundamentals.get("currentRatio"), _ratio(current_assets_latest, current_liabilities_latest))
+    current_ratio = _first_available(info.get("currentRatio"), yahooquery_fundamentals.get("currentRatio"), _ratio(current_assets_latest, current_liabilities_latest))
 
     fallback_fields = {
         "pe_trailing": pe_trailing,
