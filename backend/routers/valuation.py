@@ -239,8 +239,14 @@ def _fetch_company_data(ticker: str) -> dict:
         logger.warning("[valuation:yfinance-fast-info-error] ticker=%s error=%s", normalized, e)
         fast_info = {}
     yahoo_summary_fundamentals = _fetch_yahoo_quote_summary_fundamentals(normalized)
+    logger.warning(
+        "[valuation:alternate-source-loaded] ticker=%s yahoo_summary_field_count=%s yahoo_summary_fields=%s",
+        normalized,
+        len(yahoo_summary_fundamentals.keys()),
+        sorted(list(yahoo_summary_fundamentals.keys())),
+    )
 
-    logger.info(
+    logger.warning(
         "[valuation:yfinance-response] ticker=%s info_keys=%s fast_info_keys=%s",
         normalized,
         sorted(list(info.keys()))[:40],
@@ -270,7 +276,7 @@ def _fetch_company_data(ticker: str) -> dict:
     yahoo_summary_raw_fundamentals = {
         key: _safe(yahoo_summary_fundamentals.get(key)) for key in FUNDAMENTAL_INFO_KEYS
     }
-    logger.info(
+    logger.warning(
         "[valuation:yfinance-diagnostics] ticker=%s info_key_count=%s info_keys=%s raw_fundamentals=%s fast_info_used=%s income_stmt_used=%s balance_sheet_used=%s cashflow_used=%s quarterly_income_used=%s quarterly_balance_used=%s quarterly_cashflow_used=%s",
         normalized,
         len(info.keys()),
@@ -284,7 +290,7 @@ def _fetch_company_data(ticker: str) -> dict:
         bool(quarterly_balance),
         bool(quarterly_cashflow),
     )
-    logger.info(
+    logger.warning(
         "[valuation:fundamental-source-compare] ticker=%s yfinance_info=%s yahoo_summary=%s yahoo_summary_fields=%s",
         normalized,
         raw_fundamentals,
