@@ -151,14 +151,16 @@ YAHOOQUERY_MODULES = (
 
 def _fetch_yahooquery_fundamentals(ticker: str) -> dict[str, Any]:
     try:
+        logger.warning("[valuation:yahooquery-start] ticker=%s", ticker)
         yq = YahooQueryTicker(ticker)
+        logger.warning("[valuation:yahooquery-created] ticker=%s", ticker)
         modules_payload = {
             "summary_detail": (yq.summary_detail or {}).get(ticker, {}) or {},
             "key_stats": (yq.key_stats or {}).get(ticker, {}) or {},
             "financial_data": (yq.financial_data or {}).get(ticker, {}) or {},
         }
-    except Exception as e:
-        logger.exception("[valuation:yahooquery-error] ticker=%s error=%s", ticker, e)
+    except Exception:
+        logger.exception("[valuation:yahooquery-error] ticker=%s", ticker)
         return {}
 
     def pick(*locations):
