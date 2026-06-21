@@ -78,6 +78,45 @@ def _row(d: dict, *names: str) -> list[float | None]:
     return []
 
 
+def _get_statement(ticker_obj, attr: str):
+    try:
+        return getattr(ticker_obj, attr)
+    except Exception as e:
+        logger.warning("[valuation:yfinance-statement-error] statement=%s error=%s", attr, e)
+        return None
+
+
+def _latest(series: list[float | None]) -> float | None:
+    for value in reversed(series or []):
+        safe = _safe(value)
+        if safe is not None:
+            return safe
+    return None
+
+
+def _sum_recent(series: list[float | None], periods: int = 4) -> float | None:
+    clean = [_safe(value) for value in (series or []) if _safe(value) is not None]
+    if not clean:
+        return None
+    return sum(clean[-periods:])
+
+
+def _ratio(numerator, denominator) -> float | None:
+    numerator = _safe(numerator)
+    denominator = _safe(denominator)
+    if numerator is None or denominator in (None, 0):
+        return None
+    return numerator / denominator
+
+
+def _first_available(*values):
+    for value in values:
+        safe = _safe(value)
+        if safe is not None:
+            return safe
+    return None
+
+
 def _normalize_ticker(ticker: str) -> str:
     return re.sub(r"\s+", "", ticker or "").upper()
 
@@ -133,21 +172,139 @@ def _fetch_company_data(ticker: str) -> dict:
     if price is None and company_name == normalized:
         raise ValueError(f"No usable price or company profile for ticker {normalized}")
 
-    income = _fmt_financials(t.income_stmt)
-    balance = _fmt_financials(t.balance_sheet)
-    cashflow = _fmt_financials(t.cashflow)
+    income = _fmt_financials(_get_statement(t, "income_stmt"))
+    balance = _fmt_financials(_get_statement(t, "balance_sheet"))
+    cashflow = _fmt_financials(_get_statement(t, "cashflow"))
+    quarterly_income = _fmt_financials(_get_statement(t, "quarterly_income_stmt"))
+    quarterly_balance = _fmt_financials(_get_statement(t, "quarterly_balance_sheet"))
+    quarterly_cashflow = _fmt_financials(_get_statement(t, "quarterly_cashflow"))
 
     revenue = _row(income, "Total Revenue", "TotalRevenue")
+    quarterly_revenue = _row(quarterly_income, "Total Revenue", "TotalRevenue")
     op_income = _row(income, "Operating Income", "OperatingIncome", "Ebit")
+    quarterly_op_income = _row(quarterly_income, "Operating Income", "OperatingIncome", "Ebit")
     net_income = _row(income, "Net Income", "NetIncome")
+    quarterly_net_income = _row(quarterly_income, "Net Income", "NetIncome")
+    gross_profit = _row(income, "Gross Profit", "GrossProfit")
+    quarterly_gross_profit = _row(quarterly_income, "Gross Profit", "GrossProfit")
+    ebitda = _row(income, "EBITDA", "Ebitda", "Normalized EBITDA", "NormalizedEBITDA")
+    quarterly_ebitda = _row(quarterly_income, "EBITDA", "Ebitda", "Normalized EBITDA", "NormalizedEBITDA")
     fcf = _row(cashflow, "Free Cash Flow", "FreeCashFlow")
     if not fcf:
         op_cf = _row(cashflow, "Operating Cash Flow", "OperatingCashFlow")
         capex = _row(cashflow, "Capital Expenditure", "CapitalExpenditure", "CapitalExpenditures")
         if op_cf and capex and len(op_cf) == len(capex):
             fcf = [(o or 0) + (c or 0) for o, c in zip(op_cf, capex)]
+    if not fcf:
+        quarterly_fcf = _row(quarterly_cashflow, "Free Cash Flow", "FreeCashFlow")
+        if quarterly_fcf:
+            fcf_ttm = _sum_recent(quarterly_fcf)
+            fcf = [fcf_ttm] if fcf_ttm is not None else []
+        else:
+            quarterly_op_cf = _row(quarterly_cashflow, "Operating Cash Flow", "OperatingCashFlow")
+            quarterly_capex = _row(quarterly_cashflow, "Capital Expenditure", "CapitalExpenditure", "CapitalExpenditures")
+            if quarterly_op_cf and quarterly_capex and len(quarterly_op_cf) == len(quarterly_capex):
+                quarterly_derived_fcf = [(o or 0) + (c or 0) for o, c in zip(quarterly_op_cf, quarterly_capex)]
+                fcf_ttm = _sum_recent(quarterly_derived_fcf)
+                fcf = [fcf_ttm] if fcf_ttm is not None else []
     total_debt = _row(balance, "Total Debt", "TotalDebt")
+    quarterly_total_debt = _row(quarterly_balance, "Total Debt", "TotalDebt")
     cash = _row(balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash")
+    quarterly_cash = _row(quarterly_balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash")
+    total_assets = _row(balance, "Total Assets", "TotalAssets")
+    quarterly_total_assets = _row(quarterly_balance, "Total Assets", "TotalAssets")
+    stockholders_equity = _row(balance, "Stockholders Equity", "StockholdersEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
+    quarterly_stockholders_equity = _row(quarterly_balance, "Stockholders Equity", "StockholdersEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
+    current_assets = _row(balance, "Current Assets", "CurrentAssets", "Total Current Assets", "TotalCurrentAssets")
+    quarterly_current_assets = _row(quarterly_balance, "Current Assets", "CurrentAssets", "Total Current Assets", "TotalCurrentAssets")
+    current_liabilities = _row(balance, "Current Liabilities", "CurrentLiabilities", "Total Current Liabilities", "TotalCurrentLiabilities")
+    quarterly_current_liabilities = _row(quarterly_balance, "Current Liabilities", "CurrentLiabilities", "Total Current Liabilities", "TotalCurrentLiabilities")
+
+    revenue_ttm = _sum_recent(quarterly_revenue) or _latest(revenue)
+    gross_profit_ttm = _sum_recent(quarterly_gross_profit) or _latest(gross_profit)
+    op_income_ttm = _sum_recent(quarterly_op_income) or _latest(op_income)
+    net_income_ttm = _sum_recent(quarterly_net_income) or _latest(net_income)
+    ebitda_ttm = _sum_recent(quarterly_ebitda) or _latest(ebitda)
+    total_debt_latest = _latest(quarterly_total_debt) or _latest(total_debt)
+    cash_latest = _latest(quarterly_cash) or _latest(cash)
+    total_assets_latest = _latest(quarterly_total_assets) or _latest(total_assets)
+    equity_latest = _latest(quarterly_stockholders_equity) or _latest(stockholders_equity)
+    current_assets_latest = _latest(quarterly_current_assets) or _latest(current_assets)
+    current_liabilities_latest = _latest(quarterly_current_liabilities) or _latest(current_liabilities)
+
+    market_cap = _first_available(info.get("marketCap"), fast_info.get("market_cap"))
+    shares_outstanding = _first_available(info.get("sharesOutstanding"), fast_info.get("shares"))
+    enterprise_value = _first_available(
+        info.get("enterpriseValue"),
+        market_cap + total_debt_latest - cash_latest
+        if market_cap is not None and total_debt_latest is not None and cash_latest is not None
+        else None,
+    )
+    pe_trailing = _first_available(info.get("trailingPE"), _ratio(market_cap, net_income_ttm))
+    pe_forward = _first_available(info.get("forwardPE"))
+    peg = _first_available(info.get("pegRatio"))
+    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
+    ev_revenue = _first_available(info.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
+    price_to_book = _first_available(info.get("priceToBook"), _ratio(market_cap, equity_latest))
+    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
+    gross_margin = _first_available(info.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
+    operating_margin = _first_available(info.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
+    profit_margin = _first_available(info.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
+    ebitda_margin = _first_available(info.get("ebitdaMargins"), _ratio(ebitda_ttm, revenue_ttm))
+    roe = _first_available(info.get("returnOnEquity"), _ratio(net_income_ttm, equity_latest))
+    roa = _first_available(info.get("returnOnAssets"), _ratio(net_income_ttm, total_assets_latest))
+    debt_to_equity = _first_available(info.get("debtToEquity"), _ratio(total_debt_latest, equity_latest))
+    if debt_to_equity is not None and debt_to_equity > 10:
+        debt_to_equity = debt_to_equity / 100
+    current_ratio = _first_available(info.get("currentRatio"), _ratio(current_assets_latest, current_liabilities_latest))
+
+    fallback_fields = {
+        "pe_trailing": pe_trailing,
+        "pe_forward": pe_forward,
+        "peg": peg,
+        "ev_ebitda": ev_ebitda,
+        "ev_revenue": ev_revenue,
+        "price_to_book": price_to_book,
+        "price_to_sales": price_to_sales,
+        "gross_margin": gross_margin,
+        "operating_margin": operating_margin,
+        "profit_margin": profit_margin,
+        "ebitda_margin": ebitda_margin,
+        "roe": roe,
+        "roa": roa,
+        "debt_to_equity": debt_to_equity,
+        "current_ratio": current_ratio,
+    }
+    empty_fields = sorted([field for field, value in fallback_fields.items() if value is None])
+    logger.info(
+        "[valuation:fundamentals] ticker=%s info_fields=%s derived_fields=%s empty_fields=%s",
+        normalized,
+        sorted(
+            [
+                key
+                for key in (
+                    "trailingPE",
+                    "forwardPE",
+                    "pegRatio",
+                    "enterpriseToEbitda",
+                    "enterpriseToRevenue",
+                    "priceToBook",
+                    "priceToSalesTrailing12Months",
+                    "grossMargins",
+                    "operatingMargins",
+                    "profitMargins",
+                    "ebitdaMargins",
+                    "returnOnEquity",
+                    "returnOnAssets",
+                    "debtToEquity",
+                    "currentRatio",
+                )
+                if _safe(info.get(key)) is not None
+            ]
+        ),
+        sorted([field for field, value in fallback_fields.items() if value is not None]),
+        empty_fields,
+    )
     return {
         "ticker": normalized,
         "name": company_name,
@@ -162,28 +319,28 @@ def _fetch_company_data(ticker: str) -> dict:
         "website": info.get("website"),
         "long_business_summary": info.get("longBusinessSummary"),
         "price": price,
-        "market_cap": _safe(info.get("marketCap")) or _safe(fast_info.get("market_cap")),
-        "enterprise_value": _safe(info.get("enterpriseValue")),
-        "shares_outstanding": _safe(info.get("sharesOutstanding")) or _safe(fast_info.get("shares")),
-        "pe_trailing": _safe(info.get("trailingPE")),
-        "pe_forward": _safe(info.get("forwardPE")),
-        "peg": _safe(info.get("pegRatio")),
-        "ev_ebitda": _safe(info.get("enterpriseToEbitda")),
-        "ev_revenue": _safe(info.get("enterpriseToRevenue")),
-        "price_to_book": _safe(info.get("priceToBook")),
-        "price_to_sales": _safe(info.get("priceToSalesTrailing12Months")),
-        "gross_margin": _safe(info.get("grossMargins")),
-        "operating_margin": _safe(info.get("operatingMargins")),
-        "profit_margin": _safe(info.get("profitMargins")),
-        "ebitda_margin": _safe(info.get("ebitdaMargins")),
-        "roe": _safe(info.get("returnOnEquity")),
-        "roa": _safe(info.get("returnOnAssets")),
+        "market_cap": market_cap,
+        "enterprise_value": enterprise_value,
+        "shares_outstanding": shares_outstanding,
+        "pe_trailing": pe_trailing,
+        "pe_forward": pe_forward,
+        "peg": peg,
+        "ev_ebitda": ev_ebitda,
+        "ev_revenue": ev_revenue,
+        "price_to_book": price_to_book,
+        "price_to_sales": price_to_sales,
+        "gross_margin": gross_margin,
+        "operating_margin": operating_margin,
+        "profit_margin": profit_margin,
+        "ebitda_margin": ebitda_margin,
+        "roe": roe,
+        "roa": roa,
         "revenue_growth": _safe(info.get("revenueGrowth")),
         "earnings_growth": _safe(info.get("earningsGrowth")),
-        "total_debt": _safe(info.get("totalDebt")),
-        "total_cash": _safe(info.get("totalCash")),
-        "debt_to_equity": _safe(info.get("debtToEquity")),
-        "current_ratio": _safe(info.get("currentRatio")),
+        "total_debt": _first_available(info.get("totalDebt"), total_debt_latest),
+        "total_cash": _first_available(info.get("totalCash"), cash_latest),
+        "debt_to_equity": debt_to_equity,
+        "current_ratio": current_ratio,
         "revenue_series": revenue,
         "operating_income_series": op_income,
         "net_income_series": net_income,
