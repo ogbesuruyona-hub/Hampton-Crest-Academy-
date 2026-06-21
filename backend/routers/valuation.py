@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+import requests
 import yfinance as yf
 from fastapi import APIRouter, Depends, HTTPException
 from openai import AsyncOpenAI
@@ -256,6 +257,75 @@ def _fetch_yahooquery_fundamentals(ticker: str) -> dict[str, Any]:
     return clean
 
 
+def _fetch_fmp_fundamentals(ticker: str) -> dict[str, Any]:
+    api_key = os.environ.get("FMP_API_KEY", "").strip()
+    if not api_key:
+        logger.warning("[valuation:fmp-source] ticker=%s field_count=0 fields=[] status_code=%s", ticker, None)
+        return {}
+
+    base_url = "https://financialmodelingprep.com/api/v3"
+    status_codes: list[int] = []
+
+    def fetch(path: str):
+        url = f"{base_url}/{path}/{ticker}"
+        try:
+            response = requests.get(url, params={"apikey": api_key}, timeout=15)
+            status_codes.append(response.status_code)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception:
+            logger.exception("[valuation:fmp-error] ticker=%s path=%s", ticker, path)
+            return {}
+
+        if isinstance(payload, list):
+            first = payload[0] if payload else {}
+            return first if isinstance(first, dict) else {}
+        if isinstance(payload, dict):
+            return payload
+        logger.warning("[valuation:fmp-invalid-payload] ticker=%s path=%s type=%s", ticker, path, type(payload).__name__)
+        return {}
+
+    ratios_ttm = fetch("ratios-ttm")
+    key_metrics_ttm = fetch("key-metrics-ttm")
+
+    def pick(*keys: str):
+        for source in (ratios_ttm, key_metrics_ttm):
+            for key in keys:
+                value = _safe(source.get(key)) if isinstance(source, dict) else None
+                if value is not None:
+                    return value
+        return None
+
+    fundamentals = {
+        "trailingPE": pick("peRatioTTM", "priceEarningsRatioTTM"),
+        "forwardPE": pick("forwardPE", "forwardPERatio"),
+        "pegRatio": pick("pegRatioTTM", "pegRatio"),
+        "enterpriseToEbitda": pick("enterpriseValueOverEBITDATTM", "enterpriseToEbitda"),
+        "enterpriseToRevenue": pick("evToSalesTTM", "enterpriseValueOverRevenueTTM", "enterpriseToRevenue"),
+        "priceToBook": pick("priceToBookRatioTTM", "pbRatioTTM", "priceToBook"),
+        "priceToSalesTrailing12Months": pick("priceToSalesRatioTTM", "priceToSalesTrailing12Months"),
+        "grossMargins": pick("grossProfitMarginTTM", "grossMargins"),
+        "operatingMargins": pick("operatingProfitMarginTTM", "operatingMargins"),
+        "profitMargins": pick("netProfitMarginTTM", "profitMargins"),
+        "ebitdaMargins": pick("ebitdaMarginTTM", "ebitdaMargins"),
+        "returnOnEquity": pick("returnOnEquityTTM", "roeTTM", "returnOnEquity"),
+        "returnOnAssets": pick("returnOnAssetsTTM", "roaTTM", "returnOnAssets"),
+        "debtToEquity": pick("debtEquityRatioTTM", "debtToEquity"),
+        "currentRatio": pick("currentRatioTTM", "currentRatio"),
+        "enterpriseValue": pick("enterpriseValueTTM", "enterpriseValue"),
+        "marketCap": pick("marketCapTTM", "marketCap"),
+    }
+    clean = {key: value for key, value in fundamentals.items() if value is not None}
+    logger.warning(
+        "[valuation:fmp-source] ticker=%s field_count=%s fields=%s status_code=%s",
+        ticker,
+        len(clean.keys()),
+        sorted(list(clean.keys())),
+        status_codes[-1] if status_codes else None,
+    )
+    return clean
+
+
 def _normalize_ticker(ticker: str) -> str:
     return re.sub(r"\s+", "", ticker or "").upper()
 
@@ -291,11 +361,14 @@ def _fetch_company_data(ticker: str) -> dict:
         logger.warning("[valuation:yfinance-fast-info-error] ticker=%s error=%s", normalized, e)
         fast_info = {}
     yahooquery_fundamentals = _fetch_yahooquery_fundamentals(normalized)
+    fmp_fundamentals = _fetch_fmp_fundamentals(normalized)
     logger.warning(
-        "[valuation:alternate-source-loaded] ticker=%s yahooquery_field_count=%s yahooquery_fields=%s",
+        "[valuation:alternate-source-loaded] ticker=%s yahooquery_field_count=%s yahooquery_fields=%s fmp_field_count=%s fmp_fields=%s",
         normalized,
         len(yahooquery_fundamentals.keys()),
         sorted(list(yahooquery_fundamentals.keys())),
+        len(fmp_fundamentals.keys()),
+        sorted(list(fmp_fundamentals.keys())),
     )
 
     logger.warning(
@@ -328,6 +401,9 @@ def _fetch_company_data(ticker: str) -> dict:
     yahooquery_raw_fundamentals = {
         key: _safe(yahooquery_fundamentals.get(key)) for key in FUNDAMENTAL_INFO_KEYS
     }
+    fmp_raw_fundamentals = {
+        key: _safe(fmp_fundamentals.get(key)) for key in FUNDAMENTAL_INFO_KEYS
+    }
     logger.warning(
         "[valuation:yfinance-diagnostics] ticker=%s info_key_count=%s info_keys=%s raw_fundamentals=%s fast_info_used=%s income_stmt_used=%s balance_sheet_used=%s cashflow_used=%s quarterly_income_used=%s quarterly_balance_used=%s quarterly_cashflow_used=%s",
         normalized,
@@ -343,11 +419,13 @@ def _fetch_company_data(ticker: str) -> dict:
         bool(quarterly_cashflow),
     )
     logger.warning(
-        "[valuation:fundamental-source-compare] ticker=%s yfinance_info=%s yahooquery=%s yahooquery_fields=%s",
+        "[valuation:fundamental-source-compare] ticker=%s yfinance_info=%s yahooquery=%s yahooquery_fields=%s fmp=%s fmp_fields=%s",
         normalized,
         raw_fundamentals,
         yahooquery_raw_fundamentals,
         sorted([key for key, value in yahooquery_raw_fundamentals.items() if value is not None]),
+        fmp_raw_fundamentals,
+        sorted([key for key, value in fmp_raw_fundamentals.items() if value is not None]),
     )
 
     revenue = _row(income, "Total Revenue", "TotalRevenue")
@@ -403,32 +481,33 @@ def _fetch_company_data(ticker: str) -> dict:
     current_assets_latest = _latest(quarterly_current_assets) or _latest(current_assets)
     current_liabilities_latest = _latest(quarterly_current_liabilities) or _latest(current_liabilities)
 
-    market_cap = _first_available(info.get("marketCap"), yahooquery_fundamentals.get("marketCap"), fast_info.get("market_cap"))
+    market_cap = _first_available(info.get("marketCap"), yahooquery_fundamentals.get("marketCap"), fmp_fundamentals.get("marketCap"), fast_info.get("market_cap"))
     shares_outstanding = _first_available(info.get("sharesOutstanding"), fast_info.get("shares"))
     enterprise_value = _first_available(
         info.get("enterpriseValue"),
         yahooquery_fundamentals.get("enterpriseValue"),
+        fmp_fundamentals.get("enterpriseValue"),
         market_cap + total_debt_latest - cash_latest
         if market_cap is not None and total_debt_latest is not None and cash_latest is not None
         else None,
     )
-    pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), _ratio(market_cap, net_income_ttm))
-    pe_forward = _first_available(info.get("forwardPE"), yahooquery_fundamentals.get("forwardPE"))
-    peg = _first_available(info.get("pegRatio"), yahooquery_fundamentals.get("pegRatio"))
-    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
-    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
-    price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), _ratio(market_cap, equity_latest))
-    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahooquery_fundamentals.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
-    gross_margin = _first_available(info.get("grossMargins"), yahooquery_fundamentals.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
-    operating_margin = _first_available(info.get("operatingMargins"), yahooquery_fundamentals.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
-    profit_margin = _first_available(info.get("profitMargins"), yahooquery_fundamentals.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
-    ebitda_margin = _first_available(info.get("ebitdaMargins"), yahooquery_fundamentals.get("ebitdaMargins"), _ratio(ebitda_ttm, revenue_ttm))
-    roe = _first_available(info.get("returnOnEquity"), yahooquery_fundamentals.get("returnOnEquity"), _ratio(net_income_ttm, equity_latest))
-    roa = _first_available(info.get("returnOnAssets"), yahooquery_fundamentals.get("returnOnAssets"), _ratio(net_income_ttm, total_assets_latest))
-    debt_to_equity = _first_available(info.get("debtToEquity"), yahooquery_fundamentals.get("debtToEquity"), _ratio(total_debt_latest, equity_latest))
+    pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), fmp_fundamentals.get("trailingPE"), _ratio(market_cap, net_income_ttm))
+    pe_forward = _first_available(info.get("forwardPE"), yahooquery_fundamentals.get("forwardPE"), fmp_fundamentals.get("forwardPE"))
+    peg = _first_available(info.get("pegRatio"), yahooquery_fundamentals.get("pegRatio"), fmp_fundamentals.get("pegRatio"))
+    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), fmp_fundamentals.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
+    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), fmp_fundamentals.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
+    price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), fmp_fundamentals.get("priceToBook"), _ratio(market_cap, equity_latest))
+    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahooquery_fundamentals.get("priceToSalesTrailing12Months"), fmp_fundamentals.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
+    gross_margin = _first_available(info.get("grossMargins"), yahooquery_fundamentals.get("grossMargins"), fmp_fundamentals.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
+    operating_margin = _first_available(info.get("operatingMargins"), yahooquery_fundamentals.get("operatingMargins"), fmp_fundamentals.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
+    profit_margin = _first_available(info.get("profitMargins"), yahooquery_fundamentals.get("profitMargins"), fmp_fundamentals.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
+    ebitda_margin = _first_available(info.get("ebitdaMargins"), yahooquery_fundamentals.get("ebitdaMargins"), fmp_fundamentals.get("ebitdaMargins"), _ratio(ebitda_ttm, revenue_ttm))
+    roe = _first_available(info.get("returnOnEquity"), yahooquery_fundamentals.get("returnOnEquity"), fmp_fundamentals.get("returnOnEquity"), _ratio(net_income_ttm, equity_latest))
+    roa = _first_available(info.get("returnOnAssets"), yahooquery_fundamentals.get("returnOnAssets"), fmp_fundamentals.get("returnOnAssets"), _ratio(net_income_ttm, total_assets_latest))
+    debt_to_equity = _first_available(info.get("debtToEquity"), yahooquery_fundamentals.get("debtToEquity"), fmp_fundamentals.get("debtToEquity"), _ratio(total_debt_latest, equity_latest))
     if debt_to_equity is not None and debt_to_equity > 10:
         debt_to_equity = debt_to_equity / 100
-    current_ratio = _first_available(info.get("currentRatio"), yahooquery_fundamentals.get("currentRatio"), _ratio(current_assets_latest, current_liabilities_latest))
+    current_ratio = _first_available(info.get("currentRatio"), yahooquery_fundamentals.get("currentRatio"), fmp_fundamentals.get("currentRatio"), _ratio(current_assets_latest, current_liabilities_latest))
 
     fallback_fields = {
         "pe_trailing": pe_trailing,
