@@ -271,7 +271,13 @@ def _fetch_fmp_fundamentals(ticker: str) -> dict[str, Any]:
         try:
             response = requests.get(url, params={"apikey": api_key}, timeout=15)
             status_codes.append(response.status_code)
-            response.raise_for_status()
+            if response.status_code >= 400:
+                logger.warning(
+                    "[valuation:fmp-source] ticker=%s field_count=0 fields=[] status_code=%s",
+                    ticker,
+                    response.status_code,
+                )
+                return {}
             payload = response.json()
         except Exception:
             logger.exception("[valuation:fmp-error] ticker=%s path=%s", ticker, path)
