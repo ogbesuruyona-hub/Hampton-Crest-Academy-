@@ -20,7 +20,23 @@ logger = logging.getLogger(__name__)
 
 
 class ValuationIn(BaseModel):
-    ticker: str = Field(min_length=1, max_length=20)
+    ticker: str = Field(min_length=1, max_length=80)
+
+
+COMPANY_ALIASES = {
+    "apple": ("AAPL", "Apple Inc."),
+    "apple inc": ("AAPL", "Apple Inc."),
+    "apple stock": ("AAPL", "Apple Inc."),
+    "microsoft": ("MSFT", "Microsoft Corporation"),
+    "tesla": ("TSLA", "Tesla, Inc."),
+    "nvidia": ("NVDA", "NVIDIA Corporation"),
+    "amazon": ("AMZN", "Amazon.com, Inc."),
+    "google": ("GOOGL", "Alphabet Inc."),
+    "alphabet": ("GOOGL", "Alphabet Inc."),
+    "meta": ("META", "Meta Platforms, Inc."),
+    "facebook": ("META", "Meta Platforms, Inc."),
+    "berkshire": ("BRK-B", "Berkshire Hathaway Inc."),
+}
 
 
 def _safe(v: Any, default=None):
@@ -64,6 +80,22 @@ def _row(d: dict, *names: str) -> list[float | None]:
 
 def _normalize_ticker(ticker: str) -> str:
     return re.sub(r"\s+", "", ticker or "").upper()
+
+
+def _normalize_company_query(value: str) -> str:
+    cleaned = (value or "").strip().lower()
+    cleaned = cleaned.replace(".", " ")
+    cleaned = re.sub(r"[^\w\s-]", " ", cleaned)
+    cleaned = re.sub(r"\b(inc|incorporated|corporation|corp|company|co)\b", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _resolve_ticker_input(value: str) -> tuple[str, str | None]:
+    normalized_query = _normalize_company_query(value)
+    if normalized_query in COMPANY_ALIASES:
+        return COMPANY_ALIASES[normalized_query]
+    return _normalize_ticker(value), None
 
 
 def _fetch_company_data(ticker: str) -> dict:
@@ -307,8 +339,15 @@ def register_valuation_routes(*, db, require_member):
 
     @router.post("")
     async def run_valuation(payload: ValuationIn, current_user: dict = Depends(require_member)):
-        ticker = _normalize_ticker(payload.ticker)
-        logger.info("[valuation:request] user_id=%s raw_ticker=%s normalized_ticker=%s", current_user["id"], payload.ticker, ticker)
+        original_input = payload.ticker.strip()
+        ticker, resolved_name = _resolve_ticker_input(original_input)
+        logger.info(
+            "[valuation:request] user_id=%s input_original=%s ticker_resuelto=%s nombre_resuelto=%s",
+            current_user["id"],
+            original_input,
+            ticker,
+            resolved_name,
+        )
         if not ticker:
             raise HTTPException(400, "Ticker inválido.")
         if client is None:
@@ -363,7 +402,9 @@ def register_valuation_routes(*, db, require_member):
         await db.valuations.insert_one(record)
 
         return {
+            "input": original_input,
             "ticker": ticker,
+            "resolved_name": resolved_name or data.get("name"),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
             "data": data,
             "dcf": dcf,
