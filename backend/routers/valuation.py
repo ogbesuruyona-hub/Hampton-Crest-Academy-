@@ -464,12 +464,12 @@ def _fetch_company_data(ticker: str) -> dict:
                 fcf = [fcf_ttm] if fcf_ttm is not None else []
     total_debt = _row(balance, "Total Debt", "TotalDebt")
     quarterly_total_debt = _row(quarterly_balance, "Total Debt", "TotalDebt")
-    cash = _row(balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash")
-    quarterly_cash = _row(quarterly_balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash")
+    cash = _row(balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash", "Cash Cash Equivalents And Short Term Investments")
+    quarterly_cash = _row(quarterly_balance, "Cash And Cash Equivalents", "CashAndCashEquivalents", "Cash", "Cash Cash Equivalents And Short Term Investments")
     total_assets = _row(balance, "Total Assets", "TotalAssets")
     quarterly_total_assets = _row(quarterly_balance, "Total Assets", "TotalAssets")
-    stockholders_equity = _row(balance, "Stockholders Equity", "StockholdersEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
-    quarterly_stockholders_equity = _row(quarterly_balance, "Stockholders Equity", "StockholdersEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
+    stockholders_equity = _row(balance, "Stockholders Equity", "StockholdersEquity", "Total Stockholder Equity", "TotalStockholderEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
+    quarterly_stockholders_equity = _row(quarterly_balance, "Stockholders Equity", "StockholdersEquity", "Total Stockholder Equity", "TotalStockholderEquity", "Total Equity Gross Minority Interest", "TotalEquityGrossMinorityInterest")
     current_assets = _row(balance, "Current Assets", "CurrentAssets", "Total Current Assets", "TotalCurrentAssets")
     quarterly_current_assets = _row(quarterly_balance, "Current Assets", "CurrentAssets", "Total Current Assets", "TotalCurrentAssets")
     current_liabilities = _row(balance, "Current Liabilities", "CurrentLiabilities", "Total Current Liabilities", "TotalCurrentLiabilities")
@@ -488,22 +488,47 @@ def _fetch_company_data(ticker: str) -> dict:
     current_liabilities_latest = _latest(quarterly_current_liabilities) or _latest(current_liabilities)
 
     market_cap = _first_available(info.get("marketCap"), yahooquery_fundamentals.get("marketCap"), fmp_fundamentals.get("marketCap"), fast_info.get("market_cap"))
+    derived_enterprise_value = (
+        market_cap + total_debt_latest - cash_latest
+        if market_cap is not None and total_debt_latest is not None and cash_latest is not None
+        else None
+    )
+    derived_multiples = {
+        "trailingPE": _ratio(market_cap, net_income_ttm),
+        "priceToSalesTrailing12Months": _ratio(market_cap, revenue_ttm),
+        "priceToBook": _ratio(market_cap, equity_latest),
+        "enterpriseValue": derived_enterprise_value,
+        "enterpriseToEbitda": _ratio(derived_enterprise_value, ebitda_ttm),
+        "enterpriseToRevenue": _ratio(derived_enterprise_value, revenue_ttm),
+    }
+    logger.warning(
+        "[valuation:derived-multiples] ticker=%s metrics=%s fields_used=%s",
+        normalized,
+        sorted([key for key, value in derived_multiples.items() if value is not None]),
+        {
+            "marketCap": market_cap,
+            "netIncome": net_income_ttm,
+            "revenue": revenue_ttm,
+            "equity": equity_latest,
+            "debt": total_debt_latest,
+            "cash": cash_latest,
+            "ebitda": ebitda_ttm,
+        },
+    )
     shares_outstanding = _first_available(info.get("sharesOutstanding"), fast_info.get("shares"))
     enterprise_value = _first_available(
         info.get("enterpriseValue"),
         yahooquery_fundamentals.get("enterpriseValue"),
         fmp_fundamentals.get("enterpriseValue"),
-        market_cap + total_debt_latest - cash_latest
-        if market_cap is not None and total_debt_latest is not None and cash_latest is not None
-        else None,
+        derived_multiples.get("enterpriseValue"),
     )
-    pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), fmp_fundamentals.get("trailingPE"), _ratio(market_cap, net_income_ttm))
+    pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), fmp_fundamentals.get("trailingPE"), derived_multiples.get("trailingPE"))
     pe_forward = _first_available(info.get("forwardPE"), yahooquery_fundamentals.get("forwardPE"), fmp_fundamentals.get("forwardPE"))
     peg = _first_available(info.get("pegRatio"), yahooquery_fundamentals.get("pegRatio"), fmp_fundamentals.get("pegRatio"))
-    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), fmp_fundamentals.get("enterpriseToEbitda"), _ratio(enterprise_value, ebitda_ttm))
-    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), fmp_fundamentals.get("enterpriseToRevenue"), _ratio(enterprise_value, revenue_ttm))
-    price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), fmp_fundamentals.get("priceToBook"), _ratio(market_cap, equity_latest))
-    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahooquery_fundamentals.get("priceToSalesTrailing12Months"), fmp_fundamentals.get("priceToSalesTrailing12Months"), _ratio(market_cap, revenue_ttm))
+    ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), fmp_fundamentals.get("enterpriseToEbitda"), derived_multiples.get("enterpriseToEbitda"))
+    ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), fmp_fundamentals.get("enterpriseToRevenue"), derived_multiples.get("enterpriseToRevenue"))
+    price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), fmp_fundamentals.get("priceToBook"), derived_multiples.get("priceToBook"))
+    price_to_sales = _first_available(info.get("priceToSalesTrailing12Months"), yahooquery_fundamentals.get("priceToSalesTrailing12Months"), fmp_fundamentals.get("priceToSalesTrailing12Months"), derived_multiples.get("priceToSalesTrailing12Months"))
     gross_margin = _first_available(info.get("grossMargins"), yahooquery_fundamentals.get("grossMargins"), fmp_fundamentals.get("grossMargins"), _ratio(gross_profit_ttm, revenue_ttm))
     operating_margin = _first_available(info.get("operatingMargins"), yahooquery_fundamentals.get("operatingMargins"), fmp_fundamentals.get("operatingMargins"), _ratio(op_income_ttm, revenue_ttm))
     profit_margin = _first_available(info.get("profitMargins"), yahooquery_fundamentals.get("profitMargins"), fmp_fundamentals.get("profitMargins"), _ratio(net_income_ttm, revenue_ttm))
