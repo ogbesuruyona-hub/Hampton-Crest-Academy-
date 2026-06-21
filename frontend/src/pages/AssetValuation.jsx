@@ -85,6 +85,40 @@ const SCORE_LABELS = {
   risk: "Riesgo (mayor = menor riesgo)",
 };
 
+const COMPANY_ALIAS_PREVIEW = {
+  apple: { ticker: "AAPL", name: "Apple Inc." },
+  "apple inc": { ticker: "AAPL", name: "Apple Inc." },
+  "apple stock": { ticker: "AAPL", name: "Apple Inc." },
+  microsoft: { ticker: "MSFT", name: "Microsoft Corporation" },
+  tesla: { ticker: "TSLA", name: "Tesla, Inc." },
+  nvidia: { ticker: "NVDA", name: "NVIDIA Corporation" },
+  amazon: { ticker: "AMZN", name: "Amazon.com, Inc." },
+  google: { ticker: "GOOGL", name: "Alphabet Inc." },
+  alphabet: { ticker: "GOOGL", name: "Alphabet Inc." },
+  meta: { ticker: "META", name: "Meta Platforms, Inc." },
+  facebook: { ticker: "META", name: "Meta Platforms, Inc." },
+  berkshire: { ticker: "BRK-B", name: "Berkshire Hathaway Inc." },
+};
+
+const normalizeCompanyQuery = (value) =>
+  (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, " ")
+    .replace(/[^\w\s-]/g, " ")
+    .replace(/\b(inc|incorporated|corporation|corp|company|co)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeTickerInput = (value) => (value || "").replace(/\s+/g, "").toUpperCase();
+
+const getAnalysisTargetLabel = (value) => {
+  const alias = COMPANY_ALIAS_PREVIEW[normalizeCompanyQuery(value)];
+  if (alias) return `${alias.name} (${alias.ticker})`;
+  const ticker = normalizeTickerInput(value);
+  return ticker || "";
+};
+
 const asFiniteNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -213,6 +247,7 @@ export default function AssetValuation() {
   const [phase, setPhase] = useState(0); // 0 idle, 1 fetching, 2 dcf, 3 ai
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [analysisTarget, setAnalysisTarget] = useState("");
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
@@ -253,14 +288,15 @@ export default function AssetValuation() {
 
   const submit = async (e, tickerOverride = "") => {
     e?.preventDefault();
-    const t = (tickerOverride || ticker).trim().toUpperCase();
-    if (!t) return;
+    const query = (tickerOverride || ticker).trim();
+    if (!query) return;
     setLoading(true);
     setError("");
     setResult(null);
-    setTicker(t);
+    setTicker(query);
+    setAnalysisTarget(getAnalysisTargetLabel(query));
     try {
-      const { data } = await api.post("/valuation", { ticker: t });
+      const { data } = await api.post("/valuation", { ticker: query });
       setResult(data);
       loadHistory();
     } catch (err) {
@@ -272,6 +308,7 @@ export default function AssetValuation() {
     } finally {
       setLoading(false);
       setPhase(0);
+      setAnalysisTarget("");
     }
   };
 
@@ -306,13 +343,13 @@ export default function AssetValuation() {
             <input
               type="text"
               value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              placeholder="Introduce un ticker (AAPL, MSFT, BRK-B, NVDA…)"
+              onChange={(e) => setTicker(e.target.value)}
+              placeholder="Introduce un ticker o empresa (AAPL, Apple, Microsoft...)"
               data-testid="valuation-ticker-input"
               autoFocus
-              maxLength={20}
+              maxLength={80}
               disabled={loading}
-              className="w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] pl-11 pr-4 py-3.5 text-base tracking-[0.1em] uppercase placeholder:text-[var(--hc-text-muted)] placeholder:normal-case placeholder:tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors disabled:opacity-60"
+              className="w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] pl-11 pr-4 py-3.5 text-base tracking-tight placeholder:text-[var(--hc-text-muted)] placeholder:tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors disabled:opacity-60"
             />
           </div>
           <button
@@ -332,6 +369,12 @@ export default function AssetValuation() {
             )}
           </button>
         </form>
+
+        {loading && analysisTarget && (
+          <div className="mt-4 text-sm tracking-tight text-[var(--hc-text-secondary)]">
+            Analizando <span className="font-medium text-[var(--hc-text)]">{analysisTarget}</span>
+          </div>
+        )}
 
         {/* phase progress */}
         {loading && (
