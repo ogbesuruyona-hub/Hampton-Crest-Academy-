@@ -150,14 +150,65 @@ YAHOOQUERY_MODULES = (
 
 
 def _fetch_yahooquery_fundamentals(ticker: str) -> dict[str, Any]:
+    def get_module_payload(yq_obj, attr: str) -> dict:
+        try:
+            data = getattr(yq_obj, attr)
+        except Exception:
+            logger.exception("[valuation:yahooquery-error] ticker=%s module=%s", ticker, attr)
+            return {}
+
+        logger.warning(
+            "[valuation:yahooquery-raw] ticker=%s module=%s type=%s repr=%s",
+            ticker,
+            attr,
+            type(data).__name__,
+            repr(data)[:1000],
+        )
+        if not isinstance(data, dict):
+            logger.warning(
+                "[valuation:yahooquery-invalid-payload] ticker=%s module=%s type=%s",
+                ticker,
+                attr,
+                type(data).__name__,
+            )
+            return {}
+
+        payload = data.get(ticker) or data.get(ticker.upper()) or data.get(ticker.lower())
+        if payload is None:
+            logger.warning(
+                "[valuation:yahooquery-missing-ticker] ticker=%s module=%s keys=%s",
+                ticker,
+                attr,
+                sorted(list(data.keys()))[:20],
+            )
+            return {}
+        if not isinstance(payload, dict):
+            logger.warning(
+                "[valuation:yahooquery-invalid-module] ticker=%s module=%s type=%s repr=%s",
+                ticker,
+                attr,
+                type(payload).__name__,
+                repr(payload)[:1000],
+            )
+            return {}
+        if payload.get("error"):
+            logger.warning(
+                "[valuation:yahooquery-error-payload] ticker=%s module=%s error=%s",
+                ticker,
+                attr,
+                payload.get("error"),
+            )
+            return {}
+        return payload
+
     try:
         logger.warning("[valuation:yahooquery-start] ticker=%s", ticker)
         yq = YahooQueryTicker(ticker)
         logger.warning("[valuation:yahooquery-created] ticker=%s", ticker)
         modules_payload = {
-            "summary_detail": (yq.summary_detail or {}).get(ticker, {}) or {},
-            "key_stats": (yq.key_stats or {}).get(ticker, {}) or {},
-            "financial_data": (yq.financial_data or {}).get(ticker, {}) or {},
+            "summary_detail": get_module_payload(yq, "summary_detail"),
+            "key_stats": get_module_payload(yq, "key_stats"),
+            "financial_data": get_module_payload(yq, "financial_data"),
         }
     except Exception:
         logger.exception("[valuation:yahooquery-error] ticker=%s", ticker)
@@ -165,7 +216,10 @@ def _fetch_yahooquery_fundamentals(ticker: str) -> dict[str, Any]:
 
     def pick(*locations):
         for module_name, key in locations:
-            value = _safe((modules_payload.get(module_name) or {}).get(key))
+            module_payload = modules_payload.get(module_name)
+            if not isinstance(module_payload, dict):
+                continue
+            value = _safe(module_payload.get(key))
             if value is not None:
                 return value
         return None
