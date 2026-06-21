@@ -154,16 +154,38 @@ def _fetch_yahoo_quote_summary_fundamentals(ticker: str) -> dict[str, Any]:
     url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}"
     params = {"modules": modules}
     headers = {
-        "User-Agent": "Mozilla/5.0 HamptonCrestAcademy/1.0",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/125.0.0.0 Safari/537.36"
+        ),
         "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
     }
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        json_error = None
+        payload = {}
+        try:
+            payload = response.json()
+        except Exception as e:
+            json_error = repr(e)
+        logger.warning(
+            "[valuation:yahoo-summary-debug] ticker=%s url=%s status_code=%s content_type=%s response_preview=%s json_error=%s modules=%s",
+            ticker,
+            response.url,
+            response.status_code,
+            response.headers.get("content-type"),
+            (response.text or "")[:1000],
+            json_error,
+            modules,
+        )
         response.raise_for_status()
-        payload = response.json()
+        if json_error:
+            return {}
         result = ((payload.get("quoteSummary") or {}).get("result") or [{}])[0] or {}
     except Exception as e:
-        logger.warning("[valuation:yahoo-summary-error] ticker=%s error=%s", ticker, e)
+        logger.exception("[valuation:yahoo-summary-error] ticker=%s error=%s", ticker, e)
         return {}
 
     modules_payload = {
