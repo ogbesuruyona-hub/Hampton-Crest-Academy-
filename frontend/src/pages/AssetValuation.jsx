@@ -72,7 +72,7 @@ const VERDICT_STYLES = {
 const RATING_STYLES = {
   EXCEPTIONAL: { label: "EXCEPCIONAL", color: "text-[var(--hc-gold)]" },
   HIGH_QUALITY: { label: "ALTA CALIDAD", color: "text-[var(--hc-gold)]" },
-  WATCHLIST: { label: "EN OBSERVACIÃ“N", color: "text-[var(--hc-text)]" },
+  WATCHLIST: { label: "EN OBSERVACIÓN", color: "text-[var(--hc-text)]" },
   SPECULATIVE: { label: "ESPECULATIVA", color: "text-[#E0B97A]" },
   AVOID: { label: "EVITAR", color: "text-[#E07A7A]" },
 };
@@ -81,7 +81,7 @@ const SCORE_LABELS = {
   business_quality: "Calidad del negocio",
   growth: "Crecimiento",
   financial_health: "Salud financiera",
-  valuation: "ValoraciÃ³n",
+  valuation: "Valoración",
   risk: "Riesgo (mayor = menor riesgo)",
 };
 
@@ -301,7 +301,7 @@ const RingScore = ({ value }) => {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-medium tracking-tight text-[var(--hc-text)]">
-          {display.value === null ? "â€”" : Math.round(display.value)}
+          {display.value === null ? "—" : Math.round(display.value)}
         </span>
         <span className="hc-overline mt-1">de {display.scale}</span>
       </div>
@@ -477,7 +477,7 @@ export default function AssetValuation() {
   const hasScoreBreakdown = isScoreBreakdown(result?.analysis?.score);
   const resultWarning =
     result && (!result.data || !result.analysis)
-      ? "La valoraciÃ³n se completÃ³, pero la respuesta llegÃ³ incompleta. Se muestran los campos disponibles."
+      ? "La valoración se completó, pero la respuesta llegó incompleta. Se muestran los campos disponibles."
       : "";
 
   const loadHistory = async () => {
@@ -557,7 +557,7 @@ export default function AssetValuation() {
         setError(
           formatApiErrorDetail(err.response?.data?.detail) ||
             err.message ||
-            "No se pudo completar la valoraciÃ³n."
+            "No se pudo completar la valoración."
         );
       }
     } finally {
@@ -615,9 +615,9 @@ export default function AssetValuation() {
   return (
     <div data-testid="valuation-page">
       <PageHeader
-        overline="Academia Â· Inteligencia"
-        title="ValoraciÃ³n de Activos"
-        description="AnÃ¡lisis institucional impulsado por IA. Datos reales de mercado, DCF propietario en tres escenarios y tesis de calidad hedge fund â€” en menos de 30 segundos."
+        overline="Academia · Inteligencia"
+        title="Valoración de Activos"
+        description="Análisis institucional impulsado por IA. Datos reales de mercado, DCF propietario en tres escenarios y tesis de calidad hedge fund — en menos de 30 segundos."
       />
 
       {/* Search */}
@@ -669,7 +669,7 @@ export default function AssetValuation() {
 
         {loading && result && (
           <div className="mt-4 text-xs tracking-tight text-[var(--hc-text-muted)]">
-            Manteniendo la valoraciÃ³n anterior visible mientras llega la nueva respuesta.
+            Manteniendo la valoración anterior visible mientras llega la nueva respuesta.
           </div>
         )}
 
@@ -755,7 +755,7 @@ export default function AssetValuation() {
                         RATING_STYLES[result.analysis.rating]?.color || "text-[var(--hc-text)]"
                       }`}
                     >
-                      â˜… {RATING_STYLES[result.analysis.rating]?.label || toDisplayText(result.analysis.rating)}
+                      ★ {RATING_STYLES[result.analysis.rating]?.label || toDisplayText(result.analysis.rating)}
                     </span>
                   )}
                 </div>
@@ -832,7 +832,7 @@ export default function AssetValuation() {
                     <div className="border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] px-4 py-5">
                       <div className="hc-overline mb-2">Score recibido</div>
                       <p className="text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed">
-                        El anÃ¡lisis devolviÃ³ una puntuaciÃ³n total sin desglose por categorÃ­as.
+                        El análisis devolvió una puntuación total sin desglose por categorías.
                         Se muestra el score total y el resto del reporte generado.
                       </p>
                       <div className="mt-4">
@@ -858,7 +858,7 @@ export default function AssetValuation() {
             <div className="lg:col-span-2">
               <Panel
                 overline="Modelo DCF"
-                title="Valor justo Â· 3 escenarios"
+                title="Valor justo · 3 escenarios"
                 testid="panel-dcf"
               >
                 {displayDcf?.available ? (
@@ -934,7 +934,7 @@ export default function AssetValuation() {
                       </div>
                       <div>
                         <span className="hc-overline block mb-1">Horizonte</span>
-                        {displayDcf.assumptions?.horizon_years || 5} aÃ±os
+                        {displayDcf.assumptions?.horizon_years || 5} años
                       </div>
                       <div>
                         <span className="hc-overline block mb-1">Precio actual</span>
@@ -1017,14 +1017,14 @@ export default function AssetValuation() {
                   </>
                 ) : (
                   <div className="text-sm text-[var(--hc-text-muted)] italic">
-                    DCF no disponible â€” FCF histÃ³rico insuficiente o negativo.
+                    DCF no disponible — FCF histórico insuficiente o negativo.
                   </div>
                 )}
               </Panel>
             </div>
 
-            {/* MÃºltiplos */}
-            <Panel overline="MÃºltiplos" title="ValoraciÃ³n relativa" testid="panel-multiples">
+            {/* Múltiplos */}
+            <Panel overline="Múltiplos" title="Valoración relativa" testid="panel-multiples">
               <Metric
                 label="PE (TTM)"
                 value={fmtNum(result.data?.pe_trailing, { digits: 1 })}
@@ -1103,8 +1103,8 @@ export default function AssetValuation() {
           {/* Thesis */}
           {result.analysis?.thesis && (
             <Panel
-              overline="Tesis de InversiÃ³n"
-              title="Drivers Â· Moat Â· Catalizadores Â· Riesgos"
+              overline="Tesis de Inversión"
+              title="Drivers · Moat · Catalizadores · Riesgos"
               testid="panel-thesis"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1118,7 +1118,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[var(--hc-gold)] shrink-0">â–¸</span>
+                            <span className="text-[var(--hc-gold)] shrink-0">▸</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -1143,7 +1143,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[var(--hc-gold)] shrink-0">â—</span>
+                            <span className="text-[var(--hc-gold)] shrink-0">●</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -1162,7 +1162,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[#E07A7A] shrink-0">â–²</span>
+                            <span className="text-[#E07A7A] shrink-0">▲</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -1184,7 +1184,7 @@ export default function AssetValuation() {
                   )}
                   {result.analysis?.valuation_comment && (
                     <div>
-                      <div className="hc-overline mb-2">Comentario de valoraciÃ³n</div>
+                      <div className="hc-overline mb-2">Comentario de valoración</div>
                       <div className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
                         <NarrativeValue value={result.analysis.valuation_comment} />
                       </div>
@@ -1196,8 +1196,8 @@ export default function AssetValuation() {
           )}
 
           <p className="text-[0.7rem] tracking-tight text-[var(--hc-text-muted)] italic leading-relaxed max-w-3xl">
-            Datos vÃ­a Yahoo Finance. AnÃ¡lisis generado por IA usando GPT-4o sobre datos reales de mercado. No constituye recomendaciÃ³n
-            personalizada de inversiÃ³n â€” uso exclusivo para miembros de Hampton Crest Academy con fines educativos y analÃ­ticos.
+            Datos vía Yahoo Finance. Análisis generado por IA usando GPT-4o sobre datos reales de mercado. No constituye recomendación
+            personalizada de inversión — uso exclusivo para miembros de Hampton Crest Academy con fines educativos y analíticos.
           </p>
         </div>
       )}
@@ -1216,10 +1216,10 @@ export default function AssetValuation() {
           }
         >
           {historyLoading ? (
-            <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center">Cargandoâ€¦</div>
+            <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center">Cargando…</div>
           ) : history.length === 0 ? (
             <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center italic">
-              AÃºn no has valorado ningÃºn activo.
+              Aún no has valorado ningún activo.
             </div>
           ) : (
             <div className="divide-y divide-[var(--hc-border)]">
@@ -1236,7 +1236,7 @@ export default function AssetValuation() {
                       {h.ticker}
                     </span>
                     <span className="text-sm text-[var(--hc-text-secondary)] tracking-tight truncate">
-                      {h.name || "â€”"}
+                      {h.name || "—"}
                     </span>
                     <span className="text-xs text-[var(--hc-text-muted)] tracking-tight">
                       {fmtNum(h.price, { currency: true })}
@@ -1259,4 +1259,7 @@ export default function AssetValuation() {
     </div>
   );
 }
+
+
+
 
