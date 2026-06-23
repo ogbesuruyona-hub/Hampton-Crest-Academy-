@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
-import { api, formatApiErrorDetail } from "../lib/api";
+import { formatApiErrorDetail } from "../lib/api";
 import { formatDate } from "../lib/content";
 import { RichContent } from "../components/RichContent";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { learningProgress } from "../lib/learningProgress";
+import { cachedApiGet } from "../lib/resourceCache";
 
 const sortLessons = (items) =>
   [...items].sort((a, b) => {
@@ -38,12 +39,12 @@ export default function EducationDetail() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([api.get(`/education/${id}`), api.get("/education")])
+    Promise.all([cachedApiGet(`/education/${id}`), cachedApiGet("/education")])
       .then(([detail, list]) => {
         if (cancelled) return;
-        setLesson(detail.data);
-        setAllLessons(Array.isArray(list.data) ? list.data : []);
-        setCompleted(learningProgress.isCompleted(detail.data.id));
+        setLesson(detail);
+        setAllLessons(Array.isArray(list) ? list : []);
+        setCompleted(learningProgress.isCompleted(detail.id));
       })
       .catch((e) => {
         if (!cancelled) setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);

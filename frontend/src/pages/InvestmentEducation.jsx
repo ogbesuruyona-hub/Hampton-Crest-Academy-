@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { EDUCATION_TRACKS, formatDate } from "../lib/content";
 import { learningProgress } from "../lib/learningProgress";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { ArrowUpRight, BookOpenCheck, GraduationCap, Layers } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -114,7 +115,7 @@ export default function InvestmentEducation() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/education");
+      const data = await cachedApiGet("/education");
       setItems(sortLessons(data));
       setCompletedIds(learningProgress.getCompletedIds());
     } finally {
@@ -156,6 +157,11 @@ export default function InvestmentEducation() {
   const openEdit = (item) => {
     setEditing(item);
     setEditorOpen(true);
+  };
+
+  const refreshEducation = () => {
+    invalidateCachedApi("/education");
+    load();
   };
 
   return (
@@ -331,7 +337,7 @@ export default function InvestmentEducation() {
         onOpenChange={setEditorOpen}
         contentType="education"
         initial={editing}
-        onSaved={load}
+        onSaved={refreshEducation}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -350,7 +356,7 @@ export default function InvestmentEducation() {
               onClick={async () => {
                 const target = deleteTarget;
                 setDeleteTarget(null);
-                if (target) await deleteLesson(target, load);
+                if (target) await deleteLesson(target, refreshEducation);
               }}
               className="bg-[#7A2424] text-[var(--hc-text)] hover:bg-[#9a2e2e] rounded-none"
             >

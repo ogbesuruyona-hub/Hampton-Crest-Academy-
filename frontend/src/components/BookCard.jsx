@@ -65,6 +65,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
             src={book.cover_url}
             alt={book.title}
             loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             onError={(e) => {
               e.currentTarget.style.display = "none";
