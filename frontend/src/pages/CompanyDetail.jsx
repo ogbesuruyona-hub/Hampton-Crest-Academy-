@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { useAuth } from "../context/AuthContext";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { StatusBadge } from "../components/StatusBadge";
@@ -39,7 +40,7 @@ export default function CompanyDetail() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/companies/${id}`);
+      const data = await cachedApiGet(`/companies/${id}`);
       setCompany(data);
     } catch (e) {
       setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -55,6 +56,7 @@ export default function CompanyDetail() {
 
   const onDeleteCompany = async () => {
     await api.delete(`/companies/${id}`);
+    invalidateCachedApi("/companies");
     navigate("/companies");
   };
 
@@ -62,6 +64,7 @@ export default function CompanyDetail() {
     if (!memoToDelete) return;
     await api.delete(`/companies/${id}/memos/${memoToDelete}`);
     setMemoToDelete(null);
+    invalidateCachedApi(`/companies/${id}`);
     load();
   };
 
@@ -253,13 +256,19 @@ export default function CompanyDetail() {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         initial={company}
-        onSaved={load}
+        onSaved={() => {
+          invalidateCachedApi("/companies");
+          load();
+        }}
       />
       <MemoEditorDialog
         open={memoOpen}
         onOpenChange={setMemoOpen}
         companyId={company.id}
-        onSaved={load}
+        onSaved={() => {
+          invalidateCachedApi(`/companies/${id}`);
+          load();
+        }}
       />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>

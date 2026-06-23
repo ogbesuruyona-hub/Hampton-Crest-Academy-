@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { api, formatApiErrorDetail } from "../lib/api";
+import { formatApiErrorDetail } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
+import { cachedApiGet } from "../lib/resourceCache";
 
 export default function BookDetail() {
   const { id } = useParams();
@@ -15,9 +16,8 @@ export default function BookDetail() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    api
-      .get(`/books/${id}`)
-      .then(({ data }) => {
+    cachedApiGet(`/books/${id}`)
+      .then((data) => {
         if (!cancelled) setBook(data);
       })
       .catch((e) => {
@@ -73,6 +73,8 @@ export default function BookDetail() {
             <img
               src={book.cover_url}
               alt={book.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (

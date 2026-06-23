@@ -4,9 +4,9 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
 import { formatDate, formatPeriod } from "../lib/content";
 import { learningProgress } from "../lib/learningProgress";
+import { cachedApiGet } from "../lib/resourceCache";
 import {
   ArrowUpRight,
   BookOpen,
@@ -65,15 +65,15 @@ export default function Dashboard() {
   useEffect(() => {
     let cancel = false;
     Promise.allSettled([
-      api.get("/books"),
-      api.get("/research"),
-      api.get("/education"),
-      api.get("/reports"),
-      api.get("/companies"),
+      cachedApiGet("/books"),
+      cachedApiGet("/research"),
+      cachedApiGet("/education"),
+      cachedApiGet("/reports"),
+      cachedApiGet("/companies"),
     ]).then((rs) => {
       if (cancel) return;
       const [books, research, education, reports, companies] = rs.map((x) =>
-        x.status === "fulfilled" ? x.value.data : [],
+        x.status === "fulfilled" ? x.value : [],
       );
       setCounts({
         books: books.length,

@@ -153,6 +153,8 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
                 <img
                   src={form.cover_url}
                   alt="vista previa de portada"
+                  loading="lazy"
+                  decoding="async"
                   className="h-32 w-auto object-cover border border-[var(--hc-border)]"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";

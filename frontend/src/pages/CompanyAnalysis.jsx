@@ -6,8 +6,8 @@ import { CompanyEditorDialog } from "../components/CompanyEditorDialog";
 import { AdminAction } from "../components/AdminActions";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
 import { COMPANY_SECTORS } from "../lib/content";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { BarChart3, Search, ArrowUpRight } from "lucide-react";
 
 export default function CompanyAnalysis() {
@@ -27,7 +27,7 @@ export default function CompanyAnalysis() {
       if (q) params.q = q;
       if (sector) params.sector = sector;
       if (statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/companies", { params });
+      const data = await cachedApiGet("/companies", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -144,7 +144,14 @@ export default function CompanyAnalysis() {
         </div>
       )}
 
-      <CompanyEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onSaved={load} />
+      <CompanyEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        onSaved={() => {
+          invalidateCachedApi("/companies");
+          load();
+        }}
+      />
     </div>
   );
 }

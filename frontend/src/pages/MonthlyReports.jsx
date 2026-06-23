@@ -5,7 +5,7 @@ import { ContentCard } from "../components/ContentCard";
 import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { FileText } from "lucide-react";
 
 const yearOptions = (() => {
@@ -26,7 +26,7 @@ export default function MonthlyReports() {
     setLoading(true);
     try {
       const params = { year };
-      const { data } = await api.get("/reports", { params });
+      const data = await cachedApiGet("/reports", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -44,6 +44,11 @@ export default function MonthlyReports() {
   const openEdit = (item) => {
     setEditing(item);
     setEditorOpen(true);
+  };
+
+  const refreshReports = () => {
+    invalidateCachedApi("/reports");
+    load();
   };
 
   return (
@@ -100,7 +105,7 @@ export default function MonthlyReports() {
               showStatus={isAdmin}
               isAdmin={isAdmin}
               onEdit={openEdit}
-              onDeleted={load}
+              onDeleted={refreshReports}
             />
           ))}
         </div>
@@ -111,7 +116,7 @@ export default function MonthlyReports() {
         onOpenChange={setEditorOpen}
         contentType="reports"
         initial={editing}
-        onSaved={load}
+        onSaved={refreshReports}
       />
     </div>
   );

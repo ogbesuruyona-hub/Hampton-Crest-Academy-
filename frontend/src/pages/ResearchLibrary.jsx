@@ -5,8 +5,8 @@ import { ContentCard } from "../components/ContentCard";
 import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
 import { RESEARCH_CATEGORIES } from "../lib/content";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { FileSearch, Search } from "lucide-react";
 
 export default function ResearchLibrary() {
@@ -27,7 +27,7 @@ export default function ResearchLibrary() {
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/research", { params });
+      const data = await cachedApiGet("/research", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -46,6 +46,11 @@ export default function ResearchLibrary() {
   const openEdit = (item) => {
     setEditing(item);
     setEditorOpen(true);
+  };
+
+  const refreshResearch = () => {
+    invalidateCachedApi("/research");
+    load();
   };
 
   return (
@@ -146,7 +151,7 @@ export default function ResearchLibrary() {
               showStatus={isAdmin}
               isAdmin={isAdmin}
               onEdit={openEdit}
-              onDeleted={load}
+              onDeleted={refreshResearch}
             />
           ))}
         </div>
@@ -157,7 +162,7 @@ export default function ResearchLibrary() {
         onOpenChange={setEditorOpen}
         contentType="research"
         initial={editing}
-        onSaved={load}
+        onSaved={refreshResearch}
       />
     </div>
   );

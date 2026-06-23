@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { CONTENT_TYPES, formatDate, formatPeriod } from "../lib/content";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { useAuth } from "../context/AuthContext";
 import { BookmarkButton } from "./BookmarkButton";
 import { StatusBadge } from "./StatusBadge";
@@ -41,7 +42,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get(`/${cfg.api}/${id}`);
+      const data = await cachedApiGet(`/${cfg.api}/${id}`);
       setItem(data);
     } catch (e) {
       setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -57,6 +58,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
 
   const onDelete = async () => {
     await api.delete(`/${cfg.api}/${id}`);
+    invalidateCachedApi(`/${cfg.api}`);
     navigate(cfg.listRoute);
   };
 
@@ -198,7 +200,10 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
           onOpenChange={setEditorOpen}
           contentType={contentType}
           initial={item}
-          onSaved={load}
+          onSaved={() => {
+            invalidateCachedApi(`/${cfg.api}`);
+            load();
+          }}
         />
       )}
 

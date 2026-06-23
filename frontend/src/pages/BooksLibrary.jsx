@@ -6,8 +6,8 @@ import { AdminAction } from "../components/AdminActions";
 import { BookEditorDialog } from "../components/BookEditorDialog";
 import { BookCard } from "../components/BookCard";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
 import { LIBRARY_CATEGORIES } from "../lib/content";
+import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { BookOpen, Search } from "lucide-react";
 
 export default function BooksLibrary() {
@@ -33,7 +33,7 @@ export default function BooksLibrary() {
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/books", { params });
+      const data = await cachedApiGet("/books", { params });
       setItems(data);
     } finally {
       setLoading(false);
@@ -52,6 +52,11 @@ export default function BooksLibrary() {
   const openEdit = (book) => {
     setEditing(book);
     setEditorOpen(true);
+  };
+
+  const refreshBooks = () => {
+    invalidateCachedApi("/books");
+    load();
   };
 
   return (
@@ -151,7 +156,7 @@ export default function BooksLibrary() {
               showStatus={isAdmin}
               isAdmin={isAdmin}
               onEdit={() => openEdit(b)}
-              onDeleted={load}
+              onDeleted={refreshBooks}
             />
           ))}
         </div>
@@ -161,7 +166,7 @@ export default function BooksLibrary() {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         initial={editing}
-        onSaved={load}
+        onSaved={refreshBooks}
       />
     </div>
   );
