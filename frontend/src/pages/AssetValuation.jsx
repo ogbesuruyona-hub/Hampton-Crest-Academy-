@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { api, formatApiErrorDetail } from "../lib/api";
@@ -72,7 +72,7 @@ const VERDICT_STYLES = {
 const RATING_STYLES = {
   EXCEPTIONAL: { label: "EXCEPCIONAL", color: "text-[var(--hc-gold)]" },
   HIGH_QUALITY: { label: "ALTA CALIDAD", color: "text-[var(--hc-gold)]" },
-  WATCHLIST: { label: "EN OBSERVACIÓN", color: "text-[var(--hc-text)]" },
+  WATCHLIST: { label: "EN OBSERVACIÃ“N", color: "text-[var(--hc-text)]" },
   SPECULATIVE: { label: "ESPECULATIVA", color: "text-[#E0B97A]" },
   AVOID: { label: "EVITAR", color: "text-[#E07A7A]" },
 };
@@ -81,7 +81,7 @@ const SCORE_LABELS = {
   business_quality: "Calidad del negocio",
   growth: "Crecimiento",
   financial_health: "Salud financiera",
-  valuation: "Valoración",
+  valuation: "ValoraciÃ³n",
   risk: "Riesgo (mayor = menor riesgo)",
 };
 
@@ -117,6 +117,11 @@ const getAnalysisTargetLabel = (value) => {
   if (alias) return `${alias.name} (${alias.ticker})`;
   const ticker = normalizeTickerInput(value);
   return ticker || "";
+};
+
+const getValuationCacheKey = (value) => {
+  const alias = COMPANY_ALIAS_PREVIEW[normalizeCompanyQuery(value)];
+  return alias?.ticker || normalizeTickerInput(value);
 };
 
 const asFiniteNumber = (value) => {
@@ -178,6 +183,81 @@ const hasDcfScenarioValues = (value) =>
 const isScoreBreakdown = (score) =>
   Boolean(score && typeof score === "object" && !Array.isArray(score));
 
+const DCF_DEFAULT_CONFIG = {
+  bear_growth: 0,
+  base_growth: 0.05,
+  bull_growth: 0.1,
+  discount_rate: 0.09,
+  terminal_growth: 0.025,
+  horizon_years: 5,
+};
+
+const clampNumber = (value, min, max, fallback) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+};
+
+const getDcfConfigFromResult = (dcf) => ({
+  ...DCF_DEFAULT_CONFIG,
+  ...(dcf?.assumptions || {}),
+});
+
+const getLastPositive = (series) => {
+  if (!Array.isArray(series)) return null;
+  for (let i = series.length - 1; i >= 0; i -= 1) {
+    const value = asFiniteNumber(series[i]);
+    if (value && value > 0) return value;
+  }
+  return null;
+};
+
+const recalculateDcf = (data, config) => {
+  const baseFcf = getLastPositive(data?.fcf_series) || getLastPositive(data?.net_income_series);
+  const shares = asFiniteNumber(data?.shares_outstanding);
+  if (!baseFcf || !shares) return { available: false };
+
+  const assumptions = {
+    bear_growth: clampNumber(config.bear_growth, -0.5, 0.5, DCF_DEFAULT_CONFIG.bear_growth),
+    base_growth: clampNumber(config.base_growth, -0.5, 0.5, DCF_DEFAULT_CONFIG.base_growth),
+    bull_growth: clampNumber(config.bull_growth, -0.5, 0.5, DCF_DEFAULT_CONFIG.bull_growth),
+    discount_rate: clampNumber(config.discount_rate, 0.01, 0.5, DCF_DEFAULT_CONFIG.discount_rate),
+    terminal_growth: clampNumber(config.terminal_growth, -0.05, 0.08, DCF_DEFAULT_CONFIG.terminal_growth),
+    horizon_years: Math.round(clampNumber(config.horizon_years, 1, 20, DCF_DEFAULT_CONFIG.horizon_years)),
+  };
+
+  if (assumptions.discount_rate <= assumptions.terminal_growth) {
+    assumptions.discount_rate = assumptions.terminal_growth + 0.01;
+  }
+
+  const npv = (growth) => {
+    let presentValue = 0;
+    let fcf = baseFcf;
+    for (let year = 1; year <= assumptions.horizon_years; year += 1) {
+      fcf *= 1 + growth;
+      presentValue += fcf / (1 + assumptions.discount_rate) ** year;
+    }
+    const terminal =
+      (fcf * (1 + assumptions.terminal_growth)) /
+      (assumptions.discount_rate - assumptions.terminal_growth);
+    presentValue += terminal / (1 + assumptions.discount_rate) ** assumptions.horizon_years;
+    return presentValue;
+  };
+
+  return {
+    available: true,
+    assumptions,
+    fair_value_bear: Number((npv(assumptions.bear_growth) / shares).toFixed(2)),
+    fair_value_base: Number((npv(assumptions.base_growth) / shares).toFixed(2)),
+    fair_value_bull: Number((npv(assumptions.bull_growth) / shares).toFixed(2)),
+  };
+};
+
+const percentInputValue = (value) => {
+  const n = asFiniteNumber(value);
+  return n === null ? "" : Number((n * 100).toFixed(2));
+};
+
 
 // ---------- subcomponents ----------
 const ScoreBar = ({ value }) => {
@@ -221,7 +301,7 @@ const RingScore = ({ value }) => {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-medium tracking-tight text-[var(--hc-text)]">
-          {display.value === null ? "—" : Math.round(display.value)}
+          {display.value === null ? "â€”" : Math.round(display.value)}
         </span>
         <span className="hc-overline mt-1">de {display.scale}</span>
       </div>
@@ -313,6 +393,70 @@ const NarrativeValue = ({ value }) => {
   return <>{toDisplayText(value)}</>;
 };
 
+const DcfInput = ({ label, value, suffix = "%", min, max, step = "0.1", onChange }) => (
+  <label className="block">
+    <span className="hc-overline block mb-2">{label}</span>
+    <div className="flex items-center border border-[var(--hc-border)] bg-[var(--hc-bg)] focus-within:border-[var(--hc-gold)] transition-colors">
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full bg-transparent px-3 py-2.5 text-sm tracking-tight text-[var(--hc-text)] focus:outline-none"
+      />
+      <span className="px-3 text-xs tracking-tight text-[var(--hc-text-muted)] border-l border-[var(--hc-border)]">
+        {suffix}
+      </span>
+    </div>
+  </label>
+);
+
+const SkeletonBlock = ({ className = "" }) => (
+  <div className={`animate-pulse bg-[var(--hc-surface-elevated)] ${className}`} />
+);
+
+const ValuationSkeleton = () => (
+  <div className="mt-10 space-y-6" data-testid="valuation-skeleton">
+    <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6 sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <SkeletonBlock className="h-3 w-28 mb-4" />
+          <SkeletonBlock className="h-8 w-full max-w-md mb-6" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <SkeletonBlock className="h-16" />
+            <SkeletonBlock className="h-16" />
+            <SkeletonBlock className="h-16" />
+          </div>
+        </div>
+        <SkeletonBlock className="h-10 w-36" />
+      </div>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6">
+        <SkeletonBlock className="h-3 w-24 mb-4" />
+        <SkeletonBlock className="h-7 w-56 mb-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <SkeletonBlock className="h-28" />
+          <SkeletonBlock className="h-28" />
+          <SkeletonBlock className="h-28" />
+        </div>
+      </div>
+      <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6">
+        <SkeletonBlock className="h-3 w-20 mb-4" />
+        <SkeletonBlock className="h-7 w-40 mb-6" />
+        <div className="space-y-3">
+          <SkeletonBlock className="h-8" />
+          <SkeletonBlock className="h-8" />
+          <SkeletonBlock className="h-8" />
+          <SkeletonBlock className="h-8" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // ---------- main page ----------
 export default function AssetValuation() {
   const [ticker, setTicker] = useState("");
@@ -323,12 +467,17 @@ export default function AssetValuation() {
   const [analysisTarget, setAnalysisTarget] = useState("");
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [dcfConfig, setDcfConfig] = useState(DCF_DEFAULT_CONFIG);
+  const valuationCacheRef = useRef(new Map());
+  const inFlightTickerRef = useRef("");
+  const debounceTimerRef = useRef(null);
+  const requestSeqRef = useRef(0);
 
   const scoreTotal = getScoreTotal(result?.analysis?.score);
   const hasScoreBreakdown = isScoreBreakdown(result?.analysis?.score);
   const resultWarning =
     result && (!result.data || !result.analysis)
-      ? "La valoración se completó, pero la respuesta llegó incompleta. Se muestran los campos disponibles."
+      ? "La valoraciÃ³n se completÃ³, pero la respuesta llegÃ³ incompleta. Se muestran los campos disponibles."
       : "";
 
   const loadHistory = async () => {
@@ -347,6 +496,19 @@ export default function AssetValuation() {
     loadHistory();
   }, []);
 
+  useEffect(() => {
+    if (result?.dcf) {
+      setDcfConfig(getDcfConfigFromResult(result.dcf));
+    }
+  }, [result?.ticker, result?.fetched_at, result?.dcf]);
+
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    },
+    []
+  );
+
   // animated phase progress while loading
   useEffect(() => {
     if (!loading) return;
@@ -359,46 +521,103 @@ export default function AssetValuation() {
     };
   }, [loading]);
 
-  const submit = async (e, tickerOverride = "") => {
-    e?.preventDefault();
-    const query = (tickerOverride || ticker).trim();
+  const runValuation = async (query) => {
     if (!query) return;
+    const cacheKey = getValuationCacheKey(query);
+    if (!cacheKey) return;
+
+    const cachedResult = valuationCacheRef.current.get(cacheKey);
+    if (cachedResult) {
+      setTicker(query);
+      setResult(cachedResult);
+      setError("");
+      return;
+    }
+
+    if (loading && inFlightTickerRef.current === cacheKey) return;
+
     setLoading(true);
     setError("");
-    setResult(null);
     setTicker(query);
     setAnalysisTarget(getAnalysisTargetLabel(query));
+    inFlightTickerRef.current = cacheKey;
+    const requestId = requestSeqRef.current + 1;
+    requestSeqRef.current = requestId;
     try {
       const { data } = await api.post("/valuation", { ticker: query });
-      setResult(data);
-      loadHistory();
+      const resolvedKey = getValuationCacheKey(data?.ticker || cacheKey);
+      valuationCacheRef.current.set(cacheKey, data);
+      valuationCacheRef.current.set(resolvedKey, data);
+      if (requestSeqRef.current === requestId) {
+        setResult(data);
+        loadHistory();
+      }
     } catch (err) {
-      setError(
-        formatApiErrorDetail(err.response?.data?.detail) ||
-          err.message ||
-          "No se pudo completar la valoración."
-      );
+      if (requestSeqRef.current === requestId) {
+        setError(
+          formatApiErrorDetail(err.response?.data?.detail) ||
+            err.message ||
+            "No se pudo completar la valoraciÃ³n."
+        );
+      }
     } finally {
-      setLoading(false);
-      setPhase(0);
-      setAnalysisTarget("");
+      if (requestSeqRef.current === requestId) {
+        setLoading(false);
+        setPhase(0);
+        setAnalysisTarget("");
+        inFlightTickerRef.current = "";
+      }
     }
   };
 
+  const submit = (e, tickerOverride = "") => {
+    e?.preventDefault();
+    const query = (tickerOverride || ticker).trim();
+    if (!query) return;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => runValuation(query), 350);
+  };
+
+  const displayDcf = useMemo(() => {
+    if (!result?.dcf?.available) return result?.dcf || null;
+    const recalculated = recalculateDcf(result.data, dcfConfig);
+    return recalculated.available ? recalculated : result.dcf;
+  }, [result, dcfConfig]);
+
+  const updateDcfPercent = (key, value) => {
+    const n = Number(value);
+    setDcfConfig((current) => ({
+      ...current,
+      [key]: Number.isFinite(n) ? n / 100 : current[key],
+    }));
+  };
+
+  const updateDcfYears = (value) => {
+    const n = Number(value);
+    setDcfConfig((current) => ({
+      ...current,
+      horizon_years: Number.isFinite(n) ? Math.round(n) : current.horizon_years,
+    }));
+  };
+
+  const resetDcfConfig = () => {
+    setDcfConfig(getDcfConfigFromResult(result?.dcf));
+  };
+
   const upside = useMemo(() => {
-    if (!result?.dcf?.available || !result?.data?.price) return null;
-    const base = result.dcf.fair_value_base;
+    if (!displayDcf?.available || !result?.data?.price) return null;
+    const base = displayDcf.fair_value_base;
     const price = result.data.price;
     if (!base || !price) return null;
     return (base - price) / price;
-  }, [result]);
+  }, [displayDcf, result]);
 
   return (
     <div data-testid="valuation-page">
       <PageHeader
-        overline="Academia · Inteligencia"
-        title="Valoración de Activos"
-        description="Análisis institucional impulsado por IA. Datos reales de mercado, DCF propietario en tres escenarios y tesis de calidad hedge fund — en menos de 30 segundos."
+        overline="Academia Â· Inteligencia"
+        title="ValoraciÃ³n de Activos"
+        description="AnÃ¡lisis institucional impulsado por IA. Datos reales de mercado, DCF propietario en tres escenarios y tesis de calidad hedge fund â€” en menos de 30 segundos."
       />
 
       {/* Search */}
@@ -421,13 +640,12 @@ export default function AssetValuation() {
               data-testid="valuation-ticker-input"
               autoFocus
               maxLength={80}
-              disabled={loading}
               className="w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] pl-11 pr-4 py-3.5 text-base tracking-tight placeholder:text-[var(--hc-text-muted)] placeholder:tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors disabled:opacity-60"
             />
           </div>
           <button
             type="submit"
-            disabled={loading || !ticker.trim()}
+            disabled={!ticker.trim()}
             data-testid="valuation-submit"
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs tracking-[0.22em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] font-semibold hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -446,6 +664,12 @@ export default function AssetValuation() {
         {loading && analysisTarget && (
           <div className="mt-4 text-sm tracking-tight text-[var(--hc-text-secondary)]">
             Analizando <span className="font-medium text-[var(--hc-text)]">{analysisTarget}</span>
+          </div>
+        )}
+
+        {loading && result && (
+          <div className="mt-4 text-xs tracking-tight text-[var(--hc-text-muted)]">
+            Manteniendo la valoraciÃ³n anterior visible mientras llega la nueva respuesta.
           </div>
         )}
 
@@ -507,6 +731,8 @@ export default function AssetValuation() {
         )}
       </Panel>
 
+      {loading && !result && <ValuationSkeleton />}
+
       {/* Results */}
       {result && (
         <div className="mt-10 space-y-6 hc-enter" data-testid="valuation-result">
@@ -529,7 +755,7 @@ export default function AssetValuation() {
                         RATING_STYLES[result.analysis.rating]?.color || "text-[var(--hc-text)]"
                       }`}
                     >
-                      ★ {RATING_STYLES[result.analysis.rating]?.label || toDisplayText(result.analysis.rating)}
+                      â˜… {RATING_STYLES[result.analysis.rating]?.label || toDisplayText(result.analysis.rating)}
                     </span>
                   )}
                 </div>
@@ -606,7 +832,7 @@ export default function AssetValuation() {
                     <div className="border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] px-4 py-5">
                       <div className="hc-overline mb-2">Score recibido</div>
                       <p className="text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed">
-                        El análisis devolvió una puntuación total sin desglose por categorías.
+                        El anÃ¡lisis devolviÃ³ una puntuaciÃ³n total sin desglose por categorÃ­as.
                         Se muestra el score total y el resto del reporte generado.
                       </p>
                       <div className="mt-4">
@@ -632,33 +858,33 @@ export default function AssetValuation() {
             <div className="lg:col-span-2">
               <Panel
                 overline="Modelo DCF"
-                title="Valor justo · 3 escenarios"
+                title="Valor justo Â· 3 escenarios"
                 testid="panel-dcf"
               >
-                {result.dcf?.available ? (
+                {displayDcf?.available ? (
                   <>
                     <div className="grid grid-cols-3 gap-3">
                       {[
                         {
                           key: "bear",
                           label: "Pesimista",
-                          fv: result.dcf.fair_value_bear,
-                          g: result.dcf.assumptions?.bear_growth,
+                          fv: displayDcf.fair_value_bear,
+                          g: displayDcf.assumptions?.bear_growth,
                           color: "text-[#E07A7A]",
                         },
                         {
                           key: "base",
                           label: "Base",
-                          fv: result.dcf.fair_value_base,
-                          g: result.dcf.assumptions?.base_growth,
+                          fv: displayDcf.fair_value_base,
+                          g: displayDcf.assumptions?.base_growth,
                           color: "text-[var(--hc-gold)]",
                           highlight: true,
                         },
                         {
                           key: "bull",
                           label: "Optimista",
-                          fv: result.dcf.fair_value_bull,
-                          g: result.dcf.assumptions?.bull_growth,
+                          fv: displayDcf.fair_value_bull,
+                          g: displayDcf.assumptions?.bull_growth,
                           color: "text-[#7BD3A0]",
                         },
                       ].map((s) => {
@@ -700,19 +926,82 @@ export default function AssetValuation() {
                     <div className="mt-5 pt-5 border-t border-[var(--hc-border)] grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-xs tracking-tight text-[var(--hc-text-secondary)]">
                       <div>
                         <span className="hc-overline block mb-1">Tasa de descuento</span>
-                        {fmtNum(result.dcf.assumptions?.discount_rate, { pct: true, digits: 1 })}
+                        {fmtNum(displayDcf.assumptions?.discount_rate, { pct: true, digits: 1 })}
                       </div>
                       <div>
                         <span className="hc-overline block mb-1">Crecimiento terminal</span>
-                        {fmtNum(result.dcf.assumptions?.terminal_growth, { pct: true, digits: 1 })}
+                        {fmtNum(displayDcf.assumptions?.terminal_growth, { pct: true, digits: 1 })}
                       </div>
                       <div>
                         <span className="hc-overline block mb-1">Horizonte</span>
-                        {result.dcf.assumptions?.horizon_years || 5} años
+                        {displayDcf.assumptions?.horizon_years || 5} aÃ±os
                       </div>
                       <div>
                         <span className="hc-overline block mb-1">Precio actual</span>
                         {fmtNum(result.data?.price, { currency: true })}
+                      </div>
+                    </div>
+                    <div className="mt-5 pt-5 border-t border-[var(--hc-border)]">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <div>
+                          <div className="hc-overline text-[var(--hc-gold)]">Supuestos editables</div>
+                          <p className="mt-1 text-xs tracking-tight text-[var(--hc-text-muted)]">
+                            Ajusta el DCF localmente sin modificar la valoración guardada por el backend.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={resetDcfConfig}
+                          className="self-start sm:self-auto px-3 py-2 border border-[var(--hc-border)] text-[0.68rem] tracking-[0.18em] uppercase text-[var(--hc-text-secondary)] hover:border-[var(--hc-gold)] hover:text-[var(--hc-gold)] transition-colors"
+                        >
+                          Restaurar
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                        <DcfInput
+                          label="Tasa de descuento"
+                          value={percentInputValue(dcfConfig.discount_rate)}
+                          min="1"
+                          max="50"
+                          onChange={(value) => updateDcfPercent("discount_rate", value)}
+                        />
+                        <DcfInput
+                          label="Crecimiento pesimista"
+                          value={percentInputValue(dcfConfig.bear_growth)}
+                          min="-50"
+                          max="50"
+                          onChange={(value) => updateDcfPercent("bear_growth", value)}
+                        />
+                        <DcfInput
+                          label="Crecimiento base"
+                          value={percentInputValue(dcfConfig.base_growth)}
+                          min="-50"
+                          max="50"
+                          onChange={(value) => updateDcfPercent("base_growth", value)}
+                        />
+                        <DcfInput
+                          label="Crecimiento optimista"
+                          value={percentInputValue(dcfConfig.bull_growth)}
+                          min="-50"
+                          max="50"
+                          onChange={(value) => updateDcfPercent("bull_growth", value)}
+                        />
+                        <DcfInput
+                          label="Crecimiento terminal"
+                          value={percentInputValue(dcfConfig.terminal_growth)}
+                          min="-5"
+                          max="8"
+                          onChange={(value) => updateDcfPercent("terminal_growth", value)}
+                        />
+                        <DcfInput
+                          label="Horizonte"
+                          value={dcfConfig.horizon_years}
+                          suffix="años"
+                          min="1"
+                          max="20"
+                          step="1"
+                          onChange={updateDcfYears}
+                        />
                       </div>
                     </div>
                     {result.analysis?.fair_value_summary &&
@@ -728,14 +1017,14 @@ export default function AssetValuation() {
                   </>
                 ) : (
                   <div className="text-sm text-[var(--hc-text-muted)] italic">
-                    DCF no disponible — FCF histórico insuficiente o negativo.
+                    DCF no disponible â€” FCF histÃ³rico insuficiente o negativo.
                   </div>
                 )}
               </Panel>
             </div>
 
-            {/* Múltiplos */}
-            <Panel overline="Múltiplos" title="Valoración relativa" testid="panel-multiples">
+            {/* MÃºltiplos */}
+            <Panel overline="MÃºltiplos" title="ValoraciÃ³n relativa" testid="panel-multiples">
               <Metric
                 label="PE (TTM)"
                 value={fmtNum(result.data?.pe_trailing, { digits: 1 })}
@@ -814,8 +1103,8 @@ export default function AssetValuation() {
           {/* Thesis */}
           {result.analysis?.thesis && (
             <Panel
-              overline="Tesis de Inversión"
-              title="Drivers · Moat · Catalizadores · Riesgos"
+              overline="Tesis de InversiÃ³n"
+              title="Drivers Â· Moat Â· Catalizadores Â· Riesgos"
               testid="panel-thesis"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -829,7 +1118,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[var(--hc-gold)] shrink-0">▸</span>
+                            <span className="text-[var(--hc-gold)] shrink-0">â–¸</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -854,7 +1143,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[var(--hc-gold)] shrink-0">●</span>
+                            <span className="text-[var(--hc-gold)] shrink-0">â—</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -873,7 +1162,7 @@ export default function AssetValuation() {
                             key={i}
                             className="flex gap-3 text-sm text-[var(--hc-text-secondary)] tracking-tight leading-relaxed"
                           >
-                            <span className="text-[#E07A7A] shrink-0">▲</span>
+                            <span className="text-[#E07A7A] shrink-0">â–²</span>
                             <div className="flex-1"><NarrativeValue value={d} /></div>
                           </li>
                         ))}
@@ -895,7 +1184,7 @@ export default function AssetValuation() {
                   )}
                   {result.analysis?.valuation_comment && (
                     <div>
-                      <div className="hc-overline mb-2">Comentario de valoración</div>
+                      <div className="hc-overline mb-2">Comentario de valoraciÃ³n</div>
                       <div className="text-sm text-[var(--hc-text)] tracking-tight leading-relaxed">
                         <NarrativeValue value={result.analysis.valuation_comment} />
                       </div>
@@ -907,8 +1196,8 @@ export default function AssetValuation() {
           )}
 
           <p className="text-[0.7rem] tracking-tight text-[var(--hc-text-muted)] italic leading-relaxed max-w-3xl">
-            Datos vía Yahoo Finance. Análisis generado por IA usando GPT-4o sobre datos reales de mercado. No constituye recomendación
-            personalizada de inversión — uso exclusivo para miembros de Hampton Crest Academy con fines educativos y analíticos.
+            Datos vÃ­a Yahoo Finance. AnÃ¡lisis generado por IA usando GPT-4o sobre datos reales de mercado. No constituye recomendaciÃ³n
+            personalizada de inversiÃ³n â€” uso exclusivo para miembros de Hampton Crest Academy con fines educativos y analÃ­ticos.
           </p>
         </div>
       )}
@@ -927,10 +1216,10 @@ export default function AssetValuation() {
           }
         >
           {historyLoading ? (
-            <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center">Cargando…</div>
+            <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center">Cargandoâ€¦</div>
           ) : history.length === 0 ? (
             <div className="text-sm text-[var(--hc-text-muted)] py-6 text-center italic">
-              Aún no has valorado ningún activo.
+              AÃºn no has valorado ningÃºn activo.
             </div>
           ) : (
             <div className="divide-y divide-[var(--hc-border)]">
@@ -947,7 +1236,7 @@ export default function AssetValuation() {
                       {h.ticker}
                     </span>
                     <span className="text-sm text-[var(--hc-text-secondary)] tracking-tight truncate">
-                      {h.name || "—"}
+                      {h.name || "â€”"}
                     </span>
                     <span className="text-xs text-[var(--hc-text-muted)] tracking-tight">
                       {fmtNum(h.price, { currency: true })}
@@ -970,3 +1259,4 @@ export default function AssetValuation() {
     </div>
   );
 }
+
