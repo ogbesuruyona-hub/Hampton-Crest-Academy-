@@ -24,6 +24,52 @@ STRIPE_WEBHOOK_SECRET=""
 
 Do not put Stripe secret keys in frontend environment variables.
 
+## Vercel Production Deployment
+
+This repository is configured for a combined Vercel deployment:
+
+- `/api/*` routes to `backend/server.py`.
+- React static assets are built from `frontend/package.json`.
+- React deep links fall back to `frontend/build/index.html`.
+
+For same-origin Vercel deployment, `REACT_APP_BACKEND_URL` can be empty because the frontend calls `/api`.
+
+Required backend environment variables:
+
+```env
+MONGO_URL=""
+DB_NAME=""
+JWT_SECRET=""
+CORS_ORIGINS=""
+APP_PUBLIC_URL=""
+PAYMENT_LINK_URL=""
+ADMIN_EMAIL=""
+ADMIN_PASSWORD=""
+OPENAI_API_KEY=""
+RESEND_API_KEY=""
+SENDER_EMAIL=""
+STRIPE_API_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+FMP_API_KEY=""
+```
+
+Optional backend variables:
+
+```env
+FRAMER_URL=""
+SENDER_NAME=""
+APP_NAME=""
+EMAILS_ENABLED=""
+ENABLE_TEST_MEMBER_SEED="false"
+```
+
+Production checks before deploying:
+
+```bash
+python -m py_compile backend/server.py backend/routers/chat.py backend/routers/valuation.py backend/scripts/cleanup_test_users.py
+cd frontend && npm run build
+```
+
 ## Admin Bootstrap
 
 No public/default admin account is created unless both values are configured:

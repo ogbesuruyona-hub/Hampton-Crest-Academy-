@@ -555,6 +555,32 @@ def _fetch_company_data(ticker: str) -> dict:
     pe_trailing = _first_available(info.get("trailingPE"), yahooquery_fundamentals.get("trailingPE"), fmp_fundamentals.get("trailingPE"), derived_multiples.get("trailingPE"))
     pe_forward = _first_available(info.get("forwardPE"), yahooquery_fundamentals.get("forwardPE"), fmp_fundamentals.get("forwardPE"))
     peg = _first_available(info.get("pegRatio"), yahooquery_fundamentals.get("pegRatio"), fmp_fundamentals.get("pegRatio"))
+    current_revenue = None
+    previous_revenue = None
+    if len(revenue or []) >= 2:
+        current_revenue = _safe(revenue[-1])
+        previous_revenue = _safe(revenue[-2])
+    elif len(quarterly_revenue or []) >= 8:
+        current_revenue = _sum_recent(quarterly_revenue[-4:])
+        previous_revenue = _sum_recent(quarterly_revenue[-8:-4])
+    revenue_growth_for_peg = None
+    if (
+        current_revenue is not None
+        and previous_revenue is not None
+        and previous_revenue != 0
+    ):
+        revenue_growth_for_peg = ((current_revenue - previous_revenue) / previous_revenue) * 100
+    if peg is None and pe_trailing is not None and revenue_growth_for_peg is not None and revenue_growth_for_peg > 0:
+        peg = pe_trailing / revenue_growth_for_peg
+    logger.info(
+        "[valuation:derived-peg] ticker=%s trailingPE=%s currentRevenue=%s previousRevenue=%s revenueGrowth=%s pegRatio=%s",
+        normalized,
+        pe_trailing,
+        current_revenue,
+        previous_revenue,
+        revenue_growth_for_peg,
+        peg,
+    )
     ev_ebitda = _first_available(info.get("enterpriseToEbitda"), yahooquery_fundamentals.get("enterpriseToEbitda"), fmp_fundamentals.get("enterpriseToEbitda"), derived_multiples.get("enterpriseToEbitda"))
     ev_revenue = _first_available(info.get("enterpriseToRevenue"), yahooquery_fundamentals.get("enterpriseToRevenue"), fmp_fundamentals.get("enterpriseToRevenue"), derived_multiples.get("enterpriseToRevenue"))
     price_to_book = _first_available(info.get("priceToBook"), yahooquery_fundamentals.get("priceToBook"), fmp_fundamentals.get("priceToBook"), derived_multiples.get("priceToBook"))

@@ -114,7 +114,8 @@ export const PdfUploader = ({ value, onChange, testid }) => {
 export const openPdf = (url) => {
   const token = tokenStore.get();
   if (!token) return;
-  const full = url.startsWith("http") ? url : `${process.env.REACT_APP_BACKEND_URL}${url}`;
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+  const full = url.startsWith("http") ? url : `${backendUrl}${url}`;
   const sep = full.includes("?") ? "&" : "?";
   window.open(`${full}${sep}auth=${encodeURIComponent(token)}`, "_blank", "noopener");
 };
