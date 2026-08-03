@@ -1,42 +1,16 @@
 {
   "version": 2,
-  "builds": [
+  "installCommand": "npm install --prefix frontend --legacy-peer-deps",
+  "buildCommand": "npm run build --prefix frontend",
+  "outputDirectory": "frontend/build",
+  "rewrites": [
     {
-      "src": "backend/server.py",
-      "use": "@vercel/python"
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/server.py"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "frontend/build/static/$1"
-    },
-    {
-      "src": "/asset-manifest.json",
-      "dest": "frontend/build/asset-manifest.json"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "frontend/build/favicon.ico"
-    },
-    {
-      "src": "/manifest.json",
-      "dest": "frontend/build/manifest.json"
-    },
-    {
-      "src": "/((?!api/).*)",
-      "dest": "frontend/build/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
