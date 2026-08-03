@@ -30,6 +30,7 @@ from fastapi import (
     UploadFile, File, BackgroundTasks, Response, Header,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
@@ -43,9 +44,10 @@ MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 PDF_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ.get("MONGO_URL", "").strip()
+db_name = os.environ.get("DB_NAME", "").strip()
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000) if mongo_url else None
+db = client[db_name] if client is not None and db_name else None
 
 app = FastAPI(title="Hampton Crest Academy API")
 api_router = APIRouter(prefix="/api")
@@ -88,6 +90,7 @@ STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 APP_NAME = os.environ.get("APP_NAME", "hampton-crest")
 _storage_key: Optional[str] = None
 _runtime_bootstrap_done = False
+_runtime_bootstrap_error: Optional[str] = None
 _runtime_bootstrap_lock = asyncio.Lock()
 
 
@@ -107,6 +110,14 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 def new_id() -> str:
     return uuid.uuid4().hex
+
+
+def ensure_database_configured():
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database is not configured. Set MONGO_URL and DB_NAME.",
+        )
 
 
 # ---------------- Helpers: passwords / JWT ----------------
@@ -202,6 +213,7 @@ async def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
+    ensure_database_configured()
     token: Optional[str] = None
     if credentials and credentials.scheme.lower() == "bearer":
         token = credentials.credentials
@@ -542,7 +554,24 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    return {"status": "ok", "time": now_utc().isoformat()}
+    mongo_ok = False
+    mongo_error = None
+    if db is not None:
+        try:
+            await db.command("ping")
+            mongo_ok = True
+        except Exception as e:
+            mongo_error = str(e)
+    return {
+        "status": "ok" if mongo_ok else "degraded",
+        "time": now_utc().isoformat(),
+        "mongo_configured": bool(mongo_url),
+        "db_configured": bool(db_name),
+        "mongo_ok": mongo_ok,
+        "bootstrap_done": _runtime_bootstrap_done,
+        "bootstrap_error": _runtime_bootstrap_error,
+        "mongo_error": mongo_error,
+    }
 
 
 # ---------------- Routes: auth ----------------
@@ -627,6 +656,8 @@ async def require_member(current_user: dict = Depends(get_current_user)) -> dict
 
 @api_router.post("/auth/login", response_model=AuthResponse)
 async def login(payload: LoginRequest, request: Request):
+    ensure_database_configured()
+    await runtime_bootstrap()
     email = payload.email.lower().strip()
     await check_lockout(request, email)
     user = await db.users.find_one({"email": email})
@@ -2077,17 +2108,23 @@ async def seed_test_member():
 
 
 async def runtime_bootstrap():
-    global _runtime_bootstrap_done
+    global _runtime_bootstrap_done, _runtime_bootstrap_error
     if _runtime_bootstrap_done:
         return
     async with _runtime_bootstrap_lock:
         if _runtime_bootstrap_done:
             return
-        await _runtime_bootstrap()
-        _runtime_bootstrap_done = True
+        try:
+            await _runtime_bootstrap()
+            _runtime_bootstrap_error = None
+            _runtime_bootstrap_done = True
+        except Exception as e:
+            _runtime_bootstrap_error = str(e)
+            logger.exception("runtime bootstrap failed")
 
 
 async def _runtime_bootstrap():
+    ensure_database_configured()
     await db.users.create_index("email", unique=True)
     await db.research_notes.create_index([("status", 1), ("created_at", -1)])
     await db.education_modules.create_index([("status", 1), ("order_index", 1)])
@@ -2114,7 +2151,8 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client is not None:
+        client.close()
 
 
 # ---------------- App wiring ----------------
@@ -2147,7 +2185,16 @@ app.include_router(api_router)
 
 @app.middleware("http")
 async def ensure_bootstrap_middleware(request: Request, call_next):
-    await runtime_bootstrap()
+    if request.url.path not in {"/api/health", "/api/", "/api/membership/config"}:
+        await runtime_bootstrap()
+        if _runtime_bootstrap_error and not _runtime_bootstrap_done:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "backend_bootstrap_failed",
+                    "bootstrap_error": _runtime_bootstrap_error,
+                },
+            )
     return await call_next(request)
 
 
