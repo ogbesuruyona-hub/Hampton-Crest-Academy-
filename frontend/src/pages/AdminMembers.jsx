@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
@@ -28,7 +28,7 @@ const StatusPill = ({ user }) => {
   if (user.complimentary) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-gold)]/40 text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]">
-        CortesÃ­a
+        Cortesía
       </span>
     );
   }
@@ -74,12 +74,12 @@ const statusLabel = (value) => {
     canceled: "Cancelado",
     expired: "Expirado",
     pending: "Pendiente",
-    complimentary: "CortesÃ­a",
+    complimentary: "Cortesía",
     admin: "Admin",
     paid: "Pagado",
     failed: "Fallido",
   };
-  return labels[value] || value || "â€”";
+  return labels[value] || value || "—";
 };
 
 export default function AdminMembers() {
@@ -144,10 +144,10 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/resend-invite`);
       if (data.email_sent) {
-        toast.success("Correo de invitaciÃ³n enviado.");
+        toast.success("Correo de invitación enviado.");
       } else {
         await navigator.clipboard?.writeText(data.invite_link);
-        toast.success("Correo desactivado. Enlace de invitaciÃ³n copiado.");
+        toast.success("Correo desactivado. Enlace de invitación copiado.");
       }
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -158,7 +158,7 @@ export default function AdminMembers() {
     try {
       const { data } = await api.post(`/admin/members/${user.id}/invite-link`);
       await navigator.clipboard?.writeText(data.invite_link);
-      toast.success(`Enlace copiado. Expira en ${data.expires_in_days} dÃ­as.`);
+      toast.success(`Enlace copiado. Expira en ${data.expires_in_days} días.`);
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
     }
@@ -167,9 +167,9 @@ export default function AdminMembers() {
   return (
     <div data-testid="admin-members-page">
       <PageHeader
-        overline="AdministraciÃ³n Â· Miembros"
+        overline="Administración · Miembros"
         title="Miembros"
-        description="Miembros activos, accesos de cortesÃ­a y cuentas caducadas. Administra la lista, revoca acceso o reenvÃ­a invitaciones."
+        description="Miembros activos, accesos de cortesía y cuentas caducadas. Administra la lista, revoca acceso o reenvía invitaciones."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -225,8 +225,8 @@ export default function AdminMembers() {
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="AÃºn no hay miembros"
-          description="Los miembros aparecerÃ¡n aquÃ­ en cuanto se suscriban vÃ­a el enlace de pago de Stripe."
+          title="Aún no hay miembros"
+          description="Los miembros aparecerán aquí en cuanto se suscriban vía el enlace de pago de Stripe."
         />
       ) : (
         <Panel testid="members-table">
@@ -266,12 +266,12 @@ export default function AdminMembers() {
                         data-testid={`toggle-comp-${m.id}`}
                         className="px-3 py-1.5 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
                       >
-                        {m.complimentary ? "Quitar cortesÃ­a" : "Marcar cortesÃ­a"}
+                        {m.complimentary ? "Quitar cortesía" : "Marcar cortesía"}
                       </button>
                       <button
                         onClick={() => copyInviteLink(m)}
                         data-testid={`copy-invite-${m.id}`}
-                        title="Copiar enlace de invitaciÃ³n"
+                        title="Copiar enlace de invitación"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -279,7 +279,7 @@ export default function AdminMembers() {
                       <button
                         onClick={() => resendInvite(m)}
                         data-testid={`resend-invite-${m.id}`}
-                        title="Reenviar invitaciÃ³n (correo si estÃ¡ activo, enlace si no)"
+                        title="Reenviar invitación (correo si está activo, enlace si no)"
                         className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
                       >
                         <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -315,10 +315,10 @@ export default function AdminMembers() {
       >
         <AlertDialogContent className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Â¿Revocar acceso?</AlertDialogTitle>
+            <AlertDialogTitle>¿Revocar acceso?</AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--hc-text-secondary)]">
-              {actionTarget?.email} serÃ¡ marcado como inactivo y no podrÃ¡ iniciar sesiÃ³n hasta que
-              la suscripciÃ³n se reactive.
+              {actionTarget?.email} será marcado como inactivo y no podrá iniciar sesión hasta que
+              la suscripción se reactive.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

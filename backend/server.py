@@ -395,7 +395,7 @@ def _digest_html(*, title: str, summary: str, category: Optional[str], content_t
           <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:12px 24px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:600;">Read on Hampton Crest</a>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
-          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
         </td></tr>
       </table>
     </td></tr>
@@ -562,8 +562,10 @@ async def health():
             mongo_ok = True
         except Exception as e:
             mongo_error = str(e)
+    if mongo_ok and not _runtime_bootstrap_done:
+        await runtime_bootstrap()
     return {
-        "status": "ok" if mongo_ok else "degraded",
+        "status": "ok" if mongo_ok and not _runtime_bootstrap_error else "degraded",
         "time": now_utc().isoformat(),
         "mongo_configured": bool(mongo_url),
         "db_configured": bool(db_name),
@@ -1252,7 +1254,7 @@ async def delete_book(content_id: str, current_user: dict = Depends(require_admi
 
 
 # ---------------- Routes: search ----------------
-# Extracted to routers/search.py â€” registered after api_router is fully built.
+# Extracted to routers/search.py — registered after api_router is fully built.
 
 
 # ---------------- Routes: bookmarks ----------------
@@ -1435,14 +1437,14 @@ def _welcome_email_html(name: str, link: str) -> str:
         <tr><td style="padding:28px 36px 24px 36px;">
           <div style="color:#9aa4b6;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:12px;">Welcome, {safe_name}</div>
           <h1 style="margin:0 0 16px 0;color:#f4f6f8;font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;">Your charter has been issued.</h1>
-          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Your subscription is active. Set your password to access the members' suite â€” research, education, monthly reports, and company coverage.</p>
+          <p style="color:#9aa4b6;font-size:14px;line-height:1.7;margin:0 0 24px 0;">Your subscription is active. Set your password to access the members' suite — research, education, monthly reports, and company coverage.</p>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;">
           <a href="{link}" style="display:inline-block;background:#e2e8f0;color:#050914;text-decoration:none;padding:14px 28px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;">Set my password</a>
           <p style="color:#5b667a;font-size:11px;line-height:1.7;margin:20px 0 0 0;">This invitation link expires in 7 days. If you didn't expect this email, ignore it.</p>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
-          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
         </td></tr>
       </table>
     </td></tr>
@@ -1495,7 +1497,7 @@ def _password_reset_email_html(name: str, link: str) -> str:
           <p style="color:#5b667a;font-size:11px;line-height:1.7;margin:20px 0 0 0;">This link expires in 1 hour. If you did not request it, ignore this email.</p>
         </td></tr>
         <tr><td style="padding:0 36px 36px 36px;border-top:1px solid #212a3f;">
-          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential Â· For Members Only</p>
+          <p style="color:#5b667a;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;margin:24px 0 0 0;">Confidential · For Members Only</p>
         </td></tr>
       </table>
     </td></tr>
@@ -1586,7 +1588,7 @@ async def _activate_or_create_member(
     else:
         await db.users.update_one({"_id": user["_id"]}, {"$set": update_fields})
         if not user.get("password_hash"):
-            # First activation but never set password â€” re-send invite
+            # First activation but never set password — re-send invite
             token = await _create_invite(str(user["_id"]), email)
             try:
                 await _send_welcome_email(email, user.get("name", ""), token)
@@ -2004,7 +2006,7 @@ async def billing_portal(current_user: dict = Depends(get_current_user)):
 @api_router.post("/admin/email/test")
 async def admin_email_test(current_user: dict = Depends(require_admin)):
     """Sends a small test email to the current admin to verify Resend delivery."""
-    subject = "Hampton Crest Academy Â· Email delivery test"
+    subject = "Hampton Crest Academy · Email delivery test"
     html = _digest_html(
         title="Email delivery test",
         summary="If you can read this, Resend is wired up and the verified sender domain is delivering correctly.",
