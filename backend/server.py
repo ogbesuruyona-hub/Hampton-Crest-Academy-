@@ -87,6 +87,8 @@ MEMBERSHIP_STATES = {
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 APP_NAME = os.environ.get("APP_NAME", "hampton-crest")
 _storage_key: Optional[str] = None
+_runtime_bootstrap_done = False
+_runtime_bootstrap_lock = asyncio.Lock()
 
 
 # ---------------- Helpers: time/ids ----------------
@@ -113,7 +115,12 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    if not plain or not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except (TypeError, ValueError):
+        return False
 
 
 def get_jwt_secret() -> str:
@@ -2010,9 +2017,13 @@ async def seed_admin():
         await db.users.update_one(
             {"email": admin_email},
             {"$set": {
+                "name": existing.get("name") or "Hampton Crest Admin",
+                "role": "admin",
                 "membership_status": MEMBERSHIP_ACTIVE,
                 "subscription_status": "admin",
                 "complimentary": True,
+                "totp_enabled": bool(existing.get("totp_enabled", False)),
+                "email_digest_opt_in": existing.get("email_digest_opt_in", True),
                 "updated_at": now_utc(),
             }},
         )
@@ -2065,8 +2076,18 @@ async def seed_test_member():
         logger.info("Refreshed test member %s", email)
 
 
-@app.on_event("startup")
-async def on_startup():
+async def runtime_bootstrap():
+    global _runtime_bootstrap_done
+    if _runtime_bootstrap_done:
+        return
+    async with _runtime_bootstrap_lock:
+        if _runtime_bootstrap_done:
+            return
+        await _runtime_bootstrap()
+        _runtime_bootstrap_done = True
+
+
+async def _runtime_bootstrap():
     await db.users.create_index("email", unique=True)
     await db.research_notes.create_index([("status", 1), ("created_at", -1)])
     await db.education_modules.create_index([("status", 1), ("order_index", 1)])
@@ -2084,6 +2105,11 @@ async def on_startup():
         await asyncio.to_thread(_init_storage)
     except Exception as e:
         logger.warning("storage init at startup failed: %s", e)
+
+
+@app.on_event("startup")
+async def on_startup():
+    await runtime_bootstrap()
 
 
 @app.on_event("shutdown")
@@ -2117,6 +2143,13 @@ valuation_router = register_valuation_routes(
 app.include_router(valuation_router)
 
 app.include_router(api_router)
+
+
+@app.middleware("http")
+async def ensure_bootstrap_middleware(request: Request, call_next):
+    await runtime_bootstrap()
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
