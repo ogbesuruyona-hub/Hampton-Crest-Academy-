@@ -2,9 +2,7 @@ import React, { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api, formatApiErrorDetail } from "../lib/api";
-
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
+import BrandLockup from "../components/BrandLockup";
 
 export default function Login() {
   const { user, login, register, verify2fa } = useAuth();
@@ -100,20 +98,8 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#071925] via-[#071925]/72 to-[#071925]/34" />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/92 to-transparent" />
 
-        <div className="relative z-10 flex items-center gap-4">
-          <img
-            src={LOGO_URL}
-            alt="Hampton Crest"
-            className="h-16 w-16 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
-          />
-          <div className="leading-tight">
-            <div className="text-[0.85rem] tracking-[0.32em] text-[#e2c56f] uppercase font-semibold">
-              Hampton Crest
-            </div>
-            <div className="text-[0.7rem] tracking-[0.4em] text-white/70 uppercase">
-              Academy
-            </div>
-          </div>
+        <div className="relative z-10">
+          <BrandLockup large />
         </div>
 
         <div className="relative z-10 max-w-md bg-[#071925]/60 border border-white/10 px-6 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.38)] backdrop-blur-[1px]">
@@ -136,16 +122,8 @@ export default function Login() {
 
       <div className="relative flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12 bg-[var(--hc-bg)]">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_10%,rgba(199,163,79,0.16),transparent_32%),linear-gradient(145deg,rgba(255,253,248,0.88),rgba(245,240,231,0.94))]" />
-        <div className="relative lg:hidden flex items-center gap-3 mb-12">
-          <img src={LOGO_URL} alt="Hampton Crest" className="h-12 w-12 object-contain" />
-          <div className="leading-tight">
-            <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
-              Hampton Crest
-            </div>
-            <div className="text-[0.65rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
-              Academy
-            </div>
-          </div>
+        <div className="relative lg:hidden mb-12 rounded-sm bg-[#071925] px-4 py-3 shadow-[0_14px_40px_rgba(7,25,37,0.12)]">
+          <BrandLockup />
         </div>
 
         <div className="relative max-w-md w-full hc-enter bg-[var(--hc-surface)] border border-[var(--hc-border)] px-6 py-7 sm:px-8 sm:py-9 shadow-[0_24px_80px_rgba(7,25,37,0.08)]">

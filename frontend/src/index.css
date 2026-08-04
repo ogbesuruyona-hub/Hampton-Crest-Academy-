@@ -133,6 +133,76 @@
     background-size: 3px 3px;
 }
 
+/* Horizontal brand lockup inspired by Hampton Crest's editorial identity. */
+.hc-brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #fffaf0;
+}
+.hc-brand-lockup__crest {
+    position: relative;
+    display: block;
+    flex: 0 0 auto;
+    width: 3rem;
+    height: 2.75rem;
+    overflow: hidden;
+    filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.28));
+}
+.hc-brand-lockup__crest img {
+    position: absolute;
+    top: -0.875rem;
+    left: -2.8125rem;
+    width: 8.625rem;
+    max-width: none;
+    height: auto;
+}
+.hc-brand-lockup__wordmark {
+    display: flex;
+    flex-direction: column;
+    min-width: 5.3rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 0.82;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+.hc-brand-lockup__crest-name {
+    margin-top: 0.18rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid rgba(255, 250, 240, 0.62);
+}
+.hc-brand-lockup__academy {
+    margin-top: 0.22rem;
+    color: #e3c36d;
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.42rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.32em;
+    text-align: center;
+}
+.hc-brand-lockup--large {
+    gap: 0.75rem;
+}
+.hc-brand-lockup--large .hc-brand-lockup__crest {
+    width: 3.75rem;
+    height: 3.4rem;
+}
+.hc-brand-lockup--large .hc-brand-lockup__crest img {
+    top: -1.08rem;
+    left: -3.5rem;
+    width: 10.75rem;
+}
+.hc-brand-lockup--large .hc-brand-lockup__wordmark {
+    min-width: 6.5rem;
+    font-size: 0.98rem;
+}
+.hc-brand-lockup--large .hc-brand-lockup__academy {
+    font-size: 0.5rem;
+}
+
 @keyframes hc-fade-in {
     from {
         opacity: 0;

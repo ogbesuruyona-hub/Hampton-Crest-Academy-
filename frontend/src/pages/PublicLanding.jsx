@@ -2,9 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, FileText, BarChart3, Lock, ArrowUpRight, ShieldCheck, Users } from "lucide-react";
 import { api } from "../lib/api";
-
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
+import BrandLockup from "../components/BrandLockup";
 
 const PaymentCta = ({ href, testId, className }) => {
   if (!href) {
@@ -63,38 +61,16 @@ export default function PublicLanding() {
     <div data-testid="landing-page" className="min-h-screen bg-[var(--hc-bg)] text-[var(--hc-text)]">
       <header className="border-b border-[#c7a34f]/30 bg-[#071925]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3">
-          <Link to="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <img
-              src={LOGO_URL}
-              alt="Hampton Crest"
-              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain"
-              style={{ mixBlendMode: "screen" }}
-            />
-            <div className="leading-tight">
-              <div className="text-[0.62rem] sm:text-[0.7rem] tracking-[0.18em] sm:tracking-[0.22em] text-[#e3c36d] uppercase font-semibold whitespace-nowrap">
-                Hampton Crest
-              </div>
-              <div className="text-[0.55rem] sm:text-[0.6rem] tracking-[0.28em] sm:tracking-[0.32em] text-white/80 uppercase">
-                Academy
-              </div>
-            </div>
+          <Link to="/" aria-label="Hampton Crest Academy" className="min-w-0">
+            <BrandLockup />
           </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/login"
-              data-testid="landing-login"
-              className="shrink-0 px-3 sm:px-4 py-2.5 text-[0.65rem] sm:text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase border border-[#fffaf0] bg-[#fffaf0] text-[#071925] font-bold shadow-[0_6px_20px_rgba(0,0,0,0.28)] hover:border-[#e3c36d] hover:bg-[#e3c36d] transition-colors"
-            >
-              Iniciar sesión
-            </Link>
-            {paymentLink ? (
-              <PaymentCta
-                href={paymentLink}
-                testId="landing-cta-top"
-                className="px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[#e3c36d] text-[#071925] hover:bg-[#f0d587] transition-colors hidden sm:inline-flex items-center gap-1.5"
-              />
-            ) : null}
-          </div>
+          <Link
+            to="/login"
+            data-testid="landing-login"
+            className="shrink-0 px-3 sm:px-4 py-2.5 text-[0.65rem] sm:text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase border border-[#fffaf0] bg-[#fffaf0] text-[#071925] font-bold shadow-[0_6px_20px_rgba(0,0,0,0.28)] hover:border-[#e3c36d] hover:bg-[#e3c36d] transition-colors"
+          >
+            Iniciar sesión
+          </Link>
         </div>
       </header>
 
@@ -223,12 +199,7 @@ export default function PublicLanding() {
             Reservado para inversionistas que entienden que la disciplina, no el ruido, es la
             ventaja sostenible.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <PaymentCta
-              href={paymentLink}
-              testId="landing-cta-footer"
-              className={primaryCtaClass}
-            />
+          <div className="mt-10 flex items-center justify-center">
             <Link
               to="/login"
               className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] px-7 py-4 text-xs tracking-[0.18em] uppercase transition-colors"
