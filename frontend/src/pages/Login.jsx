@@ -96,8 +96,8 @@ export default function Login() {
             backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-[#071925]/28" />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/92 via-[#071925]/58 to-[#071925]/24" />
+        <div className="absolute inset-0 bg-[#071925]/44" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#071925] via-[#071925]/72 to-[#071925]/34" />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/92 to-transparent" />
 
         <div className="relative z-10 flex items-center gap-4">
@@ -116,12 +116,12 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5 text-[#f1d27c] drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">Patrimonio · Disciplina · Visión</div>
-          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.72)]">
+        <div className="relative z-10 max-w-md bg-[#071925]/60 border border-white/10 px-6 py-6 shadow-[0_20px_70px_rgba(0,0,0,0.38)] backdrop-blur-[1px]">
+          <div className="hc-overline mb-5 text-[#f7d982] drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">Patrimonio · Disciplina · Visión</div>
+          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-[#fffaf0] drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
             Inversiones con propósito. Resultados con disciplina.
           </h2>
-          <p className="mt-6 text-white/90 text-sm leading-relaxed max-w-sm drop-shadow-[0_3px_12px_rgba(0,0,0,0.78)]">
+          <p className="mt-6 text-[#fffaf0] text-sm leading-relaxed max-w-sm drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)]">
             Una academia privada para inversionistas serios. Investigación de grado institucional,
             educación curada e inteligencia mensual, reservado para nuestros miembros.
           </p>

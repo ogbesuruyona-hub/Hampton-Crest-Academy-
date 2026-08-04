@@ -83,7 +83,7 @@ export default function PublicLanding() {
             <Link
               to="/login"
               data-testid="landing-login"
-              className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-white/25 text-white/78 hover:text-white hover:border-[#e3c36d]/70 transition-colors"
+              className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-[#e3c36d]/70 bg-white/10 text-white font-semibold hover:bg-[#e3c36d] hover:text-[#071925] transition-colors"
             >
               Iniciar sesión
             </Link>
@@ -108,20 +108,20 @@ export default function PublicLanding() {
             backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-[#071925]/34" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#071925]/98 via-[#071925]/76 to-[#071925]/34" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#071925]/88 via-[#071925]/16 to-[#071925]/36" />
-        <div className="absolute inset-y-0 left-0 w-full sm:w-[74%] bg-gradient-to-r from-[#071925]/72 via-[#071925]/48 to-transparent" />
+        <div className="absolute inset-0 bg-[#071925]/48" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#071925] via-[#071925]/86 to-[#071925]/42" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#071925]/92 via-[#071925]/32 to-[#071925]/44" />
+        <div className="absolute inset-y-0 left-0 w-full sm:w-[78%] bg-gradient-to-r from-[#071925]/92 via-[#071925]/72 to-transparent" />
         <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 sm:py-32 min-h-[680px] flex items-center">
-          <div className="max-w-3xl">
-            <div className="text-[0.72rem] tracking-[0.28em] uppercase font-semibold text-[#f1d27c] mb-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+          <div className="max-w-3xl bg-[#071925]/62 border border-white/10 px-5 py-6 sm:px-8 sm:py-8 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-[1px]">
+            <div className="text-[0.72rem] tracking-[0.28em] uppercase font-bold text-[#f7d982] mb-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
               Patrimonio · Disciplina · Visión
             </div>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-medium tracking-[-0.03em] leading-[0.98] text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.72)]">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-medium tracking-[-0.03em] leading-[0.98] text-[#fffaf0] drop-shadow-[0_5px_20px_rgba(0,0,0,0.9)]">
               Inversiones con propósito.
-              <span className="block text-[#f1d27c] drop-shadow-[0_4px_16px_rgba(0,0,0,0.75)]">Resultados con disciplina.</span>
+              <span className="block text-[#f7d982] drop-shadow-[0_5px_18px_rgba(0,0,0,0.95)]">Resultados con disciplina.</span>
             </h1>
-            <p className="mt-8 text-base sm:text-lg text-white/92 leading-relaxed max-w-2xl drop-shadow-[0_3px_12px_rgba(0,0,0,0.82)]">
+            <p className="mt-8 text-base sm:text-lg text-[#fffaf0] leading-relaxed max-w-2xl drop-shadow-[0_3px_14px_rgba(0,0,0,0.95)]">
               Hampton Crest Academy ofrece formación institucional, biblioteca curada y análisis
               para inversionistas que buscan construir patrimonio con criterio y rigor.
             </p>
