@@ -96,8 +96,9 @@ export default function Login() {
             backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/82 via-[#071925]/42 to-[#071925]/18" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/88 to-transparent" />
+        <div className="absolute inset-0 bg-[#071925]/28" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/92 via-[#071925]/58 to-[#071925]/24" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/92 to-transparent" />
 
         <div className="relative z-10 flex items-center gap-4">
           <img
@@ -116,11 +117,11 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5 text-[#e2c56f]">Patrimonio · Disciplina · Visión</div>
-          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-white">
+          <div className="hc-overline mb-5 text-[#f1d27c] drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">Patrimonio · Disciplina · Visión</div>
+          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.72)]">
             Inversiones con propósito. Resultados con disciplina.
           </h2>
-          <p className="mt-6 text-white/78 text-sm leading-relaxed max-w-sm">
+          <p className="mt-6 text-white/90 text-sm leading-relaxed max-w-sm drop-shadow-[0_3px_12px_rgba(0,0,0,0.78)]">
             Una academia privada para inversionistas serios. Investigación de grado institucional,
             educación curada e inteligencia mensual, reservado para nuestros miembros.
           </p>
