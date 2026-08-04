@@ -5,42 +5,43 @@
 @tailwind utilities;
 
 :root {
-    /* Hampton Crest — Institutional Dark */
-    --hc-bg: #050914;
-    --hc-surface: #0c1222;
-    --hc-surface-elevated: #141c30;
-    --hc-surface-hover: #1c253b;
-    --hc-border: #212a3f;
-    --hc-border-subtle: #151c2c;
-    --hc-text: #f4f6f8;
-    --hc-text-secondary: #9aa4b6;
-    --hc-text-muted: #5b667a;
-    --hc-gold: #d4af37;
-    --hc-gold-soft: rgba(212, 175, 55, 0.18);
-    --hc-platinum: #e2e8f0;
+    /* Hampton Crest — Editorial Light */
+    --hc-bg: #f5f0e7;
+    --hc-surface: #fffdf8;
+    --hc-surface-elevated: #f9f5ed;
+    --hc-surface-hover: #f0e7d8;
+    --hc-border: #ded4c2;
+    --hc-border-subtle: #ebe3d5;
+    --hc-text: #111c26;
+    --hc-text-secondary: #5f6872;
+    --hc-text-muted: #8f887d;
+    --hc-gold: #c7a34f;
+    --hc-gold-soft: rgba(199, 163, 79, 0.16);
+    --hc-platinum: #0b1b27;
+    --hc-ink: #071925;
 }
 
 @layer base {
     :root {
-        --background: 222 60% 5%;
-        --foreground: 210 17% 96%;
-        --card: 222 47% 9%;
-        --card-foreground: 210 17% 96%;
-        --popover: 222 39% 13%;
-        --popover-foreground: 210 17% 96%;
-        --primary: 210 17% 96%;
-        --primary-foreground: 222 60% 5%;
-        --secondary: 222 39% 13%;
-        --secondary-foreground: 210 17% 96%;
-        --muted: 222 39% 13%;
-        --muted-foreground: 218 14% 66%;
-        --accent: 222 39% 16%;
-        --accent-foreground: 210 17% 96%;
+        --background: 39 42% 93%;
+        --foreground: 207 39% 11%;
+        --card: 42 100% 99%;
+        --card-foreground: 207 39% 11%;
+        --popover: 42 100% 99%;
+        --popover-foreground: 207 39% 11%;
+        --primary: 207 56% 10%;
+        --primary-foreground: 42 100% 99%;
+        --secondary: 39 42% 93%;
+        --secondary-foreground: 207 39% 11%;
+        --muted: 38 33% 89%;
+        --muted-foreground: 213 9% 41%;
+        --accent: 38 33% 89%;
+        --accent-foreground: 207 39% 11%;
         --destructive: 0 70% 42%;
-        --destructive-foreground: 210 17% 96%;
-        --border: 222 32% 19%;
-        --input: 222 32% 19%;
-        --ring: 44 65% 52%;
+        --destructive-foreground: 42 100% 99%;
+        --border: 37 25% 82%;
+        --input: 37 25% 82%;
+        --ring: 42 52% 55%;
         --radius: 0.125rem;
     }
 }
@@ -83,7 +84,7 @@
     height: 10px;
 }
 ::-webkit-scrollbar-track {
-    background: var(--hc-bg);
+    background: var(--hc-surface-elevated);
 }
 ::-webkit-scrollbar-thumb {
     background: var(--hc-border);
@@ -126,7 +127,7 @@
 
 .hc-noise {
     background-image: radial-gradient(
-        rgba(255, 255, 255, 0.015) 1px,
+        rgba(10, 25, 37, 0.035) 1px,
         transparent 1px
     );
     background-size: 3px 3px;
@@ -211,7 +212,7 @@
     font-style: italic;
 }
 .hc-prose pre {
-    background: var(--hc-bg);
+    background: var(--hc-surface-elevated);
     border: 1px solid var(--hc-border);
     padding: 1em 1.2em;
     overflow-x: auto;

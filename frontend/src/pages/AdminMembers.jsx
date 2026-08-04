@@ -221,7 +221,7 @@ export default function AdminMembers() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargandoâ€¦</div>
+        <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}

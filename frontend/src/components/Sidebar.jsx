@@ -53,7 +53,6 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
           alt="Hampton Crest Academy"
           data-testid="sidebar-logo"
           className="h-11 w-11 object-contain shrink-0"
-          style={{ mixBlendMode: "screen" }}
         />
         {!collapsed && (
           <div className="flex flex-col leading-tight">
@@ -88,8 +87,8 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
                 collapsed ? "justify-center px-2" : "px-4"
               } py-2.5 text-sm transition-colors ${
                 isActive
-                  ? "text-[var(--hc-text)] bg-[var(--hc-surface-elevated)]"
-                  : "text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface)]"
+                  ? "text-[var(--hc-ink)] bg-[var(--hc-surface-elevated)]"
+                  : "text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)]"
               }`
             }
           >
@@ -124,8 +123,8 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
                     collapsed ? "justify-center px-2" : "px-4"
                   } py-2.5 text-sm transition-colors ${
                     isActive
-                      ? "text-[var(--hc-text)] bg-[var(--hc-surface-elevated)]"
-                      : "text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface)]"
+                      ? "text-[var(--hc-ink)] bg-[var(--hc-surface-elevated)]"
+                      : "text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)]"
                   }`
                 }
               >
@@ -167,7 +166,7 @@ export const DesktopSidebar = ({ collapsed, onToggle }) => {
   return (
     <aside
       data-testid="desktop-sidebar"
-      className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-40 border-r border-[var(--hc-border)] bg-[var(--hc-surface)] transition-[width] duration-300 ${
+      className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-40 border-r border-[var(--hc-border)] bg-[var(--hc-surface)] shadow-[18px_0_50px_rgba(7,25,37,0.04)] transition-[width] duration-300 ${
         collapsed ? "w-[72px]" : "w-[260px]"
       }`}
     >
@@ -176,7 +175,7 @@ export const DesktopSidebar = ({ collapsed, onToggle }) => {
         onClick={onToggle}
         data-testid="sidebar-collapse-toggle"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-20 h-6 w-6 flex items-center justify-center bg-[var(--hc-surface-elevated)] border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
+        className="absolute -right-3 top-20 h-6 w-6 flex items-center justify-center bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors shadow-sm"
       >
         {collapsed ? (
           <ChevronsRight className="h-3.5 w-3.5" strokeWidth={1.5} />

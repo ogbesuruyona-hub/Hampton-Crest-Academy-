@@ -88,7 +88,7 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <Toaster theme="dark" position="bottom-right" />
+          <Toaster theme="light" position="bottom-right" />
         </AuthProvider>
       </BrowserRouter>
     </div>

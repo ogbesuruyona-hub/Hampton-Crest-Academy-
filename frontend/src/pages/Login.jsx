@@ -78,69 +78,65 @@ export default function Login() {
   };
 
   const inputCls =
-    "w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
+    "w-full bg-white border border-[var(--hc-border)] text-[var(--hc-text)] px-4 py-3 text-sm tracking-tight focus:outline-none focus:border-[var(--hc-gold)] focus:bg-[var(--hc-surface)] transition-colors";
 
   const isLogin = mode === "login";
   const is2fa = mode === "2fa";
   const isForgot = mode === "forgot";
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--hc-bg)] text-[var(--hc-text)]">
-      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden">
+    <div className="min-h-screen grid lg:grid-cols-[1.06fr_0.94fr] bg-[var(--hc-bg)] text-[var(--hc-text)]">
+      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden bg-[var(--hc-ink)] text-white">
         <div
-          className="absolute inset-0 opacity-[0.55]"
+          className="absolute inset-0 opacity-95"
           style={{
             backgroundImage:
-              "url(https://images.unsplash.com/photo-1593427995298-cad6731716d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBhcmNoaXRlY3R1cmUlMjBuaWdodHxlbnwwfHx8fDE3Nzk2MzE1ODV8MA&ixlib=rb-4.1.0&q=85)",
+              "url(https://images.unsplash.com/photo-1518005020951-eccb494ad742?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/85 via-[var(--hc-bg)]/55 to-[var(--hc-bg)]/90" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/35 via-[#071925]/10 to-[#071925]/55" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/85 to-transparent" />
 
         <div className="relative z-10 flex items-center gap-4">
           <img
             src={LOGO_URL}
             alt="Hampton Crest"
-            className="h-16 w-16 object-contain"
-            style={{ mixBlendMode: "screen" }}
+            className="h-16 w-16 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
           />
           <div className="leading-tight">
-            <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
+            <div className="text-[0.85rem] tracking-[0.32em] text-[#e2c56f] uppercase font-semibold">
               Hampton Crest
             </div>
-            <div className="text-[0.7rem] tracking-[0.4em] text-[var(--hc-text-muted)] uppercase">
+            <div className="text-[0.7rem] tracking-[0.4em] text-white/70 uppercase">
               Academy
             </div>
           </div>
         </div>
 
         <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5">Est. 2026 · Solo Miembros</div>
-          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-[var(--hc-text)]">
+          <div className="hc-overline mb-5 text-[#e2c56f]">Est. 2026 · Solo Miembros</div>
+          <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-white">
             El capital disciplinado nace del pensamiento disciplinado.
           </h2>
-          <p className="mt-6 text-[var(--hc-text-secondary)] text-sm leading-relaxed max-w-sm">
+          <p className="mt-6 text-white/78 text-sm leading-relaxed max-w-sm">
             Una academia privada para inversionistas serios. Investigación de grado institucional,
             educación curada e inteligencia mensual, reservado para nuestros miembros.
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
+        <div className="relative z-10 flex items-center justify-between text-[0.65rem] tracking-[0.22em] uppercase text-white/70">
           <span>Confidencial</span>
-          <span className="h-px w-12 bg-[var(--hc-gold)]/40" />
+          <span className="h-px w-12 bg-[#e2c56f]/70" />
           <span>Solo Miembros</span>
         </div>
       </div>
 
-      <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12">
-        <div className="lg:hidden flex items-center gap-3 mb-12">
-          <img
-            src={LOGO_URL}
-            alt="Hampton Crest"
-            className="h-12 w-12 object-contain"
-            style={{ mixBlendMode: "screen" }}
-          />
+      <div className="relative flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-24 py-12 bg-[var(--hc-bg)]">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_10%,rgba(199,163,79,0.16),transparent_32%),linear-gradient(145deg,rgba(255,253,248,0.88),rgba(245,240,231,0.94))]" />
+        <div className="relative lg:hidden flex items-center gap-3 mb-12">
+          <img src={LOGO_URL} alt="Hampton Crest" className="h-12 w-12 object-contain" />
           <div className="leading-tight">
             <div className="text-[0.85rem] tracking-[0.32em] text-[var(--hc-gold)] uppercase font-semibold">
               Hampton Crest
@@ -151,8 +147,8 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="max-w-md w-full hc-enter">
-          <div className="hc-overline mb-3">
+        <div className="relative max-w-md w-full hc-enter bg-[var(--hc-surface)] border border-[var(--hc-border)] px-6 py-7 sm:px-8 sm:py-9 shadow-[0_24px_80px_rgba(7,25,37,0.08)]">
+          <div className="hc-overline mb-3 text-[var(--hc-gold)]">
             {is2fa
               ? "Verificación en dos pasos"
               : isForgot
@@ -276,7 +272,7 @@ export default function Login() {
             {error && (
               <div
                 data-testid="auth-error"
-                className="text-xs tracking-tight text-[#E07A7A] border border-[#7A2424] bg-[#2A0F0F] px-3 py-2"
+                className="text-xs tracking-tight text-[#9F1D1D] border border-[#E8B7B7] bg-[#FFF2F2] px-3 py-2"
               >
                 {error}
               </div>
@@ -285,7 +281,7 @@ export default function Login() {
             {notice && (
               <div
                 data-testid="auth-notice"
-                className="text-xs tracking-tight text-[var(--hc-text)] border border-[var(--hc-border)] bg-[var(--hc-surface)] px-3 py-2"
+                className="text-xs tracking-tight text-[var(--hc-text)] border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] px-3 py-2"
               >
                 {notice}
               </div>
@@ -295,7 +291,7 @@ export default function Login() {
               type="submit"
               disabled={submitting}
               data-testid="auth-submit-button"
-              className="w-full bg-[var(--hc-platinum)] text-[var(--hc-bg)] py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-white transition-colors disabled:opacity-60"
+              className="w-full bg-[var(--hc-platinum)] text-white py-3 text-sm font-semibold tracking-[0.16em] uppercase hover:bg-[#123044] transition-colors disabled:opacity-60"
             >
               {submitting
                 ? isForgot ? "Enviando..." : "Autenticando..."

@@ -36,7 +36,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
   return (
     <header
       data-testid="topbar"
-      className="sticky top-0 z-30 h-16 border-b border-[var(--hc-border)] bg-[var(--hc-bg)]/85 backdrop-blur-md"
+      className="sticky top-0 z-30 h-16 border-b border-[var(--hc-border)] bg-[var(--hc-surface)]/92 backdrop-blur-md shadow-[0_8px_28px_rgba(7,25,37,0.04)]"
     >
       <div className="h-full flex items-center gap-4 px-4 sm:px-8">
         <button
@@ -58,7 +58,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Buscar investigación, reportes, empresas…"
               data-testid="topbar-search"
-              className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
+              className="w-full bg-white border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)] transition-colors"
             />
           </div>
         </form>
@@ -66,7 +66,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
         {/* Right cluster */}
         <div className="flex items-center gap-2">
           <button
-            className="hidden sm:flex items-center justify-center h-9 w-9 text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface)] transition-colors"
+            className="hidden sm:flex items-center justify-center h-9 w-9 text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] transition-colors"
             aria-label="Notificaciones"
             data-testid="topbar-notifications"
           >
@@ -77,9 +77,9 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
             <DropdownMenuTrigger asChild>
               <button
                 data-testid="profile-menu-trigger"
-                className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-[var(--hc-surface)] transition-colors"
+                className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-[var(--hc-surface-elevated)] transition-colors"
               >
-                <div className="h-8 w-8 flex items-center justify-center bg-[var(--hc-surface-elevated)] border border-[var(--hc-border)] text-xs tracking-wider text-[var(--hc-platinum)]">
+                <div className="h-8 w-8 flex items-center justify-center bg-[var(--hc-ink)] border border-[var(--hc-border)] text-xs tracking-wider text-white">
                   {initials(user?.name)}
                 </div>
                 <div className="hidden sm:flex flex-col items-start leading-tight">
@@ -92,7 +92,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="bg-[var(--hc-surface-elevated)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none min-w-[200px]"
+              className="bg-[var(--hc-surface)] border-[var(--hc-border)] text-[var(--hc-text)] rounded-none min-w-[200px]"
             >
               <DropdownMenuLabel className="text-[var(--hc-text-muted)] uppercase text-[0.65rem] tracking-[0.18em]">
                 {user?.email}
