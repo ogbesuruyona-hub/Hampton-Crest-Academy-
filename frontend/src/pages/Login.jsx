@@ -91,13 +91,13 @@ export default function Login() {
           className="absolute inset-0 opacity-95"
           style={{
             backgroundImage:
-              "url(https://images.unsplash.com/photo-1518005020951-eccb494ad742?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
+              "url(https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/35 via-[#071925]/10 to-[#071925]/55" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/85 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#071925]/82 via-[#071925]/42 to-[#071925]/18" />
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#071925]/88 to-transparent" />
 
         <div className="relative z-10 flex items-center gap-4">
           <img
@@ -116,9 +116,9 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 max-w-md">
-          <div className="hc-overline mb-5 text-[#e2c56f]">Est. 2026 · Solo Miembros</div>
+          <div className="hc-overline mb-5 text-[#e2c56f]">Patrimonio · Disciplina · Visión</div>
           <h2 className="text-3xl xl:text-4xl font-medium tracking-[-0.02em] leading-[1.15] text-white">
-            El capital disciplinado nace del pensamiento disciplinado.
+            Inversiones con propósito. Resultados con disciplina.
           </h2>
           <p className="mt-6 text-white/78 text-sm leading-relaxed max-w-sm">
             Una academia privada para inversionistas serios. Investigación de grado institucional,

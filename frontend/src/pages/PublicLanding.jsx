@@ -57,11 +57,11 @@ export default function PublicLanding() {
   const paymentLink = membershipConfig.payment_link_url || "";
   const framerUrl = membershipConfig.framer_url || "";
   const primaryCtaClass =
-    "inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors";
+    "inline-flex items-center gap-2 bg-[#e3c36d] text-[#071925] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-[#f0d587] transition-colors";
 
   return (
     <div data-testid="landing-page" className="min-h-screen bg-[var(--hc-bg)] text-[var(--hc-text)]">
-      <header className="border-b border-[var(--hc-border)]">
+      <header className="border-b border-[#c7a34f]/30 bg-[#071925]">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <img
@@ -71,10 +71,10 @@ export default function PublicLanding() {
               style={{ mixBlendMode: "screen" }}
             />
             <div className="leading-tight">
-              <div className="text-[0.7rem] tracking-[0.22em] text-[var(--hc-gold)] uppercase font-semibold">
+              <div className="text-[0.7rem] tracking-[0.22em] text-[#e3c36d] uppercase font-semibold">
                 Hampton Crest
               </div>
-              <div className="text-[0.6rem] tracking-[0.32em] text-[var(--hc-text-muted)] uppercase">
+              <div className="text-[0.6rem] tracking-[0.32em] text-white/70 uppercase">
                 Academy
               </div>
             </div>
@@ -83,7 +83,7 @@ export default function PublicLanding() {
             <Link
               to="/login"
               data-testid="landing-login"
-              className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] transition-colors"
+              className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-white/25 text-white/78 hover:text-white hover:border-[#e3c36d]/70 transition-colors"
             >
               Iniciar sesión
             </Link>
@@ -91,35 +91,37 @@ export default function PublicLanding() {
               <PaymentCta
                 href={paymentLink}
                 testId="landing-cta-top"
-                className="px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors hidden sm:inline-flex items-center gap-1.5"
+                className="px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[#e3c36d] text-[#071925] hover:bg-[#f0d587] transition-colors hidden sm:inline-flex items-center gap-1.5"
               />
             ) : null}
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-[var(--hc-border)]">
+      <section className="relative min-h-[680px] overflow-hidden border-b border-[#c7a34f]/30 bg-[#071925]">
         <div
-          className="absolute inset-0 opacity-[0.45]"
+          className="absolute inset-0 opacity-90"
           style={{
             backgroundImage:
-              "url(https://images.unsplash.com/photo-1593427995298-cad6731716d8?crop=entropy&cs=srgb&fm=jpg&q=85)",
+              "url(https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--hc-bg)]/85 via-[var(--hc-bg)]/65 to-[var(--hc-bg)]/95" />
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 sm:py-32">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#071925]/92 via-[#071925]/68 to-[#071925]/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#071925]/78 via-transparent to-[#071925]/28" />
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 sm:py-32 min-h-[680px] flex items-center">
           <div className="max-w-3xl">
-            <div className="hc-overline mb-6">Academia privada de inversión</div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-[-0.02em] leading-[1.05] text-[var(--hc-text)]">
-              El capital disciplinado nace del pensamiento disciplinado.
+            <div className="text-[0.72rem] tracking-[0.28em] uppercase font-semibold text-[#e3c36d] mb-6">
+              Patrimonio · Disciplina · Visión
+            </div>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-medium tracking-[-0.03em] leading-[0.98] text-white">
+              Inversiones con propósito.
+              <span className="block text-[#e3c36d]">Resultados con disciplina.</span>
             </h1>
-            <div className="mt-8 hc-gold-rule" />
-            <p className="mt-8 text-base sm:text-lg text-[var(--hc-text-secondary)] leading-relaxed max-w-2xl">
-              Una academia privada reservada para inversionistas serios. Biblioteca curada,
-              educación estructurada, reportes mensuales y análisis profundo de empresas, todo en
-              un mismo lugar, sin ruido.
+            <p className="mt-8 text-base sm:text-lg text-white/82 leading-relaxed max-w-2xl">
+              Hampton Crest Academy ofrece formación institucional, biblioteca curada y análisis
+              para inversionistas que buscan construir patrimonio con criterio y rigor.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-start gap-3">
               <PaymentCta
@@ -133,7 +135,7 @@ export default function PublicLanding() {
                   data-testid="landing-learn-more"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:border-[var(--hc-gold)]/60 px-7 py-4 text-xs tracking-[0.18em] uppercase transition-colors"
+                  className="inline-flex items-center gap-2 border border-white/35 text-white/82 hover:text-white hover:border-[#e3c36d]/70 px-7 py-4 text-xs tracking-[0.18em] uppercase transition-colors"
                 >
                   Conoce más
                 </a>
