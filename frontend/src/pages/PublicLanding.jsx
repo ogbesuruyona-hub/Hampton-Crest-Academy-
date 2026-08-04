@@ -57,24 +57,24 @@ export default function PublicLanding() {
   const paymentLink = membershipConfig.payment_link_url || "";
   const framerUrl = membershipConfig.framer_url || "";
   const primaryCtaClass =
-    "inline-flex items-center gap-2 bg-[#e3c36d] text-[#071925] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-[#f0d587] transition-colors";
+    "inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-[#e3c36d] text-[#071925] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.24)] hover:bg-[#f0d587] transition-colors";
 
   return (
     <div data-testid="landing-page" className="min-h-screen bg-[var(--hc-bg)] text-[var(--hc-text)]">
       <header className="border-b border-[#c7a34f]/30 bg-[#071925]">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3">
+          <Link to="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <img
               src={LOGO_URL}
               alt="Hampton Crest"
-              className="h-9 w-9 object-contain"
+              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain"
               style={{ mixBlendMode: "screen" }}
             />
             <div className="leading-tight">
-              <div className="text-[0.7rem] tracking-[0.22em] text-[#e3c36d] uppercase font-semibold">
+              <div className="text-[0.62rem] sm:text-[0.7rem] tracking-[0.18em] sm:tracking-[0.22em] text-[#e3c36d] uppercase font-semibold whitespace-nowrap">
                 Hampton Crest
               </div>
-              <div className="text-[0.6rem] tracking-[0.32em] text-white/70 uppercase">
+              <div className="text-[0.55rem] sm:text-[0.6rem] tracking-[0.28em] sm:tracking-[0.32em] text-white/80 uppercase">
                 Academy
               </div>
             </div>
@@ -83,7 +83,7 @@ export default function PublicLanding() {
             <Link
               to="/login"
               data-testid="landing-login"
-              className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-[#e3c36d]/70 bg-white/10 text-white font-semibold hover:bg-[#e3c36d] hover:text-[#071925] transition-colors"
+              className="shrink-0 px-3 sm:px-4 py-2.5 text-[0.65rem] sm:text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase border border-[#fffaf0] bg-[#fffaf0] text-[#071925] font-bold shadow-[0_6px_20px_rgba(0,0,0,0.28)] hover:border-[#e3c36d] hover:bg-[#e3c36d] transition-colors"
             >
               Iniciar sesión
             </Link>
@@ -98,34 +98,32 @@ export default function PublicLanding() {
         </div>
       </header>
 
-      <section className="relative min-h-[680px] overflow-hidden border-b border-[#c7a34f]/30 bg-[#071925]">
+      <section className="relative min-h-[640px] sm:min-h-[680px] overflow-hidden border-b border-[#c7a34f]/30 bg-[#071925]">
         <div
-          className="absolute inset-0 opacity-82"
+          className="absolute inset-0 bg-cover bg-[68%_bottom] opacity-[0.78] sm:bg-center sm:opacity-[0.82]"
           style={{
             backgroundImage:
               "url(https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
           }}
         />
-        <div className="absolute inset-0 bg-[#071925]/48" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#071925] via-[#071925]/86 to-[#071925]/42" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#071925]/92 via-[#071925]/32 to-[#071925]/44" />
-        <div className="absolute inset-y-0 left-0 w-full sm:w-[78%] bg-gradient-to-r from-[#071925]/92 via-[#071925]/72 to-transparent" />
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 sm:py-32 min-h-[680px] flex items-center">
-          <div className="max-w-3xl bg-[#071925]/62 border border-white/10 px-5 py-6 sm:px-8 sm:py-8 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-[1px]">
-            <div className="text-[0.72rem] tracking-[0.28em] uppercase font-bold text-[#f7d982] mb-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
+        <div className="absolute inset-0 bg-[#071925]/58 sm:bg-[#071925]/48" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#071925] via-[#071925]/92 to-[#071925]/55 sm:via-[#071925]/86 sm:to-[#071925]/42" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#071925]/95 via-[#071925]/42 to-[#071925]/56 sm:from-[#071925]/92 sm:via-[#071925]/32 sm:to-[#071925]/44" />
+        <div className="absolute inset-y-0 left-0 w-full sm:w-[78%] bg-gradient-to-r from-[#071925]/95 via-[#071925]/80 to-[#071925]/20 sm:from-[#071925]/92 sm:via-[#071925]/72 sm:to-transparent" />
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-32 min-h-[640px] sm:min-h-[680px] flex items-center">
+          <div className="w-full max-w-3xl bg-[#071925]/82 sm:bg-[#071925]/64 border border-[#e3c36d]/25 sm:border-white/10 px-5 py-6 sm:px-8 sm:py-8 shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-[2px] sm:backdrop-blur-[1px]">
+            <div className="text-[0.64rem] sm:text-[0.72rem] tracking-[0.22em] sm:tracking-[0.28em] uppercase font-bold text-[#f7d982] mb-5 sm:mb-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
               Patrimonio · Disciplina · Visión
             </div>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-medium tracking-[-0.03em] leading-[0.98] text-[#fffaf0] drop-shadow-[0_5px_20px_rgba(0,0,0,0.9)]">
+            <h1 className="text-[2.5rem] sm:text-6xl lg:text-7xl font-medium tracking-[-0.035em] sm:tracking-[-0.03em] leading-[1.02] sm:leading-[0.98] text-[#fffaf0] drop-shadow-[0_5px_20px_rgba(0,0,0,0.9)]">
               Inversiones con propósito.
               <span className="block text-[#f7d982] drop-shadow-[0_5px_18px_rgba(0,0,0,0.95)]">Resultados con disciplina.</span>
             </h1>
-            <p className="mt-8 text-base sm:text-lg text-[#fffaf0] leading-relaxed max-w-2xl drop-shadow-[0_3px_14px_rgba(0,0,0,0.95)]">
+            <p className="mt-6 sm:mt-8 text-[0.94rem] sm:text-lg text-[#fffaf0] leading-relaxed max-w-2xl drop-shadow-[0_3px_14px_rgba(0,0,0,0.95)]">
               Hampton Crest Academy ofrece formación institucional, biblioteca curada y análisis
               para inversionistas que buscan construir patrimonio con criterio y rigor.
             </p>
-            <div className="mt-10 flex flex-col sm:flex-row items-start gap-3">
+            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
               <PaymentCta
                 href={paymentLink}
                 testId="landing-cta-hero"
