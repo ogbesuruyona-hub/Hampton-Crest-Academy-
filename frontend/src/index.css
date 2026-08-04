@@ -157,6 +157,15 @@
     max-width: none;
     height: auto;
 }
+.hc-brand-lockup__crest--compact {
+    width: 2.1rem;
+    height: 1.95rem;
+}
+.hc-brand-lockup__crest--compact img {
+    top: -0.62rem;
+    left: -1.98rem;
+    width: 6.05rem;
+}
 .hc-brand-lockup__wordmark {
     display: flex;
     flex-direction: column;
@@ -182,6 +191,12 @@
     line-height: 1;
     letter-spacing: 0.32em;
     text-align: center;
+}
+.hc-brand-lockup--ink {
+    color: var(--hc-ink);
+}
+.hc-brand-lockup--ink .hc-brand-lockup__crest-name {
+    border-bottom-color: rgba(7, 25, 37, 0.42);
 }
 .hc-brand-lockup--large {
     gap: 0.75rem;

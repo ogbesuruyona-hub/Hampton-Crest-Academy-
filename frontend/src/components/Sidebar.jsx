@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import BrandLockup, { BrandCrest } from "./BrandLockup";
 
 const NAV = [
   { to: "/dashboard", label: "Panel", icon: LayoutGrid, testid: "nav-dashboard" },
@@ -34,9 +35,6 @@ const ADMIN_NAV = [
   { to: "/admin/members", label: "Miembros", icon: Users, testid: "nav-admin-members" },
 ];
 
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
-
 export const SidebarContent = ({ collapsed = false, onItemClick }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -44,25 +42,16 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
     <div className="flex flex-col h-full" data-testid="sidebar-content">
       {/* Brand */}
       <div
-        className={`flex items-center gap-3 ${
-          collapsed ? "justify-center px-2" : "px-6"
-        } py-6 border-b border-[var(--hc-border)]`}
+        className={`flex items-center ${
+          collapsed ? "justify-center px-2" : "px-5"
+        } py-5 border-b border-[var(--hc-border)]`}
       >
-        <img
-          src={LOGO_URL}
-          alt="Hampton Crest Academy"
-          data-testid="sidebar-logo"
-          className="h-11 w-11 object-contain shrink-0"
-        />
-        {!collapsed && (
-          <div className="flex flex-col leading-tight">
-            <span className="text-[0.7rem] tracking-[0.22em] text-[var(--hc-gold)] uppercase font-semibold">
-              Hampton Crest
-            </span>
-            <span className="text-[0.65rem] tracking-[0.32em] text-[var(--hc-text-muted)] uppercase">
-              Academy
-            </span>
+        {collapsed ? (
+          <div className="h-11 w-11 flex items-center justify-center overflow-hidden bg-[var(--hc-ink)] border border-[var(--hc-gold)]/30">
+            <BrandCrest compact testId="sidebar-logo" />
           </div>
+        ) : (
+          <BrandLockup large tone="ink" testId="sidebar-logo" />
         )}
       </div>
 

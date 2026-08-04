@@ -2,6 +2,7 @@ import React from "react";
 import { Search, Bell, Menu, LogOut, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { BrandCrest } from "./BrandLockup";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,15 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-
-const initials = (name = "") =>
-  name
-    .split(" ")
-    .map((s) => s[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "HC";
 
 export const Topbar = ({ onOpenMobileSidebar }) => {
   const { user, logout } = useAuth();
@@ -79,8 +71,8 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
                 data-testid="profile-menu-trigger"
                 className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-[var(--hc-surface-elevated)] transition-colors"
               >
-                <div className="h-8 w-8 flex items-center justify-center bg-[var(--hc-ink)] border border-[var(--hc-border)] text-xs tracking-wider text-white">
-                  {initials(user?.name)}
+                <div className="h-10 w-10 flex items-center justify-center overflow-hidden bg-[var(--hc-ink)] border border-[var(--hc-gold)]/35 shadow-[0_5px_16px_rgba(7,25,37,0.12)]">
+                  <BrandCrest compact testId="profile-brand-crest" />
                 </div>
                 <div className="hidden sm:flex flex-col items-start leading-tight">
                   <span className="text-xs text-[var(--hc-text)] tracking-tight">{user?.name || "Miembro"}</span>
