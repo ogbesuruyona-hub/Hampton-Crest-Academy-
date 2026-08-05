@@ -23,5 +23,9 @@ export const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.has_access === false) {
+    return <Navigate to="/access-denied" replace />;
+  }
+
   return children;
 };

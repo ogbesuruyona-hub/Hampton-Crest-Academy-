@@ -25,6 +25,7 @@ import requests
 import resend
 import stripe
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 from fastapi import (
     FastAPI, APIRouter, HTTPException, Depends, Request, Query,
     UploadFile, File, BackgroundTasks, Response, Header,
@@ -71,6 +72,10 @@ stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 FRAMER_URL = os.environ.get("FRAMER_URL", "")
 PAYMENT_LINK_URL = os.environ.get("PAYMENT_LINK_URL", "")
+try:
+    PAYMENT_GRACE_DAYS = max(0, min(30, int(os.environ.get("PAYMENT_GRACE_DAYS", "5"))))
+except ValueError:
+    PAYMENT_GRACE_DAYS = 5
 INVITE_TOKEN_TTL_DAYS = 7
 MEMBERSHIP_PENDING = "pending"
 MEMBERSHIP_ACTIVE = "active"
@@ -193,7 +198,10 @@ def serialize_doc(doc: Optional[dict]) -> Optional[dict]:
 
 
 def serialize_user(doc: dict) -> dict:
-    return serialize_doc(doc) or {}
+    out = serialize_doc(doc) or {}
+    if doc:
+        out["has_access"] = has_access(doc)
+    return out
 
 
 # ---------------- Auth dependencies ----------------
@@ -492,6 +500,12 @@ class UserPublic(BaseModel):
     stripe_subscription_id: Optional[str] = None
     last_payment_status: Optional[str] = None
     last_payment_at: Optional[datetime] = None
+    payment_failure_at: Optional[datetime] = None
+    grace_period_end: Optional[datetime] = None
+    next_payment_attempt: Optional[datetime] = None
+    payment_attempt_count: int = 0
+    membership_inactive_reason: Optional[str] = None
+    has_access: bool = False
     phone: Optional[str] = None
 
 
@@ -615,6 +629,11 @@ def _period_is_current(user_doc: dict) -> bool:
     return bool(period_end and period_end >= now_utc())
 
 
+def _grace_is_current(user_doc: dict) -> bool:
+    grace_end = ensure_utc(user_doc.get("grace_period_end"))
+    return bool(grace_end and grace_end >= now_utc())
+
+
 def has_access(user_doc: dict) -> bool:
     """Admin always; members need active paid access or complimentary access."""
     if user_doc.get("role") == "admin":
@@ -625,7 +644,9 @@ def has_access(user_doc: dict) -> bool:
     if status == MEMBERSHIP_ACTIVE:
         period_end = ensure_utc(user_doc.get("current_period_end"))
         return period_end is None or period_end >= now_utc()
-    if status in {MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED}:
+    if status == MEMBERSHIP_PAST_DUE:
+        return _grace_is_current(user_doc)
+    if status == MEMBERSHIP_CANCELED:
         return _period_is_current(user_doc)
     return False
 
@@ -636,11 +657,42 @@ async def refresh_membership_state(user_doc: dict) -> dict:
         return user_doc
     status = _normalise_membership_status(user_doc.get("membership_status"))
     period_end = ensure_utc(user_doc.get("current_period_end"))
-    if status in {MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED} and period_end and period_end < now_utc():
+    if status == MEMBERSHIP_PAST_DUE and not user_doc.get("grace_period_end"):
+        # Backfill accounts created before explicit grace periods were introduced.
+        failure_at = ensure_utc(user_doc.get("payment_failure_at")) or ensure_utc(user_doc.get("last_payment_at")) or now_utc()
+        grace_updates = {
+            "payment_failure_at": failure_at,
+            "grace_period_end": failure_at + timedelta(days=PAYMENT_GRACE_DAYS),
+            "updated_at": now_utc(),
+        }
+        await db.users.update_one({"_id": user_doc["_id"]}, {"$set": grace_updates})
+        user_doc = {**user_doc, **grace_updates}
+    deadline = ensure_utc(user_doc.get("grace_period_end")) if status == MEMBERSHIP_PAST_DUE else period_end
+    if status in {MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED} and deadline and deadline < now_utc():
+        subscription_id = user_doc.get("stripe_subscription_id")
+        subscription = await _retrieve_subscription_snapshot(subscription_id) if subscription_id else None
+        authoritative_status = (subscription or {}).get("status")
+        authoritative_start, authoritative_end = _subscription_dates(subscription, user_doc)
+        if authoritative_status in ("active", "trialing") and (
+            authoritative_end is None or authoritative_end >= now_utc()
+        ):
+            await _restore_paid_membership(user_doc, subscription)
+            restored = {
+                **user_doc,
+                "membership_status": MEMBERSHIP_ACTIVE,
+                "subscription_status": authoritative_status,
+                "current_period_start": authoritative_start,
+                "current_period_end": authoritative_end,
+                "last_payment_status": "paid",
+                "membership_inactive_reason": None,
+            }
+            for field in ("payment_failure_at", "grace_period_end", "next_payment_attempt", "payment_failure_notified_at"):
+                restored.pop(field, None)
+            return restored
         updates = {
             "membership_status": MEMBERSHIP_EXPIRED,
             "subscription_status": MEMBERSHIP_EXPIRED,
-            "membership_inactive_reason": "period_ended",
+            "membership_inactive_reason": "grace_period_ended" if status == MEMBERSHIP_PAST_DUE else "period_ended",
             "updated_at": now_utc(),
         }
         await db.users.update_one({"_id": user_doc["_id"]}, {"$set": updates})
@@ -668,8 +720,6 @@ async def login(payload: LoginRequest, request: Request):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     await clear_attempts(request, email)
     user = await refresh_membership_state(user)
-    if not has_access(user):
-        raise HTTPException(status_code=403, detail="membership_inactive")
     if user.get("totp_enabled"):
         temp = create_pending_2fa_token(str(user["_id"]), email)
         return AuthResponse(requires_2fa=True, temp_token=temp)
@@ -693,8 +743,6 @@ async def two_fa_verify(payload: TwoFAVerify):
     user = await refresh_membership_state(user)
     if not _verify_totp_or_backup(user, payload.code):
         raise HTTPException(401, "Invalid 2FA code")
-    if not has_access(user):
-        raise HTTPException(403, "membership_inactive")
     await _consume_backup_code_if_used(decoded["sub"], payload.code)
     token = create_access_token(str(user["_id"]), user["email"])
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
@@ -1537,6 +1585,57 @@ async def _send_password_reset_email(email: str, name: str, token: str):
     return response
 
 
+def _payment_issue_email_html(name: str, portal_link: str, grace_end: Optional[datetime], reason: str) -> str:
+    safe_name = (name or "Miembro").replace("<", "&lt;").replace(">", "&gt;")
+    deadline = ensure_utc(grace_end)
+    deadline_text = deadline.strftime("%d/%m/%Y") if deadline else "lo antes posible"
+    reason_text = {
+        "payment_action_required": "Stripe necesita una verificación adicional para completar el cobro.",
+        "invoice_finalization_failed": "No fue posible finalizar la factura de tu renovación.",
+    }.get(reason, "No pudimos procesar el pago de renovación de tu membresía.")
+    return f"""<!doctype html>
+<html lang="es"><body style="margin:0;padding:0;background:#071925;font-family:Helvetica,Arial,sans-serif;color:#fffaf0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#071925;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0d2635;border:1px solid #385061;">
+        <tr><td style="padding:34px 36px;">
+          <div style="color:#e2c56f;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;">Hampton Crest Academy</div>
+          <h1 style="margin:22px 0 14px;font-size:26px;line-height:1.2;font-weight:500;">Actualiza tu método de pago</h1>
+          <p style="color:#d9e0e4;font-size:14px;line-height:1.7;">Hola {safe_name}. {reason_text}</p>
+          <p style="color:#d9e0e4;font-size:14px;line-height:1.7;">Mantendremos tu acceso hasta el <strong>{deadline_text}</strong>. Actualiza tu método de pago para evitar interrupciones.</p>
+          <a href="{portal_link}" style="display:inline-block;margin-top:14px;background:#e2c56f;color:#071925;text-decoration:none;padding:14px 24px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;">Actualizar pago</a>
+          <p style="color:#92a2ac;font-size:11px;line-height:1.6;margin-top:24px;">Si ya actualizaste tu pago, no necesitas hacer nada. Stripe volverá a intentar el cobro según la configuración de recuperación.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+async def _send_payment_issue_email(user: dict, grace_end: Optional[datetime], reason: str):
+    portal_link = f"{PUBLIC_URL}/access-denied?billing=1" if PUBLIC_URL else "/access-denied?billing=1"
+    html = _payment_issue_email_html(user.get("name", ""), portal_link, grace_end, reason)
+    return await send_email(user["email"], "Acción requerida: actualiza tu método de pago", html)
+
+
+async def _send_payment_recovered_email(user: dict):
+    safe_name = (user.get("name") or "Miembro").replace("<", "&lt;").replace(">", "&gt;")
+    html = f"""<!doctype html>
+<html lang="es"><body style="margin:0;padding:0;background:#071925;font-family:Helvetica,Arial,sans-serif;color:#fffaf0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#071925;padding:40px 16px;">
+    <tr><td align="center"><table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0d2635;border:1px solid #385061;">
+      <tr><td style="padding:34px 36px;">
+        <div style="color:#e2c56f;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:700;">Hampton Crest Academy</div>
+        <h1 style="margin:22px 0 14px;font-size:26px;line-height:1.2;font-weight:500;">Tu membresía está activa nuevamente</h1>
+        <p style="color:#d9e0e4;font-size:14px;line-height:1.7;">Hola {safe_name}. Stripe confirmó el pago pendiente y restauramos tu acceso completo a la academia.</p>
+        <a href="{PUBLIC_URL or '/'}" style="display:inline-block;margin-top:14px;background:#e2c56f;color:#071925;text-decoration:none;padding:14px 24px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;">Entrar a la academia</a>
+      </td></tr>
+    </table></td></tr>
+  </table>
+</body></html>"""
+    return await send_email(user["email"], "Tu membresía Hampton Crest está activa", html)
+
+
 async def _activate_or_create_member(
     *,
     email: str,
@@ -1586,7 +1685,18 @@ async def _activate_or_create_member(
             logger.error("welcome email failed: %s", e)
         logger.info("Created new member %s via Stripe", email)
     else:
-        await db.users.update_one({"_id": user["_id"]}, {"$set": update_fields})
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {**update_fields, "membership_inactive_reason": None, "payment_attempt_count": 0},
+                "$unset": {
+                    "payment_failure_at": "",
+                    "grace_period_end": "",
+                    "next_payment_attempt": "",
+                    "payment_failure_notified_at": "",
+                },
+            },
+        )
         if not user.get("password_hash"):
             # First activation but never set password — re-send invite
             token = await _create_invite(str(user["_id"]), email)
@@ -1603,7 +1713,15 @@ async def _mark_subscription_canceled_or_expired(subscription_id: str, status_re
         logger.info("No user found for subscription %s", subscription_id)
         return
     period_end = ensure_utc(user.get("current_period_end"))
-    next_status = MEMBERSHIP_CANCELED if period_end and period_end >= now_utc() else MEMBERSHIP_EXPIRED
+    delinquent = (
+        user.get("last_payment_status") == "failed"
+        or _normalise_membership_status(user.get("membership_status")) in {MEMBERSHIP_PAST_DUE, MEMBERSHIP_EXPIRED}
+    )
+    next_status = (
+        MEMBERSHIP_CANCELED
+        if not delinquent and period_end and period_end >= now_utc()
+        else MEMBERSHIP_EXPIRED
+    )
     await db.users.update_one(
         {"_id": user["_id"]},
         {"$set": {
@@ -1634,6 +1752,231 @@ def _membership_from_subscription_status(status: Optional[str], period_end: Opti
     return MEMBERSHIP_PENDING
 
 
+async def _retrieve_subscription_snapshot(subscription_id: Optional[str]) -> Optional[dict]:
+    if not subscription_id or not stripe.api_key:
+        return None
+    try:
+        subscription = await asyncio.to_thread(stripe.Subscription.retrieve, subscription_id)
+        return dict(subscription)
+    except Exception as exc:
+        logger.warning("Could not retrieve subscription %s while syncing billing state: %s", subscription_id, exc)
+        return None
+
+
+def _subscription_dates(subscription: Optional[dict], user: Optional[dict] = None) -> tuple[Optional[datetime], Optional[datetime]]:
+    subscription = subscription or {}
+    user = user or {}
+    return (
+        _ts_to_dt(subscription.get("current_period_start")) or ensure_utc(user.get("current_period_start")),
+        _ts_to_dt(subscription.get("current_period_end")) or ensure_utc(user.get("current_period_end")),
+    )
+
+
+async def _restore_paid_membership(user: dict, subscription: Optional[dict], paid_at: Optional[datetime] = None):
+    was_delinquent = user.get("last_payment_status") == "failed" or _normalise_membership_status(
+        user.get("membership_status")
+    ) in {MEMBERSHIP_PAST_DUE, MEMBERSHIP_EXPIRED}
+    period_start, period_end = _subscription_dates(subscription, user)
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "membership_status": MEMBERSHIP_ACTIVE,
+                "subscription_status": (subscription or {}).get("status") or MEMBERSHIP_ACTIVE,
+                "current_period_start": period_start,
+                "current_period_end": period_end,
+                "last_payment_status": "paid",
+                "last_payment_at": paid_at or now_utc(),
+                "membership_inactive_reason": None,
+                "payment_attempt_count": 0,
+                "updated_at": now_utc(),
+            },
+            "$unset": {
+                "payment_failure_at": "",
+                "grace_period_end": "",
+                "next_payment_attempt": "",
+                "payment_failure_notified_at": "",
+            },
+        },
+    )
+    if was_delinquent:
+        await _send_payment_recovered_email(user)
+
+
+async def _expire_membership(user: dict, *, subscription_status: str, reason: str, subscription: Optional[dict] = None):
+    period_start, period_end = _subscription_dates(subscription, user)
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "membership_status": MEMBERSHIP_EXPIRED,
+            "subscription_status": subscription_status,
+            "current_period_start": period_start,
+            "current_period_end": period_end,
+            "membership_inactive_reason": reason,
+            "updated_at": now_utc(),
+        }},
+    )
+
+
+async def _record_payment_issue(
+    user: dict,
+    *,
+    subscription: Optional[dict],
+    invoice: Optional[dict],
+    reason: str,
+    occurred_at: datetime,
+    force_issue: bool = False,
+):
+    subscription_status = (subscription or {}).get("status")
+    if not force_issue and subscription_status in ("active", "trialing"):
+        # A later successful payment may already have restored the subscription.
+        await _restore_paid_membership(user, subscription)
+        return
+    if subscription_status in ("unpaid", "incomplete_expired"):
+        await _expire_membership(
+            user,
+            subscription_status=subscription_status,
+            reason=subscription_status,
+            subscription=subscription,
+        )
+        return
+    if subscription_status in ("canceled", "cancelled"):
+        await _mark_subscription_canceled_or_expired(user.get("stripe_subscription_id"), status_reason=subscription_status)
+        return
+
+    previous_failure = ensure_utc(user.get("payment_failure_at"))
+    first_failure = previous_failure or occurred_at
+    grace_end = first_failure + timedelta(days=PAYMENT_GRACE_DAYS)
+    next_attempt = _ts_to_dt((invoice or {}).get("next_payment_attempt"))
+    attempt_count = int((invoice or {}).get("attempt_count") or user.get("payment_attempt_count") or 1)
+    period_start, period_end = _subscription_dates(subscription, user)
+    membership_status = MEMBERSHIP_PAST_DUE if grace_end >= now_utc() else MEMBERSHIP_EXPIRED
+    should_notify = not user.get("payment_failure_notified_at")
+    updates = {
+        "membership_status": membership_status,
+        "subscription_status": subscription_status or MEMBERSHIP_PAST_DUE,
+        "current_period_start": period_start,
+        "current_period_end": period_end,
+        "last_payment_status": "failed",
+        "last_payment_at": occurred_at,
+        "payment_failure_at": first_failure,
+        "grace_period_end": grace_end,
+        "next_payment_attempt": next_attempt,
+        "payment_attempt_count": attempt_count,
+        "membership_inactive_reason": reason if membership_status == MEMBERSHIP_PAST_DUE else "grace_period_ended",
+        "updated_at": now_utc(),
+    }
+    await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
+    if should_notify:
+        delivered = await _send_payment_issue_email(user, grace_end, reason)
+        if delivered:
+            await db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"payment_failure_notified_at": now_utc()}},
+            )
+
+
+async def _process_stripe_event(parsed: dict):
+    etype = parsed["type"]
+    obj = parsed["data"]["object"]
+    occurred_at = _ts_to_dt(parsed.get("created")) or now_utc()
+
+    if etype == "checkout.session.completed":
+        email = (obj.get("customer_details") or {}).get("email") or obj.get("customer_email")
+        name = (obj.get("customer_details") or {}).get("name")
+        customer_id = obj.get("customer")
+        subscription_id = obj.get("subscription")
+        subscription = await _retrieve_subscription_snapshot(subscription_id)
+        period_start, period_end = _subscription_dates(subscription)
+        if not email and subscription and subscription.get("customer"):
+            try:
+                customer = await asyncio.to_thread(stripe.Customer.retrieve, subscription["customer"])
+                email = customer.get("email")
+                name = name or customer.get("name")
+            except Exception as exc:
+                logger.warning("Could not retrieve Stripe customer for subscription %s: %s", subscription_id, exc)
+        await _activate_or_create_member(
+            email=email,
+            name=name,
+            stripe_customer_id=customer_id,
+            stripe_subscription_id=subscription_id,
+            current_period_start=period_start,
+            current_period_end=period_end,
+            subscription_status=(subscription or {}).get("status") or MEMBERSHIP_ACTIVE,
+            last_payment_status="paid",
+        )
+        return
+
+    subscription_id = obj.get("subscription") if etype.startswith("invoice.") else obj.get("id")
+    if not subscription_id:
+        logger.info("Stripe event %s has no subscription; nothing to sync", etype)
+        return
+    user = await db.users.find_one({"stripe_subscription_id": subscription_id})
+    if not user:
+        logger.info("No user found for subscription %s", subscription_id)
+        return
+    subscription = await _retrieve_subscription_snapshot(subscription_id)
+
+    if etype == "customer.subscription.updated":
+        authoritative = subscription or obj
+        status = authoritative.get("status")
+        if status in ("active", "trialing"):
+            await _restore_paid_membership(user, authoritative)
+        elif status == "past_due":
+            await _record_payment_issue(
+                user,
+                subscription=authoritative,
+                invoice=None,
+                reason="payment_failed",
+                occurred_at=occurred_at,
+            )
+        elif status in ("unpaid", "incomplete_expired"):
+            await _expire_membership(user, subscription_status=status, reason=status, subscription=authoritative)
+        elif status in ("canceled", "cancelled"):
+            await _mark_subscription_canceled_or_expired(subscription_id, status_reason=status)
+        else:
+            period_start, period_end = _subscription_dates(authoritative, user)
+            await db.users.update_one({"_id": user["_id"]}, {"$set": {
+                "membership_status": _membership_from_subscription_status(status, period_end),
+                "subscription_status": status,
+                "current_period_start": period_start,
+                "current_period_end": period_end,
+                "membership_inactive_reason": status,
+                "updated_at": now_utc(),
+            }})
+    elif etype == "customer.subscription.deleted":
+        await _mark_subscription_canceled_or_expired(subscription_id, status_reason="deleted")
+    elif etype in ("invoice.payment_succeeded", "invoice.paid"):
+        if subscription and subscription.get("status") not in ("active", "trialing"):
+            status = subscription.get("status")
+            if status == "past_due":
+                await _record_payment_issue(
+                    user, subscription=subscription, invoice=obj,
+                    reason="payment_failed", occurred_at=occurred_at,
+                )
+            elif status in ("unpaid", "incomplete_expired"):
+                await _expire_membership(user, subscription_status=status, reason=status, subscription=subscription)
+            return
+        paid_at = _ts_to_dt((obj.get("status_transitions") or {}).get("paid_at")) or occurred_at
+        await _restore_paid_membership(user, subscription, paid_at)
+    elif etype in ("invoice.payment_failed", "invoice.payment_action_required", "invoice.finalization_failed"):
+        reasons = {
+            "invoice.payment_failed": "payment_failed",
+            "invoice.payment_action_required": "payment_action_required",
+            "invoice.finalization_failed": "invoice_finalization_failed",
+        }
+        await _record_payment_issue(
+            user,
+            subscription=subscription,
+            invoice=obj,
+            reason=reasons[etype],
+            occurred_at=occurred_at,
+            force_issue=etype == "invoice.finalization_failed",
+        )
+    else:
+        logger.info("Unhandled Stripe event type: %s", etype)
+
+
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     body = await request.body()
@@ -1647,121 +1990,38 @@ async def stripe_webhook(request: Request):
         logger.warning("Invalid webhook signature: %s", e)
         raise HTTPException(400, "Invalid signature")
 
-    event_id = event["id"]
-    # Idempotency
+    parsed = json.loads(body)
+    event_id = parsed["id"]
     existing = await db.stripe_events.find_one({"_id": event_id})
-    if existing:
+    if existing and existing.get("status") == "processed":
         return {"received": True, "duplicate": True}
-    await db.stripe_events.insert_one({
-        "_id": event_id,
-        "type": event["type"],
-        "received_at": now_utc(),
-    })
+    if existing:
+        received_at = ensure_utc(existing.get("received_at"))
+        if received_at and received_at >= now_utc() - timedelta(minutes=5):
+            # Another invocation is still working. A non-2xx response makes Stripe retry later.
+            raise HTTPException(409, "Stripe event is already processing")
+        await db.stripe_events.delete_one({"_id": event_id})
+    try:
+        await db.stripe_events.insert_one({
+            "_id": event_id,
+            "type": parsed["type"],
+            "status": "processing",
+            "received_at": now_utc(),
+        })
+    except DuplicateKeyError:
+        raise HTTPException(409, "Stripe event is already processing")
 
     try:
-        # Use the raw, already-signature-verified body so we get a plain dict
-        parsed = json.loads(body)
-        etype = parsed["type"]
-        obj = parsed["data"]["object"]
-        if etype == "checkout.session.completed":
-            email = (obj.get("customer_details") or {}).get("email") or obj.get("customer_email")
-            name = (obj.get("customer_details") or {}).get("name")
-            customer_id = obj.get("customer")
-            subscription_id = obj.get("subscription")
-            period_start = None
-            period_end = None
-            subscription_status = MEMBERSHIP_ACTIVE
-            if subscription_id:
-                try:
-                    sub = stripe.Subscription.retrieve(subscription_id)
-                    subscription_status = sub.get("status") or MEMBERSHIP_ACTIVE
-                    period_start = _ts_to_dt(sub.get("current_period_start"))
-                    period_end = _ts_to_dt(sub.get("current_period_end"))
-                    if not email and sub.get("customer"):
-                        try:
-                            cust = stripe.Customer.retrieve(sub["customer"])
-                            email = cust.get("email")
-                            name = name or cust.get("name")
-                        except Exception:
-                            pass
-                except Exception as e:
-                    logger.warning("Could not retrieve subscription %s: %s", subscription_id, e)
-            await _activate_or_create_member(
-                email=email, name=name,
-                stripe_customer_id=customer_id, stripe_subscription_id=subscription_id,
-                current_period_start=period_start,
-                current_period_end=period_end,
-                subscription_status=subscription_status,
-                last_payment_status="paid",
-            )
-        elif etype == "customer.subscription.updated":
-            status = obj.get("status")
-            sub_id = obj.get("id")
-            period_start = _ts_to_dt(obj.get("current_period_start"))
-            period_end = _ts_to_dt(obj.get("current_period_end"))
-            user = await db.users.find_one({"stripe_subscription_id": sub_id})
-            if user:
-                membership_status = _membership_from_subscription_status(status, period_end)
-                await db.users.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {
-                        "membership_status": membership_status,
-                        "subscription_status": status,
-                        "current_period_start": period_start,
-                        "current_period_end": period_end,
-                        "membership_inactive_reason": None if membership_status == MEMBERSHIP_ACTIVE else status,
-                        "updated_at": now_utc(),
-                    }},
-                )
-        elif etype == "customer.subscription.deleted":
-            await _mark_subscription_canceled_or_expired(obj.get("id"), status_reason="deleted")
-        elif etype == "invoice.payment_succeeded":
-            sub_id = obj.get("subscription")
-            if sub_id:
-                user = await db.users.find_one({"stripe_subscription_id": sub_id})
-                if user:
-                    period_start = ensure_utc(user.get("current_period_start"))
-                    period_end = ensure_utc(user.get("current_period_end"))
-                    try:
-                        sub = stripe.Subscription.retrieve(sub_id)
-                        period_start = _ts_to_dt(sub.get("current_period_start"))
-                        period_end = _ts_to_dt(sub.get("current_period_end"))
-                    except Exception as e:
-                        logger.warning("Could not retrieve subscription %s after invoice success: %s", sub_id, e)
-                    await db.users.update_one(
-                        {"_id": user["_id"]},
-                        {"$set": {
-                            "membership_status": MEMBERSHIP_ACTIVE,
-                            "subscription_status": MEMBERSHIP_ACTIVE,
-                            "current_period_start": period_start,
-                            "current_period_end": period_end,
-                            "last_payment_status": "paid",
-                            "last_payment_at": _ts_to_dt(obj.get("status_transitions", {}).get("paid_at")) or now_utc(),
-                            "membership_inactive_reason": None,
-                            "updated_at": now_utc(),
-                        }},
-                    )
-        elif etype == "invoice.payment_failed":
-            sub_id = obj.get("subscription")
-            if sub_id:
-                user = await db.users.find_one({"stripe_subscription_id": sub_id})
-                if user:
-                    await db.users.update_one(
-                        {"_id": user["_id"]},
-                        {"$set": {
-                            "membership_status": MEMBERSHIP_PAST_DUE,
-                            "subscription_status": MEMBERSHIP_PAST_DUE,
-                            "last_payment_status": "failed",
-                            "last_payment_at": now_utc(),
-                            "membership_inactive_reason": "payment_failed",
-                            "updated_at": now_utc(),
-                        }},
-                    )
-        else:
-            logger.info("Unhandled Stripe event type: %s", etype)
-    except Exception as e:
-        logger.exception("Stripe handler error: %s", e)
-        # Still return 200 so Stripe doesn't retry; we logged for ops
+        await _process_stripe_event(parsed)
+        await db.stripe_events.update_one(
+            {"_id": event_id},
+            {"$set": {"status": "processed", "processed_at": now_utc()}},
+        )
+    except Exception as exc:
+        logger.exception("Stripe handler error for event %s: %s", event_id, exc)
+        # Remove the idempotency claim so Stripe's next delivery can process the event.
+        await db.stripe_events.delete_one({"_id": event_id})
+        raise HTTPException(500, "Stripe event processing failed")
     return {"received": True}
 
 
@@ -1990,7 +2250,8 @@ async def billing_portal(current_user: dict = Depends(get_current_user)):
     customer_id = (raw or {}).get("stripe_customer_id")
     if not customer_id:
         raise HTTPException(400, "No subscription on file for this account.")
-    return_url = f"{PUBLIC_URL}/settings" if PUBLIC_URL else "/settings"
+    return_path = "/settings" if current_user.get("has_access") else "/access-denied?billing=returned"
+    return_url = f"{PUBLIC_URL}{return_path}" if PUBLIC_URL else return_path
     try:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,

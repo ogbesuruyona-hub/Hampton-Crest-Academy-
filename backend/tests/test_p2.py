@@ -187,15 +187,19 @@ class TestInvite:
 
 # ---------------- Login gating ----------------
 class TestLoginGating:
-    def test_inactive_user_login_403(self, mongo_db):
+    def test_inactive_user_gets_billing_recovery_session(self, mongo_db):
         email = _new_email()
         rr = requests.post(f"{API}/auth/register",
                            json={"name": "Inactive", "email": email, "password": "GoodPass#2026"})
         assert rr.status_code == 200
-        # Direct login should now be blocked (register no longer activates)
+        # Login is allowed only so the user can reach billing recovery.
+        # Protected member APIs still enforce membership with require_member.
         r = requests.post(f"{API}/auth/login", json={"email": email, "password": "GoodPass#2026"})
-        assert r.status_code == 403, r.text
-        assert "membership_inactive" in r.text
+        assert r.status_code == 200, r.text
+        assert r.json()["user"]["has_access"] is False
+        protected = requests.get(f"{API}/search", params={"q": "test"}, headers=_auth(r.json()["access_token"]))
+        assert protected.status_code == 403
+        assert "membership_inactive" in protected.text
 
     def test_admin_bypasses_gating(self):
         r = requests.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
@@ -236,10 +240,11 @@ class TestLoginGating:
         evt_del = _make_sub_deleted_event(sub_id)
         rd = _sign_and_post(evt_del)
         assert rd.status_code == 200
-        # Login should now 403
+        # Login remains available for billing recovery, but access is false.
         gated = requests.post(f"{API}/auth/login",
                               json={"email": email, "password": "SubPass#2026"})
-        assert gated.status_code == 403
+        assert gated.status_code == 200
+        assert gated.json()["user"]["has_access"] is False
 
 
 # ---------------- Membership config ----------------
@@ -327,9 +332,10 @@ class TestAdminMembers:
         u = mongo_db.users.find_one({"email": email})
         assert u["membership_status"] == "inactive"
         assert u.get("complimentary") is False
-        # login should now be 403
+        # login remains available for billing recovery
         lr = requests.post(f"{API}/auth/login", json={"email": email, "password": "Pass#2026"})
-        assert lr.status_code == 403
+        assert lr.status_code == 200
+        assert lr.json()["user"]["has_access"] is False
 
     def test_resend_invite(self, admin_h, mongo_db):
         email = _new_email()

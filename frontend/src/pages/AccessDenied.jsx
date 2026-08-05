@@ -1,19 +1,52 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { api } from "../lib/api";
-import { ArrowUpRight, ShieldAlert } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import { api, formatApiErrorDetail } from "../lib/api";
+import { ArrowUpRight, CreditCard, RefreshCw, ShieldAlert } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
 
 export default function AccessDenied() {
+  const { user, refresh } = useAuth();
   const [config, setConfig] = useState({ payment_link_url: "" });
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get("/membership/config").then(({ data }) => setConfig(data || {})).catch(() => {});
   }, []);
 
   const paymentLink = config.payment_link_url || "";
+
+  if (user?.has_access) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const openBillingPortal = async () => {
+    setBillingLoading(true);
+    setError("");
+    try {
+      const { data } = await api.post("/billing/portal");
+      window.location.assign(data.url);
+    } catch (e) {
+      setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+      setBillingLoading(false);
+    }
+  };
+
+  const recheckMembership = async () => {
+    setChecking(true);
+    setError("");
+    try {
+      await refresh();
+    } catch (e) {
+      setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div
@@ -35,11 +68,24 @@ export default function AccessDenied() {
         </h1>
         <div className="mt-6 hc-gold-rule" />
         <p className="mt-6 text-[var(--hc-text-secondary)] text-sm sm:text-base leading-relaxed">
-          Hampton Crest Academy es un círculo privado reservado para miembros activos. Tu cuenta
-          no tiene una suscripción activa o tu membresía expiró.
+          {user
+            ? "Tu período de acceso terminó porque no pudimos completar la renovación. Actualiza tu método de pago para recuperar la membresía."
+            : "Hampton Crest Academy es un círculo privado reservado para miembros activos. Tu cuenta no tiene una suscripción activa o tu membresía expiró."}
         </p>
+        {error && <p role="alert" className="mt-4 text-sm text-[#b33a3a]">{error}</p>}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-          {paymentLink ? (
+          {user?.stripe_customer_id ? (
+            <button
+              type="button"
+              onClick={openBillingPortal}
+              disabled={billingLoading}
+              data-testid="access-denied-billing-portal"
+              className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors disabled:opacity-50"
+            >
+              <CreditCard className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {billingLoading ? "Abriendo…" : "Actualizar método de pago"}
+            </button>
+          ) : paymentLink ? (
             <a
               href={paymentLink}
               data-testid="access-denied-cta"
@@ -58,6 +104,18 @@ export default function AccessDenied() {
               El pago de membresía aún no está configurado. Contacta al equipo de Hampton Crest
               para activar tu acceso.
             </div>
+          )}
+          {user && (
+            <button
+              type="button"
+              onClick={recheckMembership}
+              disabled={checking}
+              data-testid="access-denied-recheck"
+              className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] px-6 py-3 text-xs tracking-[0.18em] uppercase transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} strokeWidth={1.5} />
+              {checking ? "Comprobando…" : "Ya actualicé el pago"}
+            </button>
           )}
           <Link
             to="/login"

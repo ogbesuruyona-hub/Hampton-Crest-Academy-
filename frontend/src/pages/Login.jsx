@@ -21,6 +21,9 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
+    if (user.has_access === false) {
+      return <Navigate to="/access-denied" replace />;
+    }
     const next = location.state?.from || "/dashboard";
     return <Navigate to={next} replace />;
   }

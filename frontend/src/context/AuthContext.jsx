@@ -27,6 +27,12 @@ export const AuthProvider = ({ children }) => {
     fetchMe();
   }, [fetchMe]);
 
+  useEffect(() => {
+    const handleMembershipInactive = () => fetchMe();
+    window.addEventListener("hc:membership-inactive", handleMembershipInactive);
+    return () => window.removeEventListener("hc:membership-inactive", handleMembershipInactive);
+  }, [fetchMe]);
+
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");

@@ -53,6 +53,29 @@ STRIPE_WEBHOOK_SECRET=""
 FMP_API_KEY=""
 ```
 
+Renewal recovery policy:
+
+```env
+PAYMENT_GRACE_DAYS="5"
+```
+
+The Stripe webhook endpoint must receive these events:
+
+```text
+checkout.session.completed
+customer.subscription.updated
+customer.subscription.deleted
+invoice.paid
+invoice.payment_succeeded
+invoice.payment_failed
+invoice.payment_action_required
+invoice.finalization_failed
+```
+
+The first failed renewal starts one fixed grace period. Retries do not extend it.
+Successful recovery restores access immediately; `unpaid`, an expired grace period,
+or delinquency cancellation removes member access while preserving billing-portal access.
+
 Optional backend variables:
 
 ```env

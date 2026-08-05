@@ -34,6 +34,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       tokenStore.clear();
     }
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.detail === "membership_inactive" &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new CustomEvent("hc:membership-inactive"));
+    }
     return Promise.reject(error);
   }
 );

@@ -1,10 +1,10 @@
 """Shared fixtures for backend tests.
 
-P2 introduces membership gating: a newly-registered user is `inactive` and cannot
-log in or call any protected route until they have membership_status='active' or
-complimentary=True. To keep all prior register→login tests working without
-changing product behaviour, we expose a `make_active` helper that bumps a freshly
-registered user to `complimentary=True` directly in Mongo.
+P2 introduces membership gating: a newly-registered user can authenticate for
+billing recovery, but cannot call protected member routes until they have
+membership_status='active' or complimentary=True. To keep content tests working,
+we expose a `make_active` helper that marks a freshly registered user as
+complimentary directly in Mongo.
 """
 import os
 from pathlib import Path

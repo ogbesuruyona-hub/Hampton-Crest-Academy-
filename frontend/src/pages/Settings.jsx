@@ -157,16 +157,18 @@ export default function Settings() {
                   <span className="text-[var(--hc-text)]">
                     {user?.membership_status === "active"
                       ? "Membresía activa"
-                      : "Membresía inactiva"}
+                      : user?.membership_status === "past_due"
+                        ? "Pago pendiente"
+                        : "Membresía inactiva"}
                   </span>
                 </div>
                 <p
                   data-testid="billing-description"
                   className="text-xs text-[var(--hc-text-muted)] tracking-tight mt-3 leading-relaxed"
                 >
-                  Administra tu método de pago, consulta facturas o cancela tu suscripción desde el
-                  portal seguro de Stripe. Te redirige a una página externa y regresas a Ajustes al
-                  terminar.
+                  {user?.membership_status === "past_due"
+                    ? "Actualiza tu método de pago en el portal seguro de Stripe para evitar que venza tu período de gracia."
+                    : "Administra tu método de pago, consulta facturas o cancela tu suscripción desde el portal seguro de Stripe."}
                 </p>
               </div>
               <button

@@ -4,6 +4,7 @@ import { DesktopSidebar, SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Sheet, SheetContent } from "./ui/sheet";
 import ChatWidget from "./ChatWidget";
+import BillingNotice from "./BillingNotice";
 
 export const AppLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -30,6 +31,7 @@ export const AppLayout = () => {
         }`}
       >
         <Topbar onOpenMobileSidebar={() => setMobileOpen(true)} />
+        <BillingNotice />
         <main className="flex-1 px-4 sm:px-8 py-8 lg:py-10 hc-noise" data-testid="page-main">
           <div className="max-w-[1400px] mx-auto">
             <Outlet />
