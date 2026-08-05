@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /books
+Disallow: /research
+Disallow: /education
+Disallow: /reports
+Disallow: /companies
+Disallow: /valuation
+Disallow: /saved
+Disallow: /settings
+Disallow: /profile
+Disallow: /directory
+Disallow: /search
+Disallow: /admin
+
+Sitemap: https://hampton-crest-academy.vercel.app/sitemap.xml

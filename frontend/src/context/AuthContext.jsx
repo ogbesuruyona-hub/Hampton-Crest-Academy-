@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api, tokenStore, formatApiErrorDetail } from "../lib/api";
+import { api, formatApiErrorDetail } from "../lib/api";
 
 const AuthContext = createContext(null);
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -9,16 +9,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(undefined);
 
   const fetchMe = useCallback(async () => {
-    const token = tokenStore.get();
-    if (!token) {
-      setUser(null);
-      return;
-    }
     try {
       const { data } = await api.get("/auth/me");
       setUser(data);
     } catch {
-      tokenStore.clear();
       setUser(null);
     }
   }, []);
@@ -39,7 +33,6 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // ignore
     }
-    tokenStore.clear();
     setUser(null);
   }, []);
 
@@ -70,7 +63,6 @@ export const AuthProvider = ({ children }) => {
       if (data.requires_2fa) {
         return { ok: true, requires_2fa: true, temp_token: data.temp_token };
       }
-      tokenStore.set(data.access_token);
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -85,7 +77,6 @@ export const AuthProvider = ({ children }) => {
   const verify2fa = async (tempToken, code) => {
     try {
       const { data } = await api.post("/auth/2fa/verify", { temp_token: tempToken, code });
-      tokenStore.set(data.access_token);
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -100,7 +91,6 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
-      tokenStore.set(data.access_token);
       setUser(data.user);
       return { ok: true };
     } catch (e) {

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
@@ -11,6 +11,10 @@ import PublicLanding from "@/pages/PublicLanding";
 import AccessDenied from "@/pages/AccessDenied";
 import AcceptInvite from "@/pages/AcceptInvite";
 import ResetPassword from "@/pages/ResetPassword";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
+import RiskDisclosure from "@/pages/RiskDisclosure";
+import NotFound from "@/pages/NotFound";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const BooksLibrary = lazy(() => import("@/pages/BooksLibrary"));
 const BookDetail = lazy(() => import("@/pages/BookDetail"));
@@ -60,6 +64,9 @@ function App() {
             <Route path="/access-denied" element={<AccessDenied />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/terminos" element={<Terms />} />
+            <Route path="/privacidad" element={<Privacy />} />
+            <Route path="/aviso-de-riesgo" element={<RiskDisclosure />} />
             <Route
               element={
                 <ProtectedRoute>
@@ -86,7 +93,7 @@ function App() {
               <Route path="/search" element={withLoader(<SearchResults />)} />
               <Route path="/admin/members" element={withLoader(<AdminMembers />)} />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster theme="light" position="bottom-right" />
         </AuthProvider>

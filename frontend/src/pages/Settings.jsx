@@ -7,6 +7,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { ShieldCheck, ShieldOff, CreditCard, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 const Row = ({ label, value, action, testid }) => (
   <div
@@ -23,6 +24,7 @@ const Row = ({ label, value, action, testid }) => (
 
 export default function Settings() {
   const { user, refresh } = useAuth();
+  const location = useLocation();
   const [twoFa, setTwoFa] = useState({ enabled: false, backup_codes_remaining: 0 });
   const [setupOpen, setSetupOpen] = useState(false);
   const [disableOpen, setDisableOpen] = useState(false);
@@ -80,6 +82,12 @@ export default function Settings() {
         description="Gestiona tu cuenta, seguridad y preferencias de entrega."
       />
 
+      {(user?.requires_2fa_setup || location.state?.securitySetupRequired) && (
+        <div role="alert" className="mb-6 border border-[var(--hc-gold)] bg-[#fff8df] px-5 py-4 text-sm text-[var(--hc-text)]">
+          Para proteger la administración, debes activar 2FA antes de continuar.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Panel overline="Seguridad" title="Autenticación de dos factores" testid="panel-2fa">
           <div className="flex items-start justify-between gap-4">
@@ -107,7 +115,11 @@ export default function Settings() {
                 </div>
               )}
             </div>
-            {twoFa.enabled ? (
+            {twoFa.enabled && user?.role === "admin" ? (
+              <span className="px-4 py-2 text-xs tracking-[0.16em] uppercase text-[var(--hc-gold)] border border-[var(--hc-gold)]">
+                Obligatorio
+              </span>
+            ) : twoFa.enabled ? (
               <button
                 onClick={() => setDisableOpen(true)}
                 data-testid="disable-2fa-button"

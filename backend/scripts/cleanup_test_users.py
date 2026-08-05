@@ -9,8 +9,9 @@ from pymongo import MongoClient
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 KNOWN_TEST_EMAILS = {
-    "admin-removed@example.invalid",
-    "member-removed@example.invalid",
+    email.lower().strip()
+    for email in os.environ.get("TEST_CLEANUP_EMAILS", "").split(",")
+    if email.strip()
 }
 TEST_EMAIL_PATTERNS = [
     re.compile(r"^test_member_[a-z0-9]+@example\.com$", re.IGNORECASE),

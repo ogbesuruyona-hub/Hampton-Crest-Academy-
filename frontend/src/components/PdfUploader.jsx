@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
-import { api, tokenStore } from "../lib/api";
+import { api } from "../lib/api";
 
 export const PdfUploader = ({ value, onChange, testid }) => {
   // value: { url, filename, size } | null
@@ -112,10 +112,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
 
 // Helper to open an authenticated PDF in a new tab
 export const openPdf = (url) => {
-  const token = tokenStore.get();
-  if (!token) return;
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
   const full = url.startsWith("http") ? url : `${backendUrl}${url}`;
-  const sep = full.includes("?") ? "&" : "?";
-  window.open(`${full}${sep}auth=${encodeURIComponent(token)}`, "_blank", "noopener");
+  window.open(full, "_blank", "noopener");
 };

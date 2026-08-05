@@ -86,7 +86,7 @@ export default function Login() {
   const isForgot = mode === "forgot";
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.06fr_0.94fr] bg-[var(--hc-bg)] text-[var(--hc-text)]">
+    <main className="min-h-screen grid lg:grid-cols-[1.06fr_0.94fr] bg-[var(--hc-bg)] text-[var(--hc-text)]">
       <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden bg-[var(--hc-ink)] text-white">
         <div
           className="absolute inset-0 opacity-95"
@@ -162,8 +162,9 @@ export default function Login() {
           >
             {is2fa ? (
               <div>
-                <label className="hc-overline block mb-2">Código de 6 dígitos</label>
+                <label htmlFor="twofa-code" className="hc-overline block mb-2">Código de 6 dígitos</label>
                 <input
+                  id="twofa-code"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -178,8 +179,9 @@ export default function Login() {
               </div>
             ) : isForgot ? (
               <div>
-                <label className="hc-overline block mb-2">Correo electrónico</label>
+                <label htmlFor="forgot-email" className="hc-overline block mb-2">Correo electrónico</label>
                 <input
+                  id="forgot-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -193,8 +195,9 @@ export default function Login() {
               <>
                 {mode === "register" && (
                   <div>
-                    <label className="hc-overline block mb-2">Nombre completo</label>
+                    <label htmlFor="register-name" className="hc-overline block mb-2">Nombre completo</label>
                     <input
+                      id="register-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -206,8 +209,9 @@ export default function Login() {
                 )}
 
                 <div>
-                  <label className="hc-overline block mb-2">Correo electrónico</label>
+                  <label htmlFor="auth-email" className="hc-overline block mb-2">Correo electrónico</label>
                   <input
+                    id="auth-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -220,7 +224,7 @@ export default function Login() {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="hc-overline">Contraseña</label>
+                    <label htmlFor="auth-password" className="hc-overline">Contraseña</label>
                     {isLogin && (
                       <button
                         type="button"
@@ -238,6 +242,7 @@ export default function Login() {
                     )}
                   </div>
                   <input
+                    id="auth-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -332,6 +337,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

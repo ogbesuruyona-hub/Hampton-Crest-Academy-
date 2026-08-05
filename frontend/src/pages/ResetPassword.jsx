@@ -112,8 +112,9 @@ export default function ResetPassword() {
         {(state === "ready" || state === "submitting") && (
           <form onSubmit={submit} className="mt-8 space-y-5" data-testid="reset-password-form">
             <div>
-              <label className="hc-overline block mb-2">Correo electrónico</label>
+              <label htmlFor="reset-email" className="hc-overline block mb-2">Correo electrónico</label>
               <input
+                id="reset-email"
                 type="email"
                 value={email}
                 disabled
@@ -122,8 +123,9 @@ export default function ResetPassword() {
               />
             </div>
             <div>
-              <label className="hc-overline block mb-2">Nueva contraseña</label>
+              <label htmlFor="reset-password" className="hc-overline block mb-2">Nueva contraseña</label>
               <input
+                id="reset-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -136,8 +138,9 @@ export default function ResetPassword() {
               />
             </div>
             <div>
-              <label className="hc-overline block mb-2">Confirmar contraseña</label>
+              <label htmlFor="reset-confirm" className="hc-overline block mb-2">Confirmar contraseña</label>
               <input
+                id="reset-confirm"
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

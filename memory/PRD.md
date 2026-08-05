@@ -25,7 +25,7 @@ Premium private investment academy web app for paying members. Luxury institutio
 ## What's Been Implemented (2026-05-24)
 - FastAPI auth: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`, `/api/health`
 - Bcrypt password hashing, PyJWT access tokens (24h), Bearer header auth
-- Admin seeding on startup (`admin-removed@example.invalid` / `***REMOVED***`)
+- Admin bootstrap from environment variables; no credential is stored in source control.
 - Unique-email Mongo index
 - React app: AuthProvider, ProtectedRoute, AppLayout (desktop sidebar + mobile sheet drawer + topbar), 9 routes
 - Login screen: split layout, branded panel with architectural backdrop, register/login modes
@@ -73,7 +73,7 @@ Premium private investment academy web app for paying members. Luxury institutio
 ## 2026-05-25 — Edit control, test member, Spanish UI
 - **Books Library** (`/api/books` CRUD): opens externally in new tab, bookmarks extended to support books, transparent crest logo restored with `mix-blend-mode: screen` on navy.
 - **Inline edit/delete on all content cards**: `ContentCard` renders pencil/trash icons for admins on Research, Education, Reports, Companies. Books already had inline actions. Confirmation modal in Spanish.
-- **Test member seeded automatically**: `seed_test_member()` runs at backend startup → creates/refreshes `member-removed@example.invalid` / `***REMOVED***` with `complimentary=true, membership_status=active`. Admins can log in as this account to review the member-side experience.
+- **Optional test member**: non-production seeding is disabled by default and reads all credentials from environment variables.
 - **Full Spanish UI**: every user-facing string translated across Sidebar, Topbar, Login, Dashboard, Library, Education, Reports, Companies, Saved Resources, Settings, Member Profile, Member Directory, Admin Members, Access Denied, Accept Invite, Content Editor, Status Badge, Two-Factor dialogs, Empty State; dates now use `toLocaleDateString("es-ES")`. `CONTENT_TYPES` singulars/plurals + research/library/sector/track categories all in Spanish.
 
 ## 2026-05-25 — P3: Búsqueda, Landing público, Split de server.py (inicio)

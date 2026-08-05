@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { api, tokenStore, formatApiErrorDetail } from "../lib/api";
+import { api, formatApiErrorDetail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
 const LOGO_URL =
@@ -52,8 +52,7 @@ export default function AcceptInvite() {
     }
     setState("submitting");
     try {
-      const { data } = await api.post("/auth/accept-invite", { token, password });
-      tokenStore.set(data.access_token);
+      await api.post("/auth/accept-invite", { token, password });
       await refresh();
       navigate("/dashboard", { replace: true });
     } catch (e2) {
@@ -115,8 +114,9 @@ export default function AcceptInvite() {
         {(state === "ready" || state === "submitting") && (
           <form onSubmit={submit} className="mt-8 space-y-5" data-testid="invite-form">
             <div>
-              <label className="hc-overline block mb-2">Correo electrónico</label>
+              <label htmlFor="invite-email" className="hc-overline block mb-2">Correo electrónico</label>
               <input
+                id="invite-email"
                 type="email"
                 value={email}
                 disabled
@@ -125,8 +125,9 @@ export default function AcceptInvite() {
               />
             </div>
             <div>
-              <label className="hc-overline block mb-2">Nueva contraseña</label>
+              <label htmlFor="invite-password" className="hc-overline block mb-2">Nueva contraseña</label>
               <input
+                id="invite-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -138,8 +139,9 @@ export default function AcceptInvite() {
               />
             </div>
             <div>
-              <label className="hc-overline block mb-2">Confirmar contraseña</label>
+              <label htmlFor="invite-confirm" className="hc-overline block mb-2">Confirmar contraseña</label>
               <input
+                id="invite-confirm"
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

@@ -8,8 +8,12 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hampton-crest.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin-removed@example.invalid"
-ADMIN_PASSWORD = "***REMOVED***"
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "")
+pytestmark = pytest.mark.skipif(
+    not ADMIN_EMAIL or not ADMIN_PASSWORD,
+    reason="Set TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD to run integration tests",
+)
 
 
 def _auth_headers(token):

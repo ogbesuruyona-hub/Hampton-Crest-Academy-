@@ -28,7 +28,7 @@ from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from fastapi import (
     FastAPI, APIRouter, HTTPException, Depends, Request, Query,
-    UploadFile, File, BackgroundTasks, Response, Header,
+    UploadFile, File, BackgroundTasks, Response,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
@@ -72,6 +72,12 @@ stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 FRAMER_URL = os.environ.get("FRAMER_URL", "")
 PAYMENT_LINK_URL = os.environ.get("PAYMENT_LINK_URL", "")
+MEMBERSHIP_PRICE_DISPLAY = os.environ.get("MEMBERSHIP_PRICE_DISPLAY", "").strip()
+MEMBERSHIP_BILLING_INTERVAL = os.environ.get("MEMBERSHIP_BILLING_INTERVAL", "").strip()
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "members@investorhamptoncrest.com").strip()
+OPS_ALERT_EMAIL = os.environ.get("OPS_ALERT_EMAIL", "").strip()
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+ALLOW_PUBLIC_REGISTRATION = os.environ.get("ALLOW_PUBLIC_REGISTRATION", "false").lower() == "true"
 try:
     PAYMENT_GRACE_DAYS = max(0, min(30, int(os.environ.get("PAYMENT_GRACE_DAYS", "5"))))
 except ValueError:
@@ -140,7 +146,10 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def get_jwt_secret() -> str:
-    return os.environ["JWT_SECRET"]
+    secret = os.environ.get("JWT_SECRET", "")
+    if len(secret) < 32:
+        raise RuntimeError("JWT_SECRET must contain at least 32 characters")
+    return secret
 
 
 def create_access_token(user_id: str, email: str) -> str:
@@ -163,6 +172,23 @@ def create_pending_2fa_token(user_id: str, email: str) -> str:
         },
         get_jwt_secret(), algorithm=JWT_ALGORITHM,
     )
+
+
+def set_auth_cookies(response: Response, token: str):
+    csrf_token = secrets.token_urlsafe(32)
+    cookie_options = {
+        "secure": COOKIE_SECURE,
+        "samesite": "lax",
+        "path": "/",
+        "max_age": ACCESS_TOKEN_EXPIRES_MINUTES * 60,
+    }
+    response.set_cookie("hc_access_token", token, httponly=True, **cookie_options)
+    response.set_cookie("hc_csrf_token", csrf_token, httponly=False, **cookie_options)
+
+
+def clear_auth_cookies(response: Response):
+    response.delete_cookie("hc_access_token", path="/", secure=COOKIE_SECURE, samesite="lax")
+    response.delete_cookie("hc_csrf_token", path="/", secure=COOKIE_SECURE, samesite="lax")
 
 
 # ---------------- Helpers: serialization ----------------
@@ -201,6 +227,7 @@ def serialize_user(doc: dict) -> dict:
     out = serialize_doc(doc) or {}
     if doc:
         out["has_access"] = has_access(doc)
+        out["requires_2fa_setup"] = doc.get("role") == "admin" and not bool(doc.get("totp_enabled"))
     return out
 
 
@@ -226,7 +253,7 @@ async def get_current_user(
     if credentials and credentials.scheme.lower() == "bearer":
         token = credentials.credentials
     if not token:
-        token = request.cookies.get("access_token")
+        token = request.cookies.get("hc_access_token")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -247,6 +274,8 @@ async def get_current_user(
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin role required")
+    if not current_user.get("totp_enabled"):
+        raise HTTPException(status_code=403, detail="admin_2fa_required")
     return current_user
 
 
@@ -281,6 +310,29 @@ async def record_failure(request: Request, email: str):
 
 async def clear_attempts(request: Request, email: str):
     await db.login_attempts.delete_one({"_id": _attempts_id(request, email)})
+
+
+def _request_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
+    return request.headers.get("x-real-ip", "").strip() or forwarded or (request.client.host if request.client else "unknown")
+
+
+async def check_api_rate_limit(request: Request, scope: str, *, limit: int, window_seconds: int):
+    window = int(now_utc().timestamp()) // window_seconds
+    ip_digest = hashlib.sha256(_request_ip(request).encode("utf-8")).hexdigest()[:24]
+    ident = f"{scope}:{ip_digest}:{window}"
+    expires_at = now_utc() + timedelta(seconds=window_seconds * 2)
+    await db.api_rate_limits.update_one(
+        {"_id": ident},
+        {
+            "$inc": {"count": 1},
+            "$setOnInsert": {"scope": scope, "expires_at": expires_at, "created_at": now_utc()},
+        },
+        upsert=True,
+    )
+    record = await db.api_rate_limits.find_one({"_id": ident}, {"count": 1}) or {}
+    if int(record.get("count", 0)) > limit:
+        raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
 
 
 # ---------------- Helpers: 2FA ----------------
@@ -506,6 +558,7 @@ class UserPublic(BaseModel):
     payment_attempt_count: int = 0
     membership_inactive_reason: Optional[str] = None
     has_access: bool = False
+    requires_2fa_setup: bool = False
     phone: Optional[str] = None
 
 
@@ -568,31 +621,26 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    mongo_ok = False
-    mongo_error = None
-    if db is not None:
-        try:
-            await db.command("ping")
-            mongo_ok = True
-        except Exception as e:
-            mongo_error = str(e)
-    if mongo_ok and not _runtime_bootstrap_done:
-        await runtime_bootstrap()
-    return {
-        "status": "ok" if mongo_ok and not _runtime_bootstrap_error else "degraded",
-        "time": now_utc().isoformat(),
-        "mongo_configured": bool(mongo_url),
-        "db_configured": bool(db_name),
-        "mongo_ok": mongo_ok,
-        "bootstrap_done": _runtime_bootstrap_done,
-        "bootstrap_error": _runtime_bootstrap_error,
-        "mongo_error": mongo_error,
-    }
+    if db is None:
+        raise HTTPException(status_code=503, detail="service_unavailable")
+    try:
+        await db.command("ping")
+        if not _runtime_bootstrap_done:
+            await runtime_bootstrap()
+    except Exception:
+        logger.exception("health check failed")
+        raise HTTPException(status_code=503, detail="service_unavailable")
+    if _runtime_bootstrap_error:
+        raise HTTPException(status_code=503, detail="service_unavailable")
+    return {"status": "ok", "time": now_utc().isoformat()}
 
 
 # ---------------- Routes: auth ----------------
 @api_router.post("/auth/register", response_model=AuthResponse)
-async def register(payload: RegisterRequest):
+async def register(payload: RegisterRequest, response: Response, request: Request):
+    if not ALLOW_PUBLIC_REGISTRATION:
+        raise HTTPException(status_code=404, detail="Not found")
+    await check_api_rate_limit(request, "register", limit=5, window_seconds=3600)
     email = payload.email.lower().strip()
     if await db.users.find_one({"email": email}) is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -610,6 +658,7 @@ async def register(payload: RegisterRequest):
     }
     result = await db.users.insert_one(doc)
     token = create_access_token(str(result.inserted_id), email)
+    set_auth_cookies(response, token)
     return AuthResponse(
         access_token=token,
         user=UserPublic(**serialize_user({**doc, "_id": result.inserted_id})),
@@ -709,10 +758,11 @@ async def require_member(current_user: dict = Depends(get_current_user)) -> dict
 
 
 @api_router.post("/auth/login", response_model=AuthResponse)
-async def login(payload: LoginRequest, request: Request):
+async def login(payload: LoginRequest, request: Request, response: Response):
     ensure_database_configured()
     await runtime_bootstrap()
     email = payload.email.lower().strip()
+    await check_api_rate_limit(request, "login", limit=20, window_seconds=900)
     await check_lockout(request, email)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(payload.password, user.get("password_hash", "")):
@@ -724,11 +774,13 @@ async def login(payload: LoginRequest, request: Request):
         temp = create_pending_2fa_token(str(user["_id"]), email)
         return AuthResponse(requires_2fa=True, temp_token=temp)
     token = create_access_token(str(user["_id"]), email)
+    set_auth_cookies(response, token)
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
 
 @api_router.post("/auth/2fa/verify", response_model=AuthResponse)
-async def two_fa_verify(payload: TwoFAVerify):
+async def two_fa_verify(payload: TwoFAVerify, response: Response, request: Request):
+    await check_api_rate_limit(request, "two-factor", limit=12, window_seconds=600)
     try:
         decoded = jwt.decode(payload.temp_token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         if decoded.get("type") != "2fa_pending":
@@ -745,6 +797,7 @@ async def two_fa_verify(payload: TwoFAVerify):
         raise HTTPException(401, "Invalid 2FA code")
     await _consume_backup_code_if_used(decoded["sub"], payload.code)
     token = create_access_token(str(user["_id"]), user["email"])
+    set_auth_cookies(response, token)
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
 
@@ -754,7 +807,8 @@ async def me(current_user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/auth/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
+async def logout(response: Response, current_user: dict = Depends(get_current_user)):
+    clear_auth_cookies(response)
     return {"ok": True}
 
 
@@ -807,6 +861,8 @@ async def two_fa_verify_setup(payload: TwoFAVerifySetup, current_user: dict = De
 
 @api_router.post("/auth/2fa/disable")
 async def two_fa_disable(payload: TwoFADisable, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "admin":
+        raise HTTPException(403, "admin_2fa_required")
     user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
     if not user or not user.get("totp_enabled"):
         raise HTTPException(400, "2FA is not enabled")
@@ -1425,25 +1481,8 @@ async def upload_report_pdf(file: UploadFile = File(...), current_user: dict = D
 @api_router.get("/files/{path:path}")
 async def serve_file(
     path: str,
-    auth: Optional[str] = Query(None),
-    authorization: Optional[str] = Header(None),
+    current_user: dict = Depends(require_member),
 ):
-    # Authentication: Authorization header OR ?auth=<token> for browser-friendly links
-    token: Optional[str] = None
-    if authorization and authorization.lower().startswith("bearer "):
-        token = authorization[7:]
-    elif auth:
-        token = auth
-    if not token:
-        raise HTTPException(401, "Not authenticated")
-    try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(401, "Invalid token")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(401, "Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(401, "Invalid token")
     record = await db.uploads.find_one({"storage_path": path, "is_deleted": False})
     if not record:
         raise HTTPException(404, "File not found")
@@ -2021,6 +2060,13 @@ async def stripe_webhook(request: Request):
         logger.exception("Stripe handler error for event %s: %s", event_id, exc)
         # Remove the idempotency claim so Stripe's next delivery can process the event.
         await db.stripe_events.delete_one({"_id": event_id})
+        if OPS_ALERT_EMAIL:
+            await send_email(
+                OPS_ALERT_EMAIL,
+                "Alerta: webhook de Stripe fallido",
+                f"<p>El evento <strong>{event_id}</strong> ({parsed.get('type', 'unknown')}) no pudo procesarse. "
+                "Stripe recibirá un error y deberá reintentarlo. Revisa los logs de producción.</p>",
+            )
         raise HTTPException(500, "Stripe event processing failed")
     return {"received": True}
 
@@ -2039,7 +2085,8 @@ async def check_invite(token: str):
 
 
 @api_router.post("/auth/accept-invite", response_model=AuthResponse)
-async def accept_invite(payload: AcceptInviteIn):
+async def accept_invite(payload: AcceptInviteIn, response: Response, request: Request):
+    await check_api_rate_limit(request, "accept-invite", limit=10, window_seconds=3600)
     invite = await db.invites.find_one({"_id": payload.token})
     if not invite or invite.get("consumed_at"):
         raise HTTPException(400, "Invalid or used invite")
@@ -2056,11 +2103,13 @@ async def accept_invite(payload: AcceptInviteIn):
     await db.invites.update_one({"_id": payload.token}, {"$set": {"consumed_at": now_utc()}})
     user = await db.users.find_one({"_id": user["_id"]})
     token = create_access_token(str(user["_id"]), user["email"])
+    set_auth_cookies(response, token)
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
 
 @api_router.post("/auth/password-reset/request")
-async def request_password_reset(payload: PasswordResetRequest):
+async def request_password_reset(payload: PasswordResetRequest, request: Request):
+    await check_api_rate_limit(request, "password-reset", limit=5, window_seconds=3600)
     email = payload.email.lower().strip()
     logger.info("[password-reset:request] email=%s", email)
     user = await db.users.find_one({"email": email})
@@ -2135,7 +2184,11 @@ async def membership_config():
     """Public config for the access-denied screen and other UI surfaces."""
     return {
         "framer_url": FRAMER_URL,
-        "payment_link_url": PAYMENT_LINK_URL,
+        # Never expose a checkout link without the price and cadence beside it.
+        "payment_link_url": PAYMENT_LINK_URL if MEMBERSHIP_PRICE_DISPLAY and MEMBERSHIP_BILLING_INTERVAL else "",
+        "price_display": MEMBERSHIP_PRICE_DISPLAY,
+        "billing_interval": MEMBERSHIP_BILLING_INTERVAL,
+        "support_email": SUPPORT_EMAIL,
     }
 
 
@@ -2321,12 +2374,7 @@ async def seed_admin():
                 "updated_at": now_utc(),
             }},
         )
-        if not verify_password(admin_password, existing.get("password_hash", "")):
-            await db.users.update_one(
-                {"email": admin_email},
-                {"$set": {"password_hash": hash_password(admin_password)}},
-            )
-            logger.info("Updated admin password for %s", admin_email)
+        # ADMIN_PASSWORD is bootstrap-only. Existing credentials are never reset at startup.
 
 
 async def seed_test_member():
@@ -2395,6 +2443,7 @@ async def _runtime_bootstrap():
     await db.companies.create_index("ticker", unique=True)
     await db.bookmarks.create_index([("user_id", 1), ("content_type", 1), ("content_id", 1)], unique=True)
     await db.login_attempts.create_index("locked_until", expireAfterSeconds=60 * 60 * 24)
+    await db.api_rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.invites.create_index("expires_at", expireAfterSeconds=60 * 60 * 24 * 14)
     await db.password_resets.create_index("expires_at", expireAfterSeconds=60 * 60 * 24)
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
@@ -2448,23 +2497,45 @@ app.include_router(api_router)
 
 @app.middleware("http")
 async def ensure_bootstrap_middleware(request: Request, call_next):
+    csrf_exempt = {
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/2fa/verify",
+        "/api/auth/accept-invite",
+        "/api/auth/password-reset/request",
+        "/api/auth/password-reset/confirm",
+        "/api/webhook/stripe",
+    }
+    bearer_auth = request.headers.get("authorization", "").lower().startswith("bearer ")
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and request.url.path.startswith("/api/")
+        and request.url.path not in csrf_exempt
+        and request.cookies.get("hc_access_token")
+        and not bearer_auth
+    ):
+        cookie_token = request.cookies.get("hc_csrf_token", "")
+        header_token = request.headers.get("x-csrf-token", "")
+        if not cookie_token or not header_token or not secrets.compare_digest(cookie_token, header_token):
+            return JSONResponse(status_code=403, content={"detail": "csrf_validation_failed"})
     if request.url.path not in {"/api/health", "/api/", "/api/membership/config"}:
         await runtime_bootstrap()
         if _runtime_bootstrap_error and not _runtime_bootstrap_done:
             return JSONResponse(
                 status_code=503,
-                content={
-                    "detail": "backend_bootstrap_failed",
-                    "bootstrap_error": _runtime_bootstrap_error,
-                },
+                content={"detail": "service_unavailable"},
             )
     return await call_next(request)
 
 
+configured_origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip()]
+if not configured_origins:
+    configured_origins = [PUBLIC_URL] if PUBLIC_URL else ["http://localhost:3000", "http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=configured_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )

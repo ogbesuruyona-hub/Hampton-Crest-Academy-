@@ -49,7 +49,7 @@ export default function AccessDenied() {
   };
 
   return (
-    <div
+    <main
       data-testid="access-denied-page"
       className="min-h-screen flex items-center justify-center bg-[var(--hc-bg)] text-[var(--hc-text)] px-6"
     >
@@ -86,16 +86,22 @@ export default function AccessDenied() {
               {billingLoading ? "Abriendo…" : "Actualizar método de pago"}
             </button>
           ) : paymentLink ? (
-            <a
-              href={paymentLink}
-              data-testid="access-denied-cta"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors"
-            >
-              Quiero ser miembro
-              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </a>
+            <div>
+              <p className="mb-3 text-sm font-semibold">{config.price_display} · {config.billing_interval}</p>
+              <a
+                href={paymentLink}
+                data-testid="access-denied-cta"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors"
+              >
+                Quiero ser miembro
+                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </a>
+              <p className="mt-3 max-w-xs text-xs leading-relaxed text-[var(--hc-text-muted)]">
+                Renovación automática; cancela desde el portal. Consulta los <Link className="underline" to="/terminos">términos</Link>.
+              </p>
+            </div>
           ) : (
             <div
               data-testid="access-denied-payment-not-configured"
@@ -130,6 +136,6 @@ export default function AccessDenied() {
           Confidencial · Solo Miembros
         </div>
       </div>
-    </div>
+    </main>
   );
 }

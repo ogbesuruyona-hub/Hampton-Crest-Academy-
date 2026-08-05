@@ -4,7 +4,7 @@ import { BookOpen, GraduationCap, FileText, BarChart3, Lock, ArrowUpRight, Shiel
 import { api } from "../lib/api";
 import BrandLockup from "../components/BrandLockup";
 
-const PaymentCta = ({ href, testId, className }) => {
+const PaymentCta = ({ href, price, interval, testId, className }) => {
   if (!href) {
     return (
       <div
@@ -17,16 +17,26 @@ const PaymentCta = ({ href, testId, className }) => {
   }
 
   return (
-    <a
-      href={href}
-      data-testid={testId}
-      className={className}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Quiero ser miembro
-      <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-    </a>
+    <div>
+      <p className="mb-3 text-sm font-semibold text-[#fffaf0]" data-testid={`${testId}-price`}>
+        {price} · {interval}
+      </p>
+      <a
+        href={href}
+        data-testid={testId}
+        className={className}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Quiero ser miembro
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+      </a>
+      <p className="mt-3 max-w-md text-xs leading-relaxed text-white/80">
+        Renovación automática. Puedes cancelar desde el portal. Al continuar aceptas los{" "}
+        <Link className="underline" to="/terminos">términos</Link> y confirmas haber leído el{" "}
+        <Link className="underline" to="/aviso-de-riesgo">aviso de riesgo</Link>.
+      </p>
+    </div>
   );
 };
 
@@ -44,6 +54,8 @@ export default function PublicLanding() {
   const [membershipConfig, setMembershipConfig] = useState({
     framer_url: "",
     payment_link_url: "",
+    price_display: "",
+    billing_interval: "",
   });
 
   useEffect(() => {
@@ -54,13 +66,15 @@ export default function PublicLanding() {
 
   const paymentLink = membershipConfig.payment_link_url || "";
   const framerUrl = membershipConfig.framer_url || "";
+  const price = membershipConfig.price_display || "";
+  const billingInterval = membershipConfig.billing_interval || "";
   const primaryCtaClass =
     "inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-[#e3c36d] text-[#071925] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.24)] hover:bg-[#f0d587] transition-colors";
 
   return (
     <div data-testid="landing-page" className="min-h-screen bg-[var(--hc-bg)] text-[var(--hc-text)]">
       <header className="border-b border-[#c7a34f]/30 bg-[#071925]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3">
+        <nav aria-label="Navegación pública" className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-3">
           <Link to="/" aria-label="Hampton Crest Academy" className="min-w-0">
             <BrandLockup />
           </Link>
@@ -71,9 +85,10 @@ export default function PublicLanding() {
           >
             Iniciar sesión
           </Link>
-        </div>
+        </nav>
       </header>
 
+      <main>
       <section className="relative min-h-[640px] sm:min-h-[680px] overflow-hidden border-b border-[#c7a34f]/30 bg-[#071925]">
         <div
           className="absolute inset-0 bg-cover bg-[68%_bottom] opacity-[0.78] sm:bg-center sm:opacity-100"
@@ -102,6 +117,8 @@ export default function PublicLanding() {
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
               <PaymentCta
                 href={paymentLink}
+                price={price}
+                interval={billingInterval}
                 testId="landing-cta-hero"
                 className={primaryCtaClass}
               />
@@ -209,11 +226,17 @@ export default function PublicLanding() {
           </div>
         </div>
       </section>
+      </main>
 
       <footer className="border-t border-[var(--hc-border)]">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
+        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[0.65rem] tracking-[0.16em] uppercase text-[var(--hc-text-muted)]">
           <span>© Hampton Crest Academy · Est. 2026</span>
-          <span>Confidencial · Solo Miembros</span>
+          <nav aria-label="Información legal" className="flex flex-wrap justify-center gap-4">
+            <Link to="/terminos">Términos</Link>
+            <Link to="/privacidad">Privacidad</Link>
+            <Link to="/aviso-de-riesgo">Riesgo</Link>
+            <a href="mailto:members@investorhamptoncrest.com">Soporte</a>
+          </nav>
         </div>
       </footer>
     </div>

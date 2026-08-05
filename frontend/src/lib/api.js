@@ -1,29 +1,30 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 export const API = `${BACKEND_URL}/api`;
 
-const TOKEN_KEY = "hc_access_token";
+export const api = axios.create({ baseURL: API, withCredentials: true });
 
-export const tokenStore = {
-  get: () => sessionStorage.getItem(TOKEN_KEY),
-  set: (t) => {
-    localStorage.removeItem(TOKEN_KEY);
-    sessionStorage.setItem(TOKEN_KEY, t);
-  },
-  clear: () => {
-    sessionStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(TOKEN_KEY);
-  },
-};
-
-export const api = axios.create({ baseURL: API });
+const getCookie = (name) =>
+  document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(`${name}=`))
+    ?.split("=")
+    .slice(1)
+    .join("=");
 
 api.interceptors.request.use((config) => {
-  const t = tokenStore.get();
-  if (t) {
+  const method = (config.method || "get").toLowerCase();
+  if (!["get", "head", "options"].includes(method)) {
+    const csrfToken = getCookie("hc_csrf_token");
+    if (csrfToken) {
+      config.headers = config.headers || {};
+      config.headers["X-CSRF-Token"] = decodeURIComponent(csrfToken);
+    }
+  }
+  if (BACKEND_URL) {
     config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${t}`;
+    config.withCredentials = true;
   }
   return config;
 });
@@ -31,9 +32,6 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      tokenStore.clear();
-    }
     if (
       error.response?.status === 403 &&
       error.response?.data?.detail === "membership_inactive" &&

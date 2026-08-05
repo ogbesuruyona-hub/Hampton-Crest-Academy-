@@ -13,10 +13,14 @@ if not BASE_URL:
             BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
             break
 
-ADMIN_EMAIL = "admin-removed@example.invalid"
-ADMIN_PASS = "***REMOVED***"
-MEMBER_EMAIL = "member-removed@example.invalid"
-MEMBER_PASS = "***REMOVED***"
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "")
+ADMIN_PASS = os.environ.get("TEST_ADMIN_PASSWORD", "")
+MEMBER_EMAIL = os.environ.get("TEST_MEMBER_EMAIL", "")
+MEMBER_PASS = os.environ.get("TEST_MEMBER_PASSWORD", "")
+pytestmark = pytest.mark.skipif(
+    not all((BASE_URL, ADMIN_EMAIL, ADMIN_PASS, MEMBER_EMAIL, MEMBER_PASS)),
+    reason="Set integration-test URL and credentials in environment variables",
+)
 
 
 def _login(email, password):
