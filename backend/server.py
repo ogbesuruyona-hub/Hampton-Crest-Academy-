@@ -2531,7 +2531,10 @@ async def ensure_bootstrap_middleware(request: Request, call_next):
 
 configured_origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip()]
 if not configured_origins:
-    configured_origins = [PUBLIC_URL, "http://localhost:3000", "http://localhost:5173"]
+    configured_origins = ["http://localhost:3000", "http://localhost:5173"]
+for required_origin in (PUBLIC_URL, DEFAULT_PUBLIC_URL):
+    if required_origin not in configured_origins:
+        configured_origins.append(required_origin)
 
 app.add_middleware(
     CORSMiddleware,
