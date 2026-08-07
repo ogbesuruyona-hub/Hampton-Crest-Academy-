@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://hampton-crest-academy.vercel.app/</loc>
+    <loc>https://academy.hamptoncrestcapital.com/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://hampton-crest-academy.vercel.app/privacidad</loc>
+    <loc>https://academy.hamptoncrestcapital.com/privacidad</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://hampton-crest-academy.vercel.app/terminos</loc>
+    <loc>https://academy.hamptoncrestcapital.com/terminos</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://hampton-crest-academy.vercel.app/aviso-de-riesgo</loc>
+    <loc>https://academy.hamptoncrestcapital.com/aviso-de-riesgo</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>

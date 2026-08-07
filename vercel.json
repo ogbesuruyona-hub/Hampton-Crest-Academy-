@@ -3,6 +3,16 @@
   "installCommand": "npm install --prefix frontend --legacy-peer-deps",
   "buildCommand": "npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        { "type": "host", "value": "hampton-crest-academy.vercel.app" }
+      ],
+      "destination": "https://academy.hamptoncrestcapital.com/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

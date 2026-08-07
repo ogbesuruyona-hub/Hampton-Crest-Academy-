@@ -5,7 +5,7 @@
 1. Rotar en Vercel `JWT_SECRET` (mínimo 32 caracteres), cualquier contraseña que haya aparecido en Git y `STRIPE_WEBHOOK_SECRET`. Revocar las credenciales anteriores.
 2. Activar 2FA en la cuenta administradora y retirar `ADMIN_PASSWORD` de Vercel después de verificar el acceso inicial.
 3. Configurar `MEMBERSHIP_PRICE_DISPLAY` (incluye moneda e importe) y `MEMBERSHIP_BILLING_INTERVAL` (por ejemplo, “cada mes”). Sin ambos valores el backend no entrega el enlace de pago.
-4. Registrar en Stripe el endpoint `https://hampton-crest-academy.vercel.app/api/webhook/stripe` y suscribir los eventos documentados en la sección siguiente.
+4. Registrar en Stripe el endpoint `https://academy.hamptoncrestcapital.com/api/webhook/stripe` y suscribir los eventos documentados en la sección siguiente.
 5. Configurar `APP_PUBLIC_URL`, `CORS_ORIGINS`, `SUPPORT_EMAIL`, `SENDER_EMAIL`, `RESEND_API_KEY` y `EMAILS_ENABLED=true`.
 
 ## Prueba controlada de facturación
@@ -23,7 +23,7 @@ Los webhooks mínimos son: `checkout.session.completed`, `customer.subscription.
 
 ## Dominio y correo
 
-Conectar un dominio propio en Vercel, actualizar `APP_PUBLIC_URL`, canonical, Open Graph, sitemap y Stripe. En el proveedor de correo publicar SPF y DKIM; publicar DMARC inicialmente con `p=none`, observar reportes y después endurecer a `quarantine` o `reject`. Probar entrega a Gmail, Outlook y Yahoo.
+El dominio público es `academy.hamptoncrestcapital.com`. Mantener `APP_PUBLIC_URL`, canonical, Open Graph, sitemap y Stripe apuntando a ese dominio. En el proveedor de correo publicar SPF y DKIM; publicar DMARC inicialmente con `p=none`, observar reportes y después endurecer a `quarantine` o `reject`. Probar entrega a Gmail, Outlook y Yahoo.
 
 ## Staging y cambios
 
@@ -32,4 +32,3 @@ Mantener un proyecto Vercel de staging con base Mongo, claves Stripe de prueba, 
 ## Respuesta a exposición de secretos
 
 Rotar primero, limpiar después. Registrar qué secreto, periodo y accesos pudieron verse. Invalidar sesiones al rotar JWT, revisar logs de administrador y Stripe, limpiar el historial Git y pedir a colaboradores que vuelvan a clonar en lugar de fusionar historiales antiguos.
-

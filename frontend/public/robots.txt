@@ -14,4 +14,4 @@ Disallow: /directory
 Disallow: /search
 Disallow: /admin
 
-Sitemap: https://hampton-crest-academy.vercel.app/sitemap.xml
+Sitemap: https://academy.hamptoncrestcapital.com/sitemap.xml
