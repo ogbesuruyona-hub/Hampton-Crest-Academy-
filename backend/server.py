@@ -427,7 +427,8 @@ async def get_object(path: str) -> tuple[bytes, str]:
 
 
 # ---------------- Helpers: email ----------------
-PUBLIC_URL = os.environ.get("APP_PUBLIC_URL", "")
+DEFAULT_PUBLIC_URL = "https://academy.hamptoncrestcapital.com"
+PUBLIC_URL = os.environ.get("APP_PUBLIC_URL", "").strip().rstrip("/") or DEFAULT_PUBLIC_URL
 
 
 def _digest_html(*, title: str, summary: str, category: Optional[str], content_type_label: str, link: str) -> str:
@@ -2530,7 +2531,7 @@ async def ensure_bootstrap_middleware(request: Request, call_next):
 
 configured_origins = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip()]
 if not configured_origins:
-    configured_origins = [PUBLIC_URL] if PUBLIC_URL else ["http://localhost:3000", "http://localhost:5173"]
+    configured_origins = [PUBLIC_URL, "http://localhost:3000", "http://localhost:5173"]
 
 app.add_middleware(
     CORSMiddleware,
