@@ -2342,6 +2342,7 @@ async def admin_email_test(current_user: dict = Depends(require_admin)):
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "").lower().strip()
     admin_password = os.environ.get("ADMIN_PASSWORD", "")
+    force_password_reset = os.environ.get("ADMIN_FORCE_PASSWORD_RESET", "false").lower() == "true"
     if not admin_email or not admin_password:
         logger.warning("Admin bootstrap skipped; set ADMIN_EMAIL and ADMIN_PASSWORD to enable it.")
         return
@@ -2373,9 +2374,12 @@ async def seed_admin():
                 "totp_enabled": bool(existing.get("totp_enabled", False)),
                 "email_digest_opt_in": existing.get("email_digest_opt_in", True),
                 "updated_at": now_utc(),
+                **({"password_hash": hash_password(admin_password)} if force_password_reset else {}),
             }},
         )
-        # ADMIN_PASSWORD is bootstrap-only. Existing credentials are never reset at startup.
+        if force_password_reset:
+            logger.warning("Applied one-time administrator password recovery for %s", admin_email)
+        # Existing credentials are unchanged unless ADMIN_FORCE_PASSWORD_RESET is explicitly enabled.
 
 
 async def seed_test_member():

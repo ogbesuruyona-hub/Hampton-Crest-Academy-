@@ -8,6 +8,8 @@
 4. Registrar en Stripe el endpoint `https://academy.hamptoncrestcapital.com/api/webhook/stripe` y suscribir los eventos documentados en la sección siguiente.
 5. Configurar `APP_PUBLIC_URL`, `CORS_ORIGINS`, `SUPPORT_EMAIL`, `SENDER_EMAIL`, `RESEND_API_KEY` y `EMAILS_ENABLED=true`.
 
+Para recuperar una cuenta administradora existente, establece temporalmente `ADMIN_FORCE_PASSWORD_RESET=true`, actualiza `ADMIN_PASSWORD`, despliega y verifica el acceso. Inmediatamente después cambia el indicador a `false`, retira `ADMIN_PASSWORD` y vuelve a desplegar.
+
 ## Prueba controlada de facturación
 
 Usar una cuenta y tarjeta controladas. Verificar, en orden: Checkout completado; evento `checkout.session.completed`; creación de usuario/invitación; correo; contraseña; login; portal de facturación; cancelación; acceso hasta `current_period_end`; suspensión posterior. Probar además `invoice.payment_failed`, recuperación con `invoice.paid` y fin del periodo de gracia.
