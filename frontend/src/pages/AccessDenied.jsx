@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { ArrowUpRight, CreditCard, RefreshCw, ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { localizeBillingInterval, withSpanishCheckoutLocale } from "../lib/paymentLinks";
 
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
@@ -18,7 +19,8 @@ export default function AccessDenied() {
     api.get("/membership/config").then(({ data }) => setConfig(data || {})).catch(() => {});
   }, []);
 
-  const paymentLink = config.payment_link_url || "";
+  const paymentLink = withSpanishCheckoutLocale(config.payment_link_url || "");
+  const billingInterval = localizeBillingInterval(config.billing_interval || "");
 
   if (user?.has_access) {
     return <Navigate to="/dashboard" replace />;
@@ -87,7 +89,7 @@ export default function AccessDenied() {
             </button>
           ) : paymentLink ? (
             <div>
-              <p className="mb-3 text-sm font-semibold">{config.price_display} · {config.billing_interval}</p>
+              <p className="mb-3 text-sm font-semibold">{config.price_display} · {billingInterval}</p>
               <a
                 href={paymentLink}
                 data-testid="access-denied-cta"

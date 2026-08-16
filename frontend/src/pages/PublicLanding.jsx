@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, FileText, BarChart3, Lock, ArrowUpRight, ShieldCheck, Users } from "lucide-react";
 import { api } from "../lib/api";
 import BrandLockup from "../components/BrandLockup";
+import { localizeBillingInterval, withSpanishCheckoutLocale } from "../lib/paymentLinks";
 
 const PaymentCta = ({ href, price, interval, testId, className }) => {
   if (!href) {
@@ -64,10 +65,10 @@ export default function PublicLanding() {
       .catch(() => setMembershipConfig({ framer_url: "", payment_link_url: "" }));
   }, []);
 
-  const paymentLink = membershipConfig.payment_link_url || "";
+  const paymentLink = withSpanishCheckoutLocale(membershipConfig.payment_link_url || "");
   const framerUrl = membershipConfig.framer_url || "";
   const price = membershipConfig.price_display || "";
-  const billingInterval = membershipConfig.billing_interval || "";
+  const billingInterval = localizeBillingInterval(membershipConfig.billing_interval || "");
   const primaryCtaClass =
     "inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-[#e3c36d] text-[#071925] px-7 py-4 text-xs tracking-[0.18em] uppercase font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.24)] hover:bg-[#f0d587] transition-colors";
 
