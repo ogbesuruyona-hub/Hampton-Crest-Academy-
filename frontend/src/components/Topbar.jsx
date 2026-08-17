@@ -2,7 +2,7 @@ import React from "react";
 import { Search, Bell, Menu, LogOut, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { BrandCrest } from "./BrandLockup";
+import BrandLockup, { BrandCrest } from "./BrandLockup";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,16 +69,14 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
             <DropdownMenuTrigger asChild>
               <button
                 data-testid="profile-menu-trigger"
-                className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-[var(--hc-surface-elevated)] transition-colors"
+                aria-label={`Abrir menú de ${user?.name || "cuenta"}`}
+                className="flex items-center px-2 py-1 hover:bg-[var(--hc-surface-elevated)] transition-colors"
               >
-                <div className="h-10 w-10 flex items-center justify-center overflow-hidden bg-[var(--hc-ink)] border border-[var(--hc-gold)]/35 shadow-[0_5px_16px_rgba(7,25,37,0.12)]">
-                  <BrandCrest compact testId="profile-brand-crest" />
+                <div className="hidden sm:flex items-center" aria-hidden="true">
+                  <BrandLockup tone="ink" testId="topbar-brand-lockup" />
                 </div>
-                <div className="hidden sm:flex flex-col items-start leading-tight">
-                  <span className="text-xs text-[var(--hc-text)] tracking-tight">{user?.name || "Miembro"}</span>
-                  <span className="text-[0.65rem] tracking-[0.18em] uppercase text-[var(--hc-text-muted)]">
-                    {user?.role === "admin" ? "administrador" : "miembro"}
-                  </span>
+                <div className="sm:hidden h-10 w-10 flex items-center justify-center overflow-hidden bg-[var(--hc-ink)] border border-[var(--hc-gold)]/35 shadow-[0_5px_16px_rgba(7,25,37,0.12)]">
+                  <BrandCrest compact testId="profile-brand-crest" />
                 </div>
               </button>
             </DropdownMenuTrigger>

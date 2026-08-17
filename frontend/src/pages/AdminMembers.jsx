@@ -235,7 +235,7 @@ export default function AdminMembers() {
               <div
                 key={m.id}
                 data-testid={`member-row-${m.id}`}
-                className="grid grid-cols-1 xl:grid-cols-[minmax(180px,1.2fr)_140px_150px_150px_130px_auto] items-center gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
+                className="grid grid-cols-1 xl:grid-cols-[minmax(200px,1.2fr)_140px_minmax(360px,1.5fr)_auto] items-center gap-4 px-6 py-4 hover:bg-[var(--hc-surface-elevated)] transition-colors"
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium tracking-tight text-[var(--hc-text)] truncate">
@@ -246,18 +246,27 @@ export default function AdminMembers() {
                   </div>
                 </div>
                 <StatusPill user={m} />
-                <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  <div className="hc-overline mb-1">Suscripción</div>
-                  <div>{statusLabel(m.subscription_status)}</div>
-                </div>
-                <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  <div className="hc-overline mb-1">Fin de periodo</div>
-                  <div>{formatDate(m.current_period_end)}</div>
-                </div>
-                <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
-                  <div className="hc-overline mb-1">Último pago</div>
-                  <div>{statusLabel(m.last_payment_status)}</div>
-                </div>
+                {m.role === "admin" ? (
+                  <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                    <div className="hc-overline mb-1">Tipo de acceso</div>
+                    <div>Administración interna</div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                      <div className="hc-overline mb-1">Suscripción</div>
+                      <div>{statusLabel(m.subscription_status)}</div>
+                    </div>
+                    <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                      <div className="hc-overline mb-1">Fin de periodo</div>
+                      <div>{formatDate(m.current_period_end)}</div>
+                    </div>
+                    <div className="text-xs text-[var(--hc-text-muted)] tracking-tight">
+                      <div className="hc-overline mb-1">Último pago</div>
+                      <div>{statusLabel(m.last_payment_status)}</div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 flex-wrap justify-start lg:justify-end">
                   {m.role !== "admin" && (
                     <>
