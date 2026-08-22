@@ -38,8 +38,8 @@ export const BookmarkButton = ({ contentType, contentId, size = "md", className 
   };
 
   const Icon = bookmarked ? BookmarkCheck : Bookmark;
-  const dim = size === "lg" ? "h-10 w-10" : "h-9 w-9";
-  const icon = size === "lg" ? "h-[18px] w-[18px]" : "h-4 w-4";
+  const dim = size === "lg" ? "h-10 w-10" : size === "sm" ? "h-7 w-7" : "h-9 w-9";
+  const icon = size === "lg" ? "h-[18px] w-[18px]" : size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
     <button

@@ -53,11 +53,11 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
           open();
         }
       }}
-      className="group relative bg-[var(--hc-surface)] border border-[var(--hc-border)] hover:border-[var(--hc-gold)]/60 transition-colors flex flex-col cursor-pointer focus:outline-none focus:border-[var(--hc-gold)]"
+      className="group relative h-full bg-[var(--hc-surface)] border border-[var(--hc-border)] hover:border-[var(--hc-gold)]/70 hover:shadow-[0_14px_34px_rgba(7,25,37,0.08)] transition-[border-color,box-shadow,transform] duration-300 flex flex-col cursor-pointer focus:outline-none focus:border-[var(--hc-gold)]"
     >
       {/* Cover */}
       <div
-        className="relative aspect-[3/4] w-full max-h-[260px] bg-[var(--hc-bg)] overflow-hidden"
+        className="relative h-[150px] sm:h-[185px] xl:h-[200px] w-full bg-[var(--hc-bg)] overflow-hidden border-b border-[var(--hc-border)]"
         data-testid={`book-cover-${book.id}`}
       >
         {book.cover_url ? (
@@ -66,7 +66,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
             alt={book.title}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            className="w-full h-full object-contain p-2.5 sm:p-3 transition-transform duration-500 group-hover:scale-[1.025]"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
@@ -82,45 +82,47 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
         )}
 
         {showStatus && book.status === "draft" && (
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-2 left-2">
             <StatusBadge status="draft" />
           </div>
         )}
         <div
-          className="absolute top-3 right-3"
+          className="absolute top-2 right-2"
           onClick={(e) => {
             e.stopPropagation();
           }}
         >
-          <BookmarkButton contentType="books" contentId={book.id} />
+          <BookmarkButton contentType="books" contentId={book.id} size="sm" />
         </div>
       </div>
 
       {/* Body */}
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col min-h-0">
         {book.category && (
-          <div className="hc-overline mb-1.5 text-[var(--hc-gold)]/80">{book.category}</div>
+          <div className="mb-1 text-[0.56rem] sm:text-[0.6rem] font-semibold tracking-[0.16em] uppercase text-[var(--hc-gold)]/85 line-clamp-1">
+            {book.category}
+          </div>
         )}
-        <h3 className="text-sm font-medium tracking-tight text-[var(--hc-text)] leading-snug group-hover:text-[var(--hc-gold)] transition-colors">
+        <h3 className="text-xs sm:text-sm font-medium tracking-tight text-[var(--hc-text)] leading-snug line-clamp-2 group-hover:text-[var(--hc-gold)] transition-colors">
           {book.title}
         </h3>
         {book.author && (
-          <div className="mt-1 text-xs text-[var(--hc-text-secondary)] tracking-tight">
+          <div className="mt-1 text-[0.65rem] sm:text-xs text-[var(--hc-text-secondary)] tracking-tight line-clamp-1">
             por {book.author}
           </div>
         )}
         {book.description && (
-          <p className="mt-2 text-xs text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2">
+          <p className="mt-1.5 hidden text-[0.68rem] text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2 sm:block">
             {book.description}
           </p>
         )}
 
-        <div className="mt-3 pt-3 border-t border-[var(--hc-border)] flex items-center justify-between gap-2">
+        <div className="mt-auto pt-2.5 border-t border-[var(--hc-border)] flex items-center justify-between gap-1.5">
           <span
             data-testid={`book-open-${book.id}`}
-            className="inline-flex items-center gap-1.5 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-gold)] group-hover:underline underline-offset-4"
+            className="inline-flex items-center gap-1 text-[0.54rem] sm:text-[0.6rem] tracking-[0.16em] uppercase text-[var(--hc-gold)] group-hover:underline underline-offset-4 whitespace-nowrap"
           >
-            Ver detalle <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+            Ver libro <ArrowUpRight className="h-2.5 w-2.5" strokeWidth={1.5} />
           </span>
           {isAdmin && (
             <div
@@ -131,17 +133,17 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
                 onClick={onEdit}
                 data-testid={`book-edit-${book.id}`}
                 title="Editar"
-                className="h-7 w-7 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
+                className="h-6 w-6 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-gold)] transition-colors"
               >
-                <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <Pencil className="h-3 w-3" strokeWidth={1.5} />
               </button>
               <button
                 onClick={() => setConfirmDelete(true)}
                 data-testid={`book-delete-${book.id}`}
                 title="Eliminar"
-                className="h-7 w-7 flex items-center justify-center border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors"
+                className="h-6 w-6 flex items-center justify-center border border-[#7A2424] text-[#A74444] hover:bg-[#F7EDED] transition-colors"
               >
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <Trash2 className="h-3 w-3" strokeWidth={1.5} />
               </button>
             </div>
           )}
