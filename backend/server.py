@@ -14,8 +14,11 @@ import asyncio
 import hashlib
 import secrets
 import json
+import ipaddress
+import socket
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Annotated, List
+from urllib.parse import urljoin, urlparse
 
 import bcrypt
 import jwt
@@ -24,6 +27,7 @@ import qrcode
 import requests
 import resend
 import stripe
+from bs4 import BeautifulSoup
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from fastapi import (
@@ -1008,6 +1012,10 @@ class BookIn(BaseModel):
     status: str = Field(default="published", pattern="^(draft|published)$")
 
 
+class BookMetadataIn(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+
+
 # ---------------- Content helpers ----------------
 def _author_stub(user: dict) -> dict:
     return {"author_id": user.get("id") or user.get("_id"), "author_name": user.get("name", "")}
@@ -1053,6 +1061,169 @@ def _patch_update(payload_dict: dict, existing: dict) -> dict:
     if new_status == "published" and not existing.get("published_at"):
         update["published_at"] = now_utc()
     return update
+
+
+def _validate_public_metadata_url(value: str) -> str:
+    parsed = urlparse((value or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("Use a public HTTP or HTTPS link")
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+    except socket.gaierror as exc:
+        raise ValueError("The link host could not be resolved") from exc
+    resolved = {item[4][0].split("%", 1)[0] for item in addresses}
+    if not resolved or any(not ipaddress.ip_address(address).is_global for address in resolved):
+        raise ValueError("Private or local links are not allowed")
+    return parsed.geturl()
+
+
+def _fetch_book_metadata_page(value: str) -> tuple[str, bytes, str]:
+    current_url = value
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; HamptonCrestAcademy/1.0; +https://academy.hamptoncrestcapital.com)",
+        "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.8,*/*;q=0.2",
+    }
+    for _ in range(4):
+        current_url = _validate_public_metadata_url(current_url)
+        response = requests.get(current_url, headers=headers, timeout=(5, 12), stream=True, allow_redirects=False)
+        if response.status_code in {301, 302, 303, 307, 308}:
+            location = response.headers.get("Location")
+            response.close()
+            if not location:
+                raise ValueError("The source returned an invalid redirect")
+            current_url = urljoin(current_url, location)
+            continue
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        chunks = []
+        size = 0
+        for chunk in response.iter_content(64 * 1024):
+            size += len(chunk)
+            if size > 2 * 1024 * 1024:
+                response.close()
+                raise ValueError("The source page is too large to inspect")
+            chunks.append(chunk)
+        response.close()
+        return current_url, b"".join(chunks), content_type
+    raise ValueError("The source redirected too many times")
+
+
+def _json_ld_candidates(value):
+    if isinstance(value, list):
+        for item in value:
+            yield from _json_ld_candidates(item)
+    elif isinstance(value, dict):
+        yield value
+        if "@graph" in value:
+            yield from _json_ld_candidates(value["@graph"])
+
+
+def _metadata_text(soup: BeautifulSoup, *keys: str) -> str:
+    for key in keys:
+        tag = soup.find("meta", attrs={"property": key}) or soup.find("meta", attrs={"name": key})
+        if tag and tag.get("content"):
+            return str(tag["content"]).strip()
+    return ""
+
+
+def _author_text(value) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return str(value.get("name") or "").strip()
+    if isinstance(value, list):
+        names = [name for name in (_author_text(item) for item in value) if name]
+        return ", ".join(names)
+    return ""
+
+
+def _image_text(value) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list) and value:
+        return _image_text(value[0])
+    if isinstance(value, dict):
+        return str(value.get("url") or value.get("contentUrl") or "").strip()
+    return ""
+
+
+def _suggest_book_category(*values: str) -> Optional[str]:
+    haystack = " ".join(value or "" for value in values).lower()
+    categories = [
+        ("Finanzas Conductuales", ("behavioral", "behavioural", "psychology", "psicolog", "conductual")),
+        ("Value Investing", ("value investing", "valoración", "valuation", "intrinsic value")),
+        ("Macro y Ciclos", ("macro", "economic cycle", "business cycle", "ciclo económico")),
+        ("Historia de los Mercados", ("market history", "financial history", "historia", "crash")),
+        ("Estrategia y Modelos Mentales", ("strategy", "mental model", "decision", "estrategia")),
+        ("Fundadores y Operadores", ("founder", "entrepreneur", "operator", "leadership", "biography")),
+        ("Clásicos de inversión", ("investing", "investment", "inversión", "stock market")),
+    ]
+    for category, keywords in categories:
+        if any(keyword in haystack for keyword in keywords):
+            return category
+    return None
+
+
+def _extract_book_metadata(source_url: str, data: bytes, content_type: str) -> dict:
+    parsed = urlparse(source_url)
+    filename = parsed.path.rsplit("/", 1)[-1]
+    fallback_title = re.sub(r"[-_]+", " ", filename.rsplit(".", 1)[0]).strip().title()
+    if content_type == "application/pdf" or filename.lower().endswith(".pdf"):
+        return {
+            "title": fallback_title,
+            "author": "",
+            "description": "",
+            "cover_url": "",
+            "category": None,
+            "source_type": "PDF",
+            "resolved_url": source_url,
+        }
+    if content_type not in {"text/html", "application/xhtml+xml", ""}:
+        raise ValueError("The link does not point to a readable web page")
+
+    soup = BeautifulSoup(data, "html.parser")
+    structured = None
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        try:
+            decoded = json.loads(script.string or script.get_text() or "")
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for candidate in _json_ld_candidates(decoded):
+            raw_type = candidate.get("@type", "")
+            types = raw_type if isinstance(raw_type, list) else [raw_type]
+            if any(str(item).lower() in {"book", "product", "creativework"} for item in types):
+                structured = candidate
+                if any(str(item).lower() == "book" for item in types):
+                    break
+        if structured and str(structured.get("@type", "")).lower() == "book":
+            break
+
+    structured = structured or {}
+    page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    title = str(structured.get("name") or structured.get("headline") or "").strip()
+    title = title or _metadata_text(soup, "og:title", "twitter:title") or page_title or fallback_title
+    author = _author_text(structured.get("author")) or _metadata_text(
+        soup, "author", "book:author", "citation_author"
+    )
+    description = str(structured.get("description") or "").strip() or _metadata_text(
+        soup, "og:description", "twitter:description", "description"
+    )
+    cover_url = _image_text(structured.get("image")) or _metadata_text(soup, "og:image", "twitter:image")
+    if cover_url:
+        cover_url = urljoin(source_url, cover_url)
+    genre = structured.get("genre")
+    if isinstance(genre, list):
+        genre = " ".join(str(item) for item in genre)
+    category = _suggest_book_category(title, author, str(genre or ""), description)
+    return {
+        "title": title[:200],
+        "author": author[:200],
+        "description": description[:1000],
+        "cover_url": cover_url[:2000],
+        "category": category,
+        "source_type": "Página web",
+        "resolved_url": source_url,
+    }
 
 
 async def _maybe_dispatch(bg: BackgroundTasks, *, content_type: str, before: Optional[dict], after: dict):
@@ -1318,6 +1489,18 @@ async def delete_company_memo(company_id: str, memo_id: str, current_user: dict 
 
 
 # ---------------- Routes: books (academy library) ----------------
+@api_router.post("/books/metadata/inspect")
+async def inspect_book_metadata(payload: BookMetadataIn, current_user: dict = Depends(require_admin)):
+    try:
+        resolved_url, data, content_type = await asyncio.to_thread(_fetch_book_metadata_page, payload.url.strip())
+        return await asyncio.to_thread(_extract_book_metadata, resolved_url, data, content_type)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except requests.RequestException as exc:
+        logger.info("book metadata fetch failed for %s: %s", payload.url, exc)
+        raise HTTPException(422, "The source page could not be read. Enter the book details manually.")
+
+
 @api_router.get("/books")
 async def list_books(
     current_user: dict = Depends(get_current_user),
@@ -1493,7 +1676,6 @@ async def upload_content_image(file: UploadFile = File(...), current_user: dict 
     }
 
 
-@api_router.post("/uploads/content-pdf")
 @api_router.post("/uploads/report-pdf")
 async def upload_report_pdf(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
     if file.content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):

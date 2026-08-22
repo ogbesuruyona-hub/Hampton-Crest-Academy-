@@ -10,7 +10,7 @@ import {
 import { api, formatApiErrorDetail } from "../lib/api";
 import { LIBRARY_CATEGORIES } from "../lib/content";
 import { ImageUploader } from "./ImageUploader";
-import { PdfUploader } from "./PdfUploader";
+import { Loader2, Search } from "lucide-react";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -30,6 +30,8 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
   const [form, setForm] = useState(blank);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detectionMessage, setDetectionMessage] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -48,9 +50,46 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
       setForm(blank);
     }
     setError("");
+    setDetectionMessage("");
   }, [open, initial]);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const detectMetadata = async () => {
+    const link = form.external_url.trim();
+    setError("");
+    setDetectionMessage("");
+    try {
+      const parsed = new URL(link);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+    } catch {
+      setError("Pega primero un enlace web válido.");
+      return;
+    }
+    setDetecting(true);
+    try {
+      const { data } = await api.post("/books/metadata/inspect", { url: link });
+      setForm((current) => ({
+        ...current,
+        external_url: data.resolved_url || current.external_url,
+        title: data.title || current.title,
+        author: data.author || current.author,
+        cover_url: data.cover_url || current.cover_url,
+        description: data.description || current.description,
+        category: data.category || current.category,
+      }));
+      const detectedFields = [data.title && "título", data.author && "autor", data.cover_url && "portada", data.category && "categoría"].filter(Boolean);
+      setDetectionMessage(
+        detectedFields.length
+          ? `Detectamos ${detectedFields.join(", ")} · ${data.source_type}. Puedes corregirlos antes de guardar.`
+          : `El enlace funciona, pero la página no publicó datos del libro. Complétalos manualmente.`,
+      );
+    } catch (err) {
+      setError(formatApiErrorDetail(err.response?.data?.detail) || "No pudimos leer esa página. Completa los datos manualmente.");
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -100,6 +139,42 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="book-editor-form">
+          <div className="border border-[var(--hc-gold)]/35 bg-[var(--hc-gold-soft)] p-4">
+            <label className={labelCls}>Enlace del libro</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="url"
+                value={form.external_url}
+                onChange={(e) => {
+                  update("external_url", e.target.value);
+                  setDetectionMessage("");
+                }}
+                required
+                data-testid="book-editor-external-url"
+                className={inputCls}
+                placeholder="https://… (Amazon, editorial, Google Books u otra página)"
+              />
+              <button
+                type="button"
+                onClick={detectMetadata}
+                disabled={detecting || !form.external_url.trim()}
+                data-testid="book-detect-metadata"
+                className="inline-flex shrink-0 items-center justify-center gap-2 bg-[var(--hc-ink)] px-4 py-2 text-[0.65rem] uppercase tracking-[0.16em] text-white hover:bg-[var(--hc-ink-soft)] disabled:opacity-50"
+              >
+                {detecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                {detecting ? "Detectando…" : "Detectar datos"}
+              </button>
+            </div>
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-[var(--hc-text-muted)]">
+              Pegamos el enlace y buscamos automáticamente el título, autor, categoría y portada disponibles.
+            </p>
+            {detectionMessage ? (
+              <p className="mt-2 text-xs leading-relaxed text-[var(--hc-gold)]" data-testid="book-detection-result">
+                {detectionMessage}
+              </p>
+            ) : null}
+          </div>
+
           <div>
             <label className={labelCls}>Título</label>
             <input
@@ -162,35 +237,6 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
                   placeholder="https://…/portada.jpg"
                 />
               </div>
-            </details>
-          </div>
-
-          <div>
-            <label className={labelCls}>Archivo del libro</label>
-            <PdfUploader
-              value={
-                form.external_url.startsWith("/api/files/")
-                  ? { url: form.external_url, filename: "Libro en PDF", size: null }
-                  : null
-              }
-              onChange={(file) => update("external_url", file?.url || "")}
-              endpoint="/uploads/content-pdf"
-              buttonLabel="Subir libro en PDF"
-              testid="book-pdf-uploader"
-            />
-            <details className="mt-3" open={!form.external_url.startsWith("/api/files/")}>
-              <summary className="cursor-pointer text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
-                O usar un enlace externo
-              </summary>
-              <input
-                type="url"
-                value={form.external_url.startsWith("/api/files/") ? "" : form.external_url}
-                onChange={(e) => update("external_url", e.target.value)}
-                required={!form.external_url.startsWith("/api/files/")}
-                data-testid="book-editor-external-url"
-                className={`${inputCls} mt-2`}
-                placeholder="https://… (Amazon, Drive o tu propio sitio)"
-              />
             </details>
           </div>
 
