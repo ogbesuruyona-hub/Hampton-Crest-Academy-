@@ -15,6 +15,7 @@ import {
 } from "../lib/content";
 import { RichTextEditor } from "./RichTextEditor";
 import { PdfUploader } from "./PdfUploader";
+import { ImageUploader } from "./ImageUploader";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -30,6 +31,8 @@ const blank = {
   track: "",
   week_count: "",
   order_index: 0,
+  cover_url: "",
+  estimated_duration_minutes: "",
   period: "",
   pdf_url: null,
   pdf_filename: null,
@@ -55,9 +58,14 @@ export const ContentEditorDialog = ({
         ...blank,
         ...initial,
         tags: Array.isArray(initial.tags) ? initial.tags.join(", ") : "",
+        estimated_duration_minutes:
+          contentType === "education" ? initial.estimated_duration_minutes || 15 : "",
       });
     } else {
-      setForm(blank);
+      setForm({
+        ...blank,
+        estimated_duration_minutes: contentType === "education" ? 15 : "",
+      });
     }
     setError("");
   }, [open, initial]);
@@ -88,6 +96,8 @@ export const ContentEditorDialog = ({
       payload.track = form.track || null;
       payload.week_count = form.week_count ? Number(form.week_count) : null;
       payload.order_index = Number(form.order_index) || 0;
+      payload.cover_url = form.cover_url?.trim() || null;
+      payload.estimated_duration_minutes = Number(form.estimated_duration_minutes) || 15;
     }
     if (contentType === "reports") {
       payload.period = form.period;
@@ -152,6 +162,30 @@ export const ContentEditorDialog = ({
             />
           </div>
 
+          {contentType === "education" && (
+            <div>
+              <label className={labelCls}>Portada de la lección</label>
+              <ImageUploader
+                value={form.cover_url}
+                onChange={(url) => update("cover_url", url)}
+                testid="education-cover-uploader"
+              />
+              <details className="mt-3">
+                <summary className="cursor-pointer text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
+                  Usar una URL de imagen
+                </summary>
+                <input
+                  type="url"
+                  value={form.cover_url}
+                  onChange={(e) => update("cover_url", e.target.value)}
+                  className={`${inputCls} mt-2`}
+                  data-testid="education-cover-url"
+                  placeholder="https://…/portada.jpg"
+                />
+              </details>
+            </div>
+          )}
+
           <div>
             <label className={labelCls}>Cuerpo</label>
             <RichTextEditor
@@ -191,7 +225,7 @@ export const ContentEditorDialog = ({
           </div>
 
           {contentType === "education" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Track</label>
                 <select
@@ -207,7 +241,7 @@ export const ContentEditorDialog = ({
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Semanas</label>
+                <label className={labelCls}>Duración de la ruta (semanas)</label>
                 <input
                   type="number"
                   min="1"
@@ -216,6 +250,28 @@ export const ContentEditorDialog = ({
                   data-testid="editor-weeks"
                   className={inputCls}
                 />
+              </div>
+              <div>
+                <label className={labelCls}>Duración de esta lección</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="5"
+                    max="45"
+                    step="5"
+                    value={form.estimated_duration_minutes}
+                    onChange={(e) => update("estimated_duration_minutes", e.target.value)}
+                    required
+                    data-testid="editor-duration"
+                    className={`${inputCls} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--hc-text-muted)]">
+                    min
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[0.65rem] text-[var(--hc-text-muted)]">
+                  Entre 5 y 45 minutos. Recomendado: 10–15.
+                </p>
               </div>
               <div>
                 <label className={labelCls}>Orden</label>

@@ -150,11 +150,15 @@ class TestEducation:
     def test_create(self, admin_token):
         r = requests.post(f"{API}/education", headers=_auth_headers(admin_token),
                           json={"title": "TEST_Edu_Module", "body": "lesson", "track": "Foundations",
-                                "week_count": 4, "status": "published", "tags": ["intro"]})
+                                "week_count": 4, "estimated_duration_minutes": 15,
+                                "cover_url": "https://example.com/course.jpg",
+                                "status": "published", "tags": ["intro"]})
         assert r.status_code == 200, r.text
         data = r.json()
         assert data["track"] == "Foundations"
         assert data["week_count"] == 4
+        assert data["estimated_duration_minutes"] == 15
+        assert data["cover_url"] == "https://example.com/course.jpg"
         TestEducation.created_id = data["id"]
 
     def test_list_and_get(self, admin_token):

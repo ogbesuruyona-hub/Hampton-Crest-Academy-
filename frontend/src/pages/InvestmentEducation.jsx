@@ -41,13 +41,24 @@ const groupBy = (items, getKey) =>
 
 const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-[48px_1fr_auto] gap-4 items-start py-4 border-t border-[var(--hc-border)] first:border-t-0 ${completed ? "opacity-75" : ""}`}>
-      <div className={`h-9 w-9 flex items-center justify-center border text-xs ${
+    <div className={`grid grid-cols-1 sm:grid-cols-[72px_1fr_auto] gap-4 items-start py-4 border-t border-[var(--hc-border)] first:border-t-0 ${completed ? "opacity-75" : ""}`}>
+      <div className={`relative h-12 w-[72px] overflow-hidden flex items-center justify-center border text-xs ${
         completed
           ? "border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]"
           : "border-[var(--hc-border)] bg-[var(--hc-bg)] text-[var(--hc-text-secondary)]"
       }`}>
-        {completed ? "✓" : Number.isFinite(Number(lesson.order_index)) ? Number(lesson.order_index) + 1 : "—"}
+        {lesson.cover_url ? (
+          <img src={lesson.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+        ) : completed ? (
+          "✓"
+        ) : Number.isFinite(Number(lesson.order_index)) ? (
+          Number(lesson.order_index) + 1
+        ) : (
+          "—"
+        )}
+        {completed && lesson.cover_url ? (
+          <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center bg-[var(--hc-ink)] text-[var(--hc-gold)]">✓</span>
+        ) : null}
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -68,6 +79,7 @@ const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
         )}
         <div className="mt-2 flex items-center gap-2 text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
           <span>{formatDate(lesson.published_at || lesson.created_at)}</span>
+          {lesson.estimated_duration_minutes ? <span>· {lesson.estimated_duration_minutes} min</span> : null}
           {lesson.week_count ? <span>· {lesson.week_count} semanas</span> : null}
         </div>
       </div>

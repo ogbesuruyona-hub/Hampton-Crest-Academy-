@@ -20,7 +20,7 @@ const sortLessons = (items) =>
 
 const getDuration = (lesson) =>
   lesson.estimated_duration ||
-  lesson.estimated_duration_minutes ||
+  (lesson.estimated_duration_minutes ? `${lesson.estimated_duration_minutes} min` : null) ||
   lesson.duration ||
   lesson.reading_time ||
   null;
@@ -166,6 +166,16 @@ export default function EducationDetail() {
             <BookmarkButton contentType="education" contentId={lesson.id} />
           </div>
         </div>
+
+        {lesson.cover_url ? (
+          <div className="mt-8 aspect-[16/9] overflow-hidden border border-[var(--hc-border)] bg-[var(--hc-surface)]">
+            <img
+              src={lesson.cover_url}
+              alt={`Portada de ${lesson.title}`}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : null}
 
         <div className="mt-8 hc-gold-rule" />
       </header>

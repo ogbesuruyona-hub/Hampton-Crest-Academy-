@@ -44,6 +44,7 @@ PENDING_2FA_TOKEN_EXPIRES_MINUTES = 5
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 PDF_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
+IMAGE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
 mongo_url = os.environ.get("MONGO_URL", "").strip()
 db_name = os.environ.get("DB_NAME", "").strip()
@@ -960,6 +961,8 @@ class EducationIn(ResearchIn):
     track: Optional[str] = None
     week_count: Optional[int] = None
     order_index: int = 0
+    cover_url: Optional[str] = None
+    estimated_duration_minutes: Optional[int] = Field(default=15, ge=5, le=45)
 
 
 class ReportIn(ResearchIn):
@@ -1443,6 +1446,54 @@ async def remove_bookmark(
 
 
 # ---------------- Routes: PDF upload + file serve ----------------
+@api_router.post("/uploads/image")
+async def upload_content_image(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
+    """Store a safe raster image for book and education covers."""
+    content_type = (file.content_type or "").lower()
+    allowed_types = {
+        "image/jpeg": ("jpg", lambda value: value.startswith(b"\xff\xd8\xff")),
+        "image/png": ("png", lambda value: value.startswith(b"\x89PNG\r\n\x1a\n")),
+        "image/webp": ("webp", lambda value: value.startswith(b"RIFF") and value[8:12] == b"WEBP"),
+    }
+    if content_type not in allowed_types:
+        raise HTTPException(400, "Only JPG, PNG, and WebP images are accepted")
+    data = await file.read()
+    if len(data) > IMAGE_MAX_BYTES:
+        raise HTTPException(413, f"Image exceeds {IMAGE_MAX_BYTES // (1024*1024)} MB limit")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    extension, signature_matches = allowed_types[content_type]
+    if not signature_matches(data):
+        raise HTTPException(400, "Image contents do not match its declared format")
+
+    file_id = new_id()
+    path = f"{APP_NAME}/images/{file_id}.{extension}"
+    try:
+        result = await put_object(path, data, content_type)
+    except Exception as e:
+        logger.error("image upload failed: %s", e)
+        raise HTTPException(503, "Storage unavailable")
+    stored_path = result.get("path", path)
+    await db.uploads.insert_one({
+        "_id": file_id,
+        "storage_path": stored_path,
+        "original_filename": file.filename or f"{file_id}.{extension}",
+        "content_type": content_type,
+        "size": len(data),
+        "is_deleted": False,
+        "uploader_id": current_user["id"],
+        "created_at": now_utc(),
+    })
+    return {
+        "id": file_id,
+        "url": f"/api/files/{stored_path}",
+        "filename": file.filename or f"{file_id}.{extension}",
+        "size": len(data),
+        "content_type": content_type,
+    }
+
+
+@api_router.post("/uploads/content-pdf")
 @api_router.post("/uploads/report-pdf")
 async def upload_report_pdf(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
     if file.content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):

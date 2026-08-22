@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 import { api } from "../lib/api";
 
-export const PdfUploader = ({ value, onChange, testid }) => {
+export const PdfUploader = ({ value, onChange, testid, endpoint = "/uploads/report-pdf", buttonLabel = "Adjuntar PDF" }) => {
   // value: { url, filename, size } | null
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -27,7 +27,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
     try {
       const form = new FormData();
       form.append("file", file);
-      const { data } = await api.post("/uploads/report-pdf", form, {
+      const { data } = await api.post(endpoint, form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onChange?.({
@@ -68,9 +68,11 @@ export const PdfUploader = ({ value, onChange, testid }) => {
               >
                 {value.filename}
               </div>
-              <div className="text-[0.7rem] tracking-tight text-[var(--hc-text-muted)]">
-                {sizeLabel}
-              </div>
+              {value.size ? (
+                <div className="text-[0.7rem] tracking-tight text-[var(--hc-text-muted)]">
+                  {sizeLabel}
+                </div>
+              ) : null}
             </div>
           </div>
           <button
@@ -97,7 +99,7 @@ export const PdfUploader = ({ value, onChange, testid }) => {
             <Upload className="h-4 w-4" strokeWidth={1.5} />
           )}
           <span className="text-xs tracking-[0.18em] uppercase">
-            {uploading ? "Subiendo..." : "Adjuntar PDF (máx. 25 MB)"}
+            {uploading ? "Subiendo..." : `${buttonLabel} (máx. 25 MB)`}
           </span>
         </button>
       )}

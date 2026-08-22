@@ -123,7 +123,8 @@ export default function BookDetail() {
                 data-testid="book-external-link"
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
               >
-                Abrir fuente externa <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {book.external_url.startsWith("/api/files/") ? "Abrir libro" : "Abrir fuente externa"}
+                <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
               </a>
             )}
             <BookmarkButton contentType="books" contentId={book.id} />

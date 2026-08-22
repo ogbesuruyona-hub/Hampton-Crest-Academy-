@@ -9,6 +9,8 @@ import {
 } from "./ui/dialog";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { LIBRARY_CATEGORIES } from "../lib/content";
+import { ImageUploader } from "./ImageUploader";
+import { PdfUploader } from "./PdfUploader";
 
 const inputCls =
   "w-full bg-[var(--hc-bg)] border border-[var(--hc-border)] text-[var(--hc-text)] px-3 py-2 text-sm tracking-tight placeholder:text-[var(--hc-text-muted)] focus:outline-none focus:border-[var(--hc-gold)] transition-colors";
@@ -139,45 +141,57 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
           </div>
 
           <div>
-            <label className={labelCls}>URL de portada (opcional)</label>
-            <input
-              type="url"
+            <label className={labelCls}>Portada</label>
+            <ImageUploader
               value={form.cover_url}
-              onChange={(e) => update("cover_url", e.target.value)}
-              data-testid="book-editor-cover"
-              className={inputCls}
-              placeholder="https://…/portada.jpg"
+              onChange={(url) => update("cover_url", url)}
+              testid="book-editor-cover"
+              aspect="portrait"
             />
-            {form.cover_url && (
-              <div className="mt-3 inline-block">
-                <img
-                  src={form.cover_url}
-                  alt="vista previa de portada"
-                  loading="lazy"
-                  decoding="async"
-                  className="h-32 w-auto object-cover border border-[var(--hc-border)]"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
+                Usar una URL de imagen
+              </summary>
+              <div className="mt-2">
+                <input
+                  type="url"
+                  value={form.cover_url}
+                  onChange={(e) => update("cover_url", e.target.value)}
+                  className={inputCls}
+                  data-testid="book-editor-cover-url"
+                  placeholder="https://…/portada.jpg"
                 />
               </div>
-            )}
+            </details>
           </div>
 
           <div>
-            <label className={labelCls}>Enlace externo (donde vive el libro)</label>
-            <input
-              type="url"
-              value={form.external_url}
-              onChange={(e) => update("external_url", e.target.value)}
-              required
-              data-testid="book-editor-external-url"
-              className={inputCls}
-              placeholder="https://…  (Amazon, Drive, tu propio host)"
+            <label className={labelCls}>Archivo del libro</label>
+            <PdfUploader
+              value={
+                form.external_url.startsWith("/api/files/")
+                  ? { url: form.external_url, filename: "Libro en PDF", size: null }
+                  : null
+              }
+              onChange={(file) => update("external_url", file?.url || "")}
+              endpoint="/uploads/content-pdf"
+              buttonLabel="Subir libro en PDF"
+              testid="book-pdf-uploader"
             />
-            <p className="mt-2 text-[0.65rem] text-[var(--hc-text-muted)] tracking-tight">
-              Abre en una pestaña nueva para preservar la sesión del miembro en la academia.
-            </p>
+            <details className="mt-3" open={!form.external_url.startsWith("/api/files/")}>
+              <summary className="cursor-pointer text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
+                O usar un enlace externo
+              </summary>
+              <input
+                type="url"
+                value={form.external_url.startsWith("/api/files/") ? "" : form.external_url}
+                onChange={(e) => update("external_url", e.target.value)}
+                required={!form.external_url.startsWith("/api/files/")}
+                data-testid="book-editor-external-url"
+                className={`${inputCls} mt-2`}
+                placeholder="https://… (Amazon, Drive o tu propio sitio)"
+              />
+            </details>
           </div>
 
           <div>
