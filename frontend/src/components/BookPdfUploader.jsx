@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FileText, Loader2, RefreshCw, Upload, X } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
 
 const MAX_BOOK_BYTES = 50 * 1024 * 1024;
@@ -11,7 +11,7 @@ const formatSize = (bytes) => {
   return megabytes >= 1 ? `${megabytes.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 };
 
-export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" }) => {
+export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "book-pdf-uploader" }) => {
   const inputRef = useRef(null);
   const uploadRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -76,6 +76,7 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
     }
 
     setUploading(true);
+    onUploadingChange?.(true);
     setProgress(0);
     try {
       const { data: signed } = await api.post("/books/uploads/sign", {
@@ -117,6 +118,7 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
     } finally {
       uploadRef.current = null;
       setUploading(false);
+      onUploadingChange?.(false);
     }
   };
 
@@ -140,14 +142,21 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
       />
 
       {value?.path ? (
-        <div className="flex items-center justify-between gap-3 border border-[var(--hc-border)] bg-[var(--hc-bg)] px-4 py-3">
+        <div className="rounded-sm border border-[#7d9b7f]/50 bg-[#edf3ea] px-4 py-4">
+          <div className="mb-3 flex items-center gap-2 text-[#426246]">
+            <CheckCircle2 className="h-4 w-4" strokeWidth={1.8} />
+            <span className="text-[0.68rem] font-medium uppercase tracking-[0.16em]">PDF cargado correctamente</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <FileText className="h-5 w-5 shrink-0 text-[var(--hc-gold)]" strokeWidth={1.5} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[var(--hc-gold)] shadow-sm">
+              <FileText className="h-5 w-5" strokeWidth={1.5} />
+            </span>
             <div className="min-w-0">
-              <div className="truncate text-sm text-[var(--hc-text)]" data-testid="book-pdf-filename">
+              <div className="truncate text-sm font-medium text-[var(--hc-text)]" data-testid="book-pdf-filename">
                 {value.filename || "Libro en PDF"}
               </div>
-              <div className="text-[0.7rem] text-[var(--hc-text-muted)]">{formatSize(value.size)}</div>
+              <div className="mt-0.5 text-[0.72rem] text-[var(--hc-text-muted)]">{formatSize(value.size)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -155,7 +164,7 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
               type="button"
               onClick={chooseFile}
               aria-label="Cambiar PDF"
-              className="flex h-8 w-8 items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[var(--hc-gold)]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--hc-border)] bg-white text-[var(--hc-text-muted)] hover:text-[var(--hc-gold)]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </button>
@@ -163,10 +172,11 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
               type="button"
               onClick={remove}
               aria-label="Quitar PDF"
-              className="flex h-8 w-8 items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[#A74444]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--hc-border)] bg-white text-[var(--hc-text-muted)] hover:text-[#A74444]"
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
           </div>
         </div>
       ) : (
@@ -175,18 +185,23 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
           onClick={chooseFile}
           disabled={uploading}
           data-testid="book-pdf-upload-button"
-          className="w-full border border-dashed border-[var(--hc-border)] px-4 py-6 text-[var(--hc-text-secondary)] transition-colors hover:border-[var(--hc-gold)] hover:text-[var(--hc-text)] disabled:opacity-60"
+          className="w-full rounded-sm border-2 border-dashed border-[var(--hc-gold)]/40 bg-white/55 px-5 py-8 text-[var(--hc-text-secondary)] transition-colors hover:border-[var(--hc-gold)] hover:bg-white hover:text-[var(--hc-text)] disabled:cursor-wait disabled:opacity-70"
         >
-          <span className="flex items-center justify-center gap-2">
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            <span className="text-xs uppercase tracking-[0.18em]">
-              {uploading ? `Subiendo libro · ${progress}%` : "Elegir libro en PDF"}
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]">
+            {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+          </span>
+          <span className="mt-3 block">
+            <span className="block text-sm font-medium tracking-tight text-[var(--hc-text)]">
+              {uploading ? `Subiendo el libro… ${progress}%` : "Seleccionar PDF"}
+            </span>
+            <span className="mt-1 block text-xs text-[var(--hc-text-muted)]">
+              {uploading ? "No cierres esta ventana" : "Toca aquí para elegirlo desde tu dispositivo"}
             </span>
           </span>
           {uploading ? (
-            <span className="mx-auto mt-3 block h-1 max-w-sm overflow-hidden bg-[var(--hc-border)]">
+            <span className="mx-auto mt-4 block h-1.5 max-w-sm overflow-hidden rounded-full bg-[var(--hc-border)]">
               <span
-                className="block h-full bg-[var(--hc-gold)] transition-[width]"
+                className="block h-full rounded-full bg-[var(--hc-gold)] transition-[width]"
                 style={{ width: `${progress}%` }}
               />
             </span>
@@ -194,10 +209,14 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
         </button>
       )}
 
-      <p className="mt-2 text-[0.65rem] text-[var(--hc-text-muted)]">
-        PDF · máximo 50 MB · la carga continúa automáticamente si la conexión se interrumpe.
+      <p className="mt-2 text-center text-[0.68rem] text-[var(--hc-text-muted)]">
+        Solo PDF · máximo 50 MB · hasta 3 intentos automáticos
       </p>
-      {error ? <div className="mt-2 text-xs text-[#A74444]">{error}</div> : null}
+      {error ? (
+        <div className="mt-3 rounded-sm border border-[#b75d5d]/35 bg-[#f8e9e7] px-3 py-2.5 text-xs leading-relaxed text-[#913f3f]">
+          <strong className="font-medium">No pudimos subir el PDF.</strong> {error}
+        </div>
+      ) : null}
     </div>
   );
 };
