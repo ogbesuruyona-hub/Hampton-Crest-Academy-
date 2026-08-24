@@ -149,7 +149,7 @@ export default function BooksLibrary() {
         />
       ) : (
         <div
-          className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          className="grid grid-cols-4 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4 2xl:grid-cols-5"
           data-testid="books-list"
         >
           {items.map((b) => (
