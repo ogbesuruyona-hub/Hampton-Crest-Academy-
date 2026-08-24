@@ -108,6 +108,7 @@ APP_NAME = os.environ.get("APP_NAME", "hampton-crest")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 SUPABASE_BOOKS_BUCKET = os.environ.get("SUPABASE_BOOKS_BUCKET", "academy-books").strip()
+SUPABASE_IMAGES_BUCKET = os.environ.get("SUPABASE_IMAGES_BUCKET", "academy-images").strip()
 SUPABASE_STORAGE_RESUMABLE_URL = os.environ.get("SUPABASE_STORAGE_RESUMABLE_URL", "").strip()
 _storage_key: Optional[str] = None
 _runtime_bootstrap_done = False
@@ -1030,6 +1031,12 @@ class BookUploadSignIn(BaseModel):
     content_type: str = Field(default="application/pdf", max_length=100)
 
 
+class ImageUploadSignIn(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(ge=1, le=IMAGE_MAX_BYTES)
+    content_type: str = Field(max_length=100)
+
+
 # ---------------- Content helpers ----------------
 def _author_stub(user: dict) -> dict:
     return {"author_id": user.get("id") or user.get("_id"), "author_name": user.get("name", "")}
@@ -1213,11 +1220,11 @@ def _supabase_resumable_url() -> str:
     return f"https://{project_ref}.storage.supabase.co/storage/v1/upload/resumable"
 
 
-def _create_supabase_book_upload(path: str) -> dict:
+def _create_supabase_upload(bucket: str, path: str, failure_message: str) -> dict:
     api_url, headers = _supabase_storage_settings()
     endpoint = (
         f"{api_url}/object/upload/sign/"
-        f"{quote(SUPABASE_BOOKS_BUCKET, safe='')}/{quote(path, safe='/')}"
+        f"{quote(bucket, safe='')}/{quote(path, safe='/')}"
     )
     try:
         # A signed standard-upload URL is the most broadly compatible option on
@@ -1233,14 +1240,36 @@ def _create_supabase_book_upload(path: str) -> dict:
         upload_url = relative_url if relative_url.startswith("http") else f"{api_url}{relative_url}"
         return {
             "path": path,
-            "bucket": SUPABASE_BOOKS_BUCKET,
+            "bucket": bucket,
             "token": token,
             "upload_url": upload_url,
             "resumable_url": _supabase_resumable_url(),
         }
     except (requests.RequestException, ValueError, TypeError) as exc:
-        logger.error("Supabase book upload signing failed: %s", exc)
-        raise HTTPException(503, "No pudimos preparar la carga del libro.") from exc
+        logger.error("Supabase upload signing failed for %s: %s", bucket, exc)
+        raise HTTPException(503, failure_message) from exc
+
+
+def _create_supabase_book_upload(path: str) -> dict:
+    return _create_supabase_upload(
+        SUPABASE_BOOKS_BUCKET,
+        path,
+        "No pudimos preparar la carga del libro.",
+    )
+
+
+def _create_supabase_image_upload(path: str) -> dict:
+    signed = _create_supabase_upload(
+        SUPABASE_IMAGES_BUCKET,
+        path,
+        "No pudimos preparar la carga de la portada.",
+    )
+    api_url, _ = _supabase_storage_settings()
+    signed["public_url"] = (
+        f"{api_url}/object/public/"
+        f"{quote(SUPABASE_IMAGES_BUCKET, safe='')}/{quote(path, safe='/')}"
+    )
+    return signed
 
 
 def _create_supabase_book_download(path: str) -> str:
@@ -1756,6 +1785,31 @@ async def remove_bookmark(
 
 
 # ---------------- Routes: PDF upload + file serve ----------------
+@api_router.post("/uploads/image/sign")
+async def sign_content_image_upload(
+    payload: ImageUploadSignIn,
+    current_user: dict = Depends(require_admin),
+):
+    """Create a short-lived, object-scoped Supabase upload for a cover image."""
+    extensions = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    content_type = payload.content_type.lower().strip()
+    extension = extensions.get(content_type)
+    if not extension:
+        raise HTTPException(400, "Solo se aceptan imágenes JPG, PNG o WebP.")
+    path = f"images/{new_id()}.{extension}"
+    signed = await asyncio.to_thread(_create_supabase_image_upload, path)
+    return {
+        **signed,
+        "filename": payload.filename.strip(),
+        "size": payload.size,
+        "content_type": content_type,
+    }
+
+
 @api_router.post("/uploads/image")
 async def upload_content_image(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
     """Store a safe raster image for book and education covers."""

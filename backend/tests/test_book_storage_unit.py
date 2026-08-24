@@ -92,3 +92,24 @@ def test_create_download_expands_signed_path(monkeypatch):
         "https://project-ref.supabase.co/storage/v1/"
         "object/sign/academy-books/books/test.pdf?token=read-token"
     )
+
+
+def test_create_image_upload_returns_public_cover_url(monkeypatch):
+    monkeypatch.setattr(server, "SUPABASE_URL", "https://project-ref.supabase.co")
+    monkeypatch.setattr(server, "SUPABASE_SERVICE_ROLE_KEY", "test-service-role")
+    monkeypatch.setattr(server, "SUPABASE_BOOKS_BUCKET", "academy-books")
+    monkeypatch.setattr(server, "SUPABASE_IMAGES_BUCKET", "academy-images")
+
+    def fake_post(url, **kwargs):
+        assert url.endswith("/object/upload/sign/academy-images/images/cover.webp")
+        assert kwargs["json"] == {"upsert": True}
+        return FakeResponse({"url": "/object/upload/sign/academy-images/images/cover.webp?token=image-token"})
+
+    monkeypatch.setattr(server.requests, "post", fake_post)
+    result = server._create_supabase_image_upload("images/cover.webp")
+    assert result["bucket"] == "academy-images"
+    assert result["token"] == "image-token"
+    assert result["public_url"] == (
+        "https://project-ref.supabase.co/storage/v1/"
+        "object/public/academy-images/images/cover.webp"
+    )
