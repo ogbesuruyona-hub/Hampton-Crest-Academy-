@@ -1220,17 +1220,22 @@ def _create_supabase_book_upload(path: str) -> dict:
         f"{quote(SUPABASE_BOOKS_BUCKET, safe='')}/{quote(path, safe='/')}"
     )
     try:
-        response = requests.post(endpoint, headers=headers, json={}, timeout=15)
+        # A signed standard-upload URL is the most broadly compatible option on
+        # mobile browsers. ``upsert`` also makes a whole-file retry safe when a
+        # connection drops after Supabase has already stored the object.
+        response = requests.post(endpoint, headers=headers, json={"upsert": True}, timeout=15)
         response.raise_for_status()
         data = response.json()
         relative_url = data.get("url", "")
         token = parse_qs(urlparse(relative_url).query).get("token", [""])[0]
         if not token:
             raise ValueError("Supabase did not return an upload token")
+        upload_url = relative_url if relative_url.startswith("http") else f"{api_url}{relative_url}"
         return {
             "path": path,
             "bucket": SUPABASE_BOOKS_BUCKET,
             "token": token,
+            "upload_url": upload_url,
             "resumable_url": _supabase_resumable_url(),
         }
     except (requests.RequestException, ValueError, TypeError) as exc:

@@ -60,6 +60,7 @@ def test_create_upload_returns_only_scoped_token(monkeypatch):
     def fake_post(url, **kwargs):
         assert url.endswith("/object/upload/sign/academy-books/books/test.pdf")
         assert kwargs["headers"]["Authorization"] == "Bearer test-service-role"
+        assert kwargs["json"] == {"upsert": True}
         return FakeResponse({"url": "/object/upload/sign/academy-books/books/test.pdf?token=temporary-token"})
 
     monkeypatch.setattr(server.requests, "post", fake_post)
@@ -68,6 +69,10 @@ def test_create_upload_returns_only_scoped_token(monkeypatch):
         "path": "books/test.pdf",
         "bucket": "academy-books",
         "token": "temporary-token",
+        "upload_url": (
+            "https://project-ref.supabase.co/storage/v1/"
+            "object/upload/sign/academy-books/books/test.pdf?token=temporary-token"
+        ),
         "resumable_url": "https://project-ref.storage.supabase.co/storage/v1/upload/resumable",
     }
 

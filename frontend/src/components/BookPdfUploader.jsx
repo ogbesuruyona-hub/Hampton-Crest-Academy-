@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import * as tus from "tus-js-client";
 import { FileText, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
 
 const MAX_BOOK_BYTES = 50 * 1024 * 1024;
+const RETRY_DELAYS = [0, 2000, 5000];
 
 const formatSize = (bytes) => {
   if (!bytes) return "";
@@ -26,6 +26,39 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
   );
 
   const chooseFile = () => inputRef.current?.click();
+
+  const uploadToSignedUrl = (url, file) =>
+    new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      uploadRef.current = request;
+      request.open("PUT", url, true);
+      request.setRequestHeader("Content-Type", "application/pdf");
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          setProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+      request.onload = () => {
+        if (request.status >= 200 && request.status < 300) {
+          resolve();
+          return;
+        }
+        let detail = "";
+        try {
+          detail = JSON.parse(request.responseText || "{}").message || "";
+        } catch {
+          detail = "";
+        }
+        reject(new Error(detail || `La carga fue rechazada (${request.status}).`));
+      };
+      request.onerror = () => reject(new Error("Se interrumpió la conexión durante la carga."));
+      request.onabort = () => {
+        const error = new Error("Carga cancelada.");
+        error.cancelled = true;
+        reject(error);
+      };
+      request.send(file);
+    });
 
   const uploadFile = async (event) => {
     const file = event.target.files?.[0];
@@ -51,29 +84,23 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
         content_type: "application/pdf",
       });
 
-      await new Promise((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: signed.resumable_url,
-          retryDelays: [0, 3000, 5000, 10000, 20000],
-          headers: { "x-signature": signed.token },
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          chunkSize: 6 * 1024 * 1024,
-          metadata: {
-            bucketName: signed.bucket,
-            objectName: signed.path,
-            contentType: "application/pdf",
-            cacheControl: "3600",
-          },
-          onError: reject,
-          onProgress: (uploaded, total) => {
-            setProgress(total ? Math.round((uploaded / total) * 100) : 0);
-          },
-          onSuccess: resolve,
-        });
-        uploadRef.current = upload;
-        upload.start();
-      });
+      if (!signed.upload_url) throw new Error("No se recibió el enlace seguro de carga.");
+
+      let lastError;
+      for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt += 1) {
+        if (RETRY_DELAYS[attempt]) {
+          await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAYS[attempt]));
+        }
+        try {
+          await uploadToSignedUrl(signed.upload_url, file);
+          lastError = null;
+          break;
+        } catch (attemptError) {
+          if (attemptError.cancelled) throw attemptError;
+          lastError = attemptError;
+        }
+      }
+      if (lastError) throw lastError;
 
       onChange?.({
         path: signed.path,
@@ -94,7 +121,7 @@ export const BookPdfUploader = ({ value, onChange, testid = "book-pdf-uploader" 
   };
 
   const remove = async () => {
-    await uploadRef.current?.abort(true);
+    uploadRef.current?.abort();
     uploadRef.current = null;
     setProgress(0);
     setError("");
