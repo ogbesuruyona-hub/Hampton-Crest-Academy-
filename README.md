@@ -51,7 +51,14 @@ SENDER_EMAIL=""
 STRIPE_API_KEY=""
 STRIPE_WEBHOOK_SECRET=""
 FMP_API_KEY=""
+SUPABASE_URL=""
+SUPABASE_SERVICE_ROLE_KEY=""
+SUPABASE_BOOKS_BUCKET="academy-books"
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` may contain a Supabase secret/server key. Never expose
+it through a `VITE_` or `REACT_APP_` frontend variable. The `academy-books`
+bucket must be private; members receive five-minute signed URLs from the API.
 
 Renewal recovery policy:
 

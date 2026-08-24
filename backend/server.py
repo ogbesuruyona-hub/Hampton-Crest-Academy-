@@ -18,7 +18,7 @@ import ipaddress
 import socket
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Annotated, List
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, quote, urljoin, urlparse
 
 import bcrypt
 import jwt
@@ -35,7 +35,7 @@ from fastapi import (
     UploadFile, File, BackgroundTasks, Response,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
@@ -48,6 +48,7 @@ PENDING_2FA_TOKEN_EXPIRES_MINUTES = 5
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 PDF_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
+BOOK_PDF_MAX_BYTES = 50 * 1024 * 1024  # Supabase Free plan ceiling
 IMAGE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
 mongo_url = os.environ.get("MONGO_URL", "").strip()
@@ -104,6 +105,10 @@ MEMBERSHIP_STATES = {
 # Object storage config
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 APP_NAME = os.environ.get("APP_NAME", "hampton-crest")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+SUPABASE_BOOKS_BUCKET = os.environ.get("SUPABASE_BOOKS_BUCKET", "academy-books").strip()
+SUPABASE_STORAGE_RESUMABLE_URL = os.environ.get("SUPABASE_STORAGE_RESUMABLE_URL", "").strip()
 _storage_key: Optional[str] = None
 _runtime_bootstrap_done = False
 _runtime_bootstrap_error: Optional[str] = None
@@ -1008,12 +1013,21 @@ class BookIn(BaseModel):
     cover_url: Optional[str] = None
     description: Optional[str] = ""
     category: Optional[str] = None
-    external_url: str = Field(min_length=1, max_length=2000)
+    external_url: str = Field(default="", max_length=2000)
+    file_path: Optional[str] = Field(default=None, max_length=200)
+    file_name: Optional[str] = Field(default=None, max_length=255)
+    file_size: Optional[int] = Field(default=None, ge=1, le=BOOK_PDF_MAX_BYTES)
     status: str = Field(default="published", pattern="^(draft|published)$")
 
 
 class BookMetadataIn(BaseModel):
     url: str = Field(min_length=8, max_length=2000)
+
+
+class BookUploadSignIn(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(ge=1, le=BOOK_PDF_MAX_BYTES)
+    content_type: str = Field(default="application/pdf", max_length=100)
 
 
 # ---------------- Content helpers ----------------
@@ -1162,6 +1176,84 @@ def _suggest_book_category(*values: str) -> Optional[str]:
         if any(keyword in haystack for keyword in keywords):
             return category
     return None
+
+
+def _validate_book_source(payload: BookIn) -> None:
+    external_url = (payload.external_url or "").strip()
+    file_path = (payload.file_path or "").strip()
+    if not external_url and not file_path:
+        raise HTTPException(422, "Sube un PDF o proporciona un enlace externo.")
+    if external_url and not external_url.startswith("/api/files/"):
+        parsed = urlparse(external_url)
+        if parsed.scheme not in {"http", "https"}:
+            raise HTTPException(422, "El enlace externo debe usar HTTP o HTTPS.")
+    if file_path and not re.fullmatch(r"books/[a-f0-9]{32}\.pdf", file_path):
+        raise HTTPException(422, "La ruta del archivo del libro no es válida.")
+
+
+def _supabase_storage_settings() -> tuple[str, dict[str, str]]:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not SUPABASE_BOOKS_BUCKET:
+        raise HTTPException(503, "El almacenamiento de libros no está configurado.")
+    api_url = f"{SUPABASE_URL}/storage/v1"
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+    return api_url, headers
+
+
+def _supabase_resumable_url() -> str:
+    if SUPABASE_STORAGE_RESUMABLE_URL:
+        return SUPABASE_STORAGE_RESUMABLE_URL
+    host = urlparse(SUPABASE_URL).hostname or ""
+    project_ref = host.split(".", 1)[0]
+    if not project_ref:
+        raise HTTPException(503, "La URL de Supabase no es válida.")
+    return f"https://{project_ref}.storage.supabase.co/storage/v1/upload/resumable"
+
+
+def _create_supabase_book_upload(path: str) -> dict:
+    api_url, headers = _supabase_storage_settings()
+    endpoint = (
+        f"{api_url}/object/upload/sign/"
+        f"{quote(SUPABASE_BOOKS_BUCKET, safe='')}/{quote(path, safe='/')}"
+    )
+    try:
+        response = requests.post(endpoint, headers=headers, json={}, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        relative_url = data.get("url", "")
+        token = parse_qs(urlparse(relative_url).query).get("token", [""])[0]
+        if not token:
+            raise ValueError("Supabase did not return an upload token")
+        return {
+            "path": path,
+            "bucket": SUPABASE_BOOKS_BUCKET,
+            "token": token,
+            "resumable_url": _supabase_resumable_url(),
+        }
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        logger.error("Supabase book upload signing failed: %s", exc)
+        raise HTTPException(503, "No pudimos preparar la carga del libro.") from exc
+
+
+def _create_supabase_book_download(path: str) -> str:
+    api_url, headers = _supabase_storage_settings()
+    endpoint = (
+        f"{api_url}/object/sign/"
+        f"{quote(SUPABASE_BOOKS_BUCKET, safe='')}/{quote(path, safe='/')}"
+    )
+    try:
+        response = requests.post(endpoint, headers=headers, json={"expiresIn": 300}, timeout=15)
+        response.raise_for_status()
+        signed_path = response.json().get("signedURL", "")
+        if not signed_path:
+            raise ValueError("Supabase did not return a signed download URL")
+        return signed_path if signed_path.startswith("http") else f"{api_url}{signed_path}"
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        logger.error("Supabase book download signing failed: %s", exc)
+        raise HTTPException(503, "No pudimos abrir el libro en este momento.") from exc
 
 
 def _extract_book_metadata(source_url: str, data: bytes, content_type: str) -> dict:
@@ -1489,6 +1581,21 @@ async def delete_company_memo(company_id: str, memo_id: str, current_user: dict 
 
 
 # ---------------- Routes: books (academy library) ----------------
+@api_router.post("/books/uploads/sign")
+async def sign_book_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
+    filename = payload.filename.strip()
+    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Solo se aceptan archivos PDF.")
+    path = f"books/{new_id()}.pdf"
+    signed = await asyncio.to_thread(_create_supabase_book_upload, path)
+    return {
+        **signed,
+        "filename": filename,
+        "size": payload.size,
+        "content_type": "application/pdf",
+    }
+
+
 @api_router.post("/books/metadata/inspect")
 async def inspect_book_metadata(payload: BookMetadataIn, current_user: dict = Depends(require_admin)):
     try:
@@ -1523,6 +1630,7 @@ async def get_book(content_id: str, current_user: dict = Depends(get_current_use
 
 @api_router.post("/books")
 async def create_book(payload: BookIn, current_user: dict = Depends(require_admin)):
+    _validate_book_source(payload)
     doc = _build_content_doc(payload.model_dump(), current_user)
     await db.books.insert_one(doc)
     return serialize_doc(doc)
@@ -1530,6 +1638,7 @@ async def create_book(payload: BookIn, current_user: dict = Depends(require_admi
 
 @api_router.put("/books/{content_id}")
 async def update_book(content_id: str, payload: BookIn, current_user: dict = Depends(require_admin)):
+    _validate_book_source(payload)
     existing = await db.books.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")
@@ -1542,6 +1651,19 @@ async def update_book(content_id: str, payload: BookIn, current_user: dict = Dep
 async def delete_book(content_id: str, current_user: dict = Depends(require_admin)):
     await db.books.delete_one({"_id": content_id})
     return {"ok": True}
+
+
+@api_router.get("/books/{content_id}/open")
+async def open_book(content_id: str, current_user: dict = Depends(require_member)):
+    book = await _get_or_404("books", content_id, current_user)
+    file_path = (book.get("file_path") or "").strip()
+    if file_path:
+        signed_url = await asyncio.to_thread(_create_supabase_book_download, file_path)
+        return RedirectResponse(signed_url, status_code=307)
+    external_url = (book.get("external_url") or "").strip()
+    if external_url and urlparse(external_url).scheme in {"http", "https"}:
+        return RedirectResponse(external_url, status_code=307)
+    raise HTTPException(404, "Este libro no tiene un archivo disponible.")
 
 
 # ---------------- Routes: search ----------------

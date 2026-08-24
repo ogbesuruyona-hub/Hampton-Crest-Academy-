@@ -88,10 +88,8 @@ export default function SavedResources() {
                   ? c.sector || "—"
                   : formatDate(c.published_at || c.created_at);
             const title = c.ticker ? `${c.ticker} · ${c.name}` : c.title;
-            const InnerLink = isBook ? "a" : Link;
-            const linkProps = isBook
-              ? { href: c.external_url, target: "_blank", rel: "noopener noreferrer" }
-              : { to: cfg.detailRoute(c.id) };
+            const InnerLink = Link;
+            const linkProps = { to: cfg.detailRoute(c.id) };
             return (
               <div
                 key={b.bookmark_id}

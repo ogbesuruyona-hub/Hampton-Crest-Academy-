@@ -10,6 +10,7 @@ import {
 import { api, formatApiErrorDetail } from "../lib/api";
 import { LIBRARY_CATEGORIES } from "../lib/content";
 import { ImageUploader } from "./ImageUploader";
+import { BookPdfUploader } from "./BookPdfUploader";
 import { Loader2, Search } from "lucide-react";
 
 const inputCls =
@@ -23,6 +24,9 @@ const blank = {
   description: "",
   category: "",
   external_url: "",
+  file_path: "",
+  file_name: "",
+  file_size: null,
   status: "published",
 };
 
@@ -44,6 +48,9 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
         description: initial.description || "",
         category: initial.category || "",
         external_url: initial.external_url || "",
+        file_path: initial.file_path || "",
+        file_name: initial.file_name || "",
+        file_size: initial.file_size || null,
         status: initial.status || "published",
       });
     } else {
@@ -102,6 +109,9 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
       description: form.description.trim(),
       category: form.category || null,
       external_url: form.external_url.trim(),
+      file_path: form.file_path || null,
+      file_name: form.file_name || null,
+      file_size: form.file_size || null,
       status: form.status,
     };
     try {
@@ -140,8 +150,32 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
 
         <form onSubmit={submit} className="space-y-5 mt-4" data-testid="book-editor-form">
           <div className="border border-[var(--hc-gold)]/35 bg-[var(--hc-gold-soft)] p-4">
-            <label className={labelCls}>Enlace del libro</label>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <label className={labelCls}>Archivo del libro</label>
+            <BookPdfUploader
+              value={
+                form.file_path
+                  ? { path: form.file_path, filename: form.file_name, size: form.file_size }
+                  : null
+              }
+              onChange={(file) => {
+                setForm((current) => ({
+                  ...current,
+                  file_path: file?.path || "",
+                  file_name: file?.filename || "",
+                  file_size: file?.size || null,
+                  title:
+                    current.title ||
+                    (file?.filename || "").replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").trim(),
+                }));
+              }}
+            />
+          </div>
+
+          <details className="border border-[var(--hc-border)] bg-[var(--hc-bg)] p-4" open={!form.file_path}>
+            <summary className="cursor-pointer text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
+              Usar un enlace externo en lugar de subir el PDF
+            </summary>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
                 type="url"
                 value={form.external_url}
@@ -149,7 +183,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
                   update("external_url", e.target.value);
                   setDetectionMessage("");
                 }}
-                required
+                required={!form.file_path}
                 data-testid="book-editor-external-url"
                 className={inputCls}
                 placeholder="https://… (Amazon, editorial, Google Books u otra página)"
@@ -165,15 +199,12 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
                 {detecting ? "Detectando…" : "Detectar datos"}
               </button>
             </div>
-            <p className="mt-2 text-[0.68rem] leading-relaxed text-[var(--hc-text-muted)]">
-              Pegamos el enlace y buscamos automáticamente el título, autor, categoría y portada disponibles.
-            </p>
             {detectionMessage ? (
               <p className="mt-2 text-xs leading-relaxed text-[var(--hc-gold)]" data-testid="book-detection-result">
                 {detectionMessage}
               </p>
             ) : null}
-          </div>
+          </details>
 
           <div>
             <label className={labelCls}>Título</label>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { formatApiErrorDetail } from "../lib/api";
+import { API, formatApiErrorDetail } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { cachedApiGet } from "../lib/resourceCache";
@@ -115,15 +115,15 @@ export default function BookDetail() {
           )}
 
           <div className="mt-8 flex items-center gap-3 flex-wrap">
-            {book.external_url && (
+            {(book.file_path || book.external_url) && (
               <a
-                href={book.external_url}
+                href={book.file_path ? `${API}/books/${book.id}/open` : book.external_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="book-external-link"
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
               >
-                {book.external_url.startsWith("/api/files/") ? "Abrir libro" : "Abrir fuente externa"}
+                {book.file_path || book.external_url.startsWith("/api/files/") ? "Abrir libro" : "Abrir fuente externa"}
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
               </a>
             )}
