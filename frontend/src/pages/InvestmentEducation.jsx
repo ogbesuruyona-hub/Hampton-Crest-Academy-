@@ -41,8 +41,8 @@ const groupBy = (items, getKey) =>
 
 const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-[72px_1fr_auto] gap-4 items-start py-4 border-t border-[var(--hc-border)] first:border-t-0 ${completed ? "opacity-75" : ""}`}>
-      <div className={`relative h-12 w-[72px] overflow-hidden flex items-center justify-center border text-xs ${
+    <article className="grid grid-cols-[72px_minmax(0,1fr)] sm:grid-cols-[88px_minmax(0,1fr)] gap-x-4 gap-y-3 items-start py-5 border-t border-[var(--hc-border)] first:border-t-0">
+      <div className={`relative h-14 w-[72px] sm:h-16 sm:w-[88px] overflow-hidden flex items-center justify-center border text-xs ${
         completed
           ? "border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]"
           : "border-[var(--hc-border)] bg-[var(--hc-bg)] text-[var(--hc-text-secondary)]"
@@ -61,29 +61,42 @@ const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
         ) : null}
       </div>
       <div className="min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h4 className={`text-sm font-medium tracking-tight text-[var(--hc-text)] ${completed ? "line-through decoration-[var(--hc-gold)]/70" : ""}`}>
+        <div className="flex items-start justify-between gap-3">
+          <h4 className="min-w-0 text-[0.95rem] font-medium leading-snug tracking-tight text-[var(--hc-text)]">
             {lesson.title}
           </h4>
-          {completed && (
-            <span className="text-[0.65rem] tracking-[0.16em] uppercase text-[var(--hc-gold)]">
-              Completada
-            </span>
-          )}
+          <div className="hidden sm:flex shrink-0 items-center gap-2">
+            {completed && (
+              <span className="inline-flex items-center border border-[#7d9b7f]/45 bg-[#edf3ea] px-2 py-1 text-[0.6rem] font-medium tracking-[0.14em] uppercase text-[#426246]">
+                ✓ Completada
+              </span>
+            )}
+            {isAdmin && <StatusBadge status={lesson.status} />}
+          </div>
+        </div>
+        <div className="mt-2 flex sm:hidden items-center gap-2 flex-wrap">
+          {completed && <span className="text-[0.62rem] font-medium tracking-[0.14em] uppercase text-[#56715a]">✓ Completada</span>}
           {isAdmin && <StatusBadge status={lesson.status} />}
         </div>
         {lesson.summary && (
-          <p className="mt-1 text-xs text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2">
+          <p className="mt-2 max-w-2xl text-xs text-[var(--hc-text-secondary)] leading-relaxed line-clamp-2">
             {lesson.summary}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-2 text-[0.7rem] text-[var(--hc-text-muted)] tracking-tight">
+        <div className="mt-2 flex items-center gap-2 text-[0.68rem] text-[var(--hc-text-muted)] tracking-tight">
           <span>{formatDate(lesson.published_at || lesson.created_at)}</span>
           {lesson.estimated_duration_minutes ? <span>· {lesson.estimated_duration_minutes} min</span> : null}
           {lesson.week_count ? <span>· {lesson.week_count} semanas</span> : null}
         </div>
       </div>
-      <div className="flex items-center gap-2 sm:justify-end flex-wrap">
+      <div className="col-span-2 sm:col-start-2 sm:col-span-1 flex items-center gap-2 flex-wrap">
+        <Link
+          to={`/education/${lesson.id}`}
+          data-testid={`lesson-link-${lesson.id}`}
+          className="inline-flex min-h-9 items-center gap-1.5 bg-[var(--hc-ink)] px-3.5 py-2 text-[0.65rem] tracking-[0.16em] uppercase text-white hover:bg-[var(--hc-gold)] transition-colors whitespace-nowrap"
+        >
+          Ver lección <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+        </Link>
         {isAdmin && (
           <AdminInlineActions
             testid={`education-admin-${lesson.id}`}
@@ -91,15 +104,8 @@ const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
             onDelete={() => onDelete(lesson)}
           />
         )}
-        <Link
-          to={`/education/${lesson.id}`}
-          data-testid={`lesson-link-${lesson.id}`}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-[0.65rem] tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-gold)] hover:border-[var(--hc-gold)] transition-colors whitespace-nowrap"
-        >
-          Ver lección <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
-        </Link>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -308,10 +314,10 @@ export default function InvestmentEducation() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 min-[1700px]:grid-cols-2 gap-4">
                 {path.modules.map((module) => (
-                  <div key={`${path.name}-${module.name}`} className="border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6">
-                    <div className="flex items-start justify-between gap-3 mb-4">
+                  <div key={`${path.name}-${module.name}`} className="border border-[var(--hc-border)] bg-[var(--hc-surface)] px-4 py-5 sm:p-6">
+                    <div className="flex items-start justify-between gap-3 border-b border-[var(--hc-border)] pb-4">
                       <div>
                         <div className="hc-overline">Módulo</div>
                         <h3 className="mt-1 text-base font-medium tracking-tight text-[var(--hc-text)]">
