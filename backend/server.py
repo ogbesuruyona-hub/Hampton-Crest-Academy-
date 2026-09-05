@@ -2907,35 +2907,6 @@ async def seed_test_member():
         logger.info("Refreshed test member %s", email)
 
 
-async def seed_quiz_qa_members_once():
-    """Create the two production QA students requested for Quiz Engine validation.
-
-    This helper is intentionally temporary and is removed immediately after the
-    seed deployment. It never changes an existing account with the same email.
-    """
-    accounts = (
-        ("hamptoncrest.quiz.qa+pass-20260905@example.com", "QA Quiz Passed", "HcQa-Pass#2026!"),
-        ("hamptoncrest.quiz.qa+retry-20260905@example.com", "QA Quiz Retry", "HcQa-Retry#2026!"),
-    )
-    for email, name, password in accounts:
-        if await db.users.find_one({"email": email}) is not None:
-            continue
-        await db.users.insert_one({
-            "email": email,
-            "password_hash": hash_password(password),
-            "name": name,
-            "role": "member",
-            "created_at": now_utc(),
-            "updated_at": now_utc(),
-            "totp_enabled": False,
-            "email_digest_opt_in": False,
-            "membership_status": MEMBERSHIP_ACTIVE,
-            "subscription_status": "complimentary",
-            "complimentary": True,
-        })
-        logger.info("Seeded Quiz Engine QA member %s", email)
-
-
 async def runtime_bootstrap():
     global _runtime_bootstrap_done, _runtime_bootstrap_error
     if _runtime_bootstrap_done:
@@ -2969,7 +2940,6 @@ async def _runtime_bootstrap():
     await ensure_quiz_engine(db, now_utc)
     await seed_admin()
     await seed_test_member()
-    await seed_quiz_qa_members_once()
     # Init storage but don't fail startup if down
     try:
         await asyncio.to_thread(_init_storage)
