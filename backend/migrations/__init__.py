@@ -1,0 +1,2 @@
+"""Idempotent application migrations."""
+

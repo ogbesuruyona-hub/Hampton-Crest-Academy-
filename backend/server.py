@@ -40,6 +40,9 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
 
+from quiz_domain import slugify_course
+from routers.quizzes import course_is_locked
+
 
 # ---------------- Setup ----------------
 JWT_ALGORITHM = "HS256"
@@ -1462,12 +1465,27 @@ async def list_education(
         query["tags"] = tag
     _apply_search(query, q, ["title", "summary", "body", "track"])
     docs = await db.education_modules.find(query).sort([("order_index", 1), ("created_at", -1)]).limit(200).to_list(200)
-    return [serialize_doc(d) for d in docs]
+    lock_cache: dict[str, bool] = {}
+    serialized = []
+    for doc in docs:
+        course_id = slugify_course(doc.get("track"))
+        if current_user.get("role") == "admin":
+            locked = False
+        else:
+            if course_id not in lock_cache:
+                lock_cache[course_id] = await course_is_locked(db, current_user["id"], course_id)
+            locked = lock_cache[course_id]
+        serialized.append({**serialize_doc(doc), "course_id": course_id, "course_locked": locked})
+    return serialized
 
 
 @api_router.get("/education/{content_id}")
 async def get_education(content_id: str, current_user: dict = Depends(get_current_user)):
-    return serialize_doc(await _get_or_404("education_modules", content_id, current_user))
+    lesson = await _get_or_404("education_modules", content_id, current_user)
+    course_id = slugify_course(lesson.get("track"))
+    if current_user.get("role") != "admin" and await course_is_locked(db, current_user["id"], course_id):
+        raise HTTPException(403, "Debes aprobar la evaluación del curso anterior para continuar.")
+    return {**serialize_doc(lesson), "course_id": course_id, "course_locked": False}
 
 
 @api_router.get("/education/{content_id}/open")
@@ -2918,6 +2936,8 @@ async def _runtime_bootstrap():
     await db.invites.create_index("expires_at", expireAfterSeconds=60 * 60 * 24 * 14)
     await db.password_resets.create_index("expires_at", expireAfterSeconds=60 * 60 * 24)
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
+    from migrations.quiz_engine_v1 import ensure_quiz_engine
+    await ensure_quiz_engine(db, now_utc)
     await seed_admin()
     await seed_test_member()
     # Init storage but don't fail startup if down
@@ -2943,6 +2963,7 @@ async def shutdown_db_client():
 from routers.search import register_search_routes  # noqa: E402
 from routers.chat import register_chat_routes  # noqa: E402
 from routers.valuation import register_valuation_routes  # noqa: E402
+from routers.quizzes import register_quiz_routes  # noqa: E402
 
 search_router = register_search_routes(
     db=db,
@@ -2962,6 +2983,15 @@ valuation_router = register_valuation_routes(
     require_member=require_member,
 )
 app.include_router(valuation_router)
+
+quiz_router = register_quiz_routes(
+    db=db,
+    require_member=require_member,
+    require_admin=require_admin,
+    now_utc=now_utc,
+    new_id=new_id,
+)
+app.include_router(quiz_router)
 
 app.include_router(api_router)
 

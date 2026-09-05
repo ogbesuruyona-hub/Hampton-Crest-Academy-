@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Clock, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock, FileDown, ShieldQuestion } from "lucide-react";
 import { API, formatApiErrorDetail } from "../lib/api";
 import { formatDate } from "../lib/content";
 import { RichContent } from "../components/RichContent";
@@ -32,19 +32,31 @@ export default function EducationDetail() {
   const [lesson, setLesson] = useState(null);
   const [allLessons, setAllLessons] = useState([]);
   const [completed, setCompleted] = useState(false);
+  const [quizStatus, setQuizStatus] = useState(null);
+  const [savingProgress, setSavingProgress] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [progressError, setProgressError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
+    setProgressError("");
     Promise.all([cachedApiGet(`/education/${id}`), cachedApiGet("/education")])
-      .then(([detail, list]) => {
+      .then(async ([detail, list]) => {
         if (cancelled) return;
         setLesson(detail);
         setAllLessons(Array.isArray(list) ? list : []);
-        setCompleted(learningProgress.isCompleted(detail.id));
+        try {
+          const statuses = await learningProgress.syncWithServer();
+          if (cancelled) return;
+          const courseStatus = statuses.find((status) => status.course.id === detail.course_id);
+          setQuizStatus(courseStatus || null);
+          setCompleted(Boolean(courseStatus?.completed_lesson_ids?.includes(detail.id)));
+        } catch {
+          setCompleted(learningProgress.isCompleted(detail.id));
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -72,11 +84,20 @@ export default function EducationDetail() {
   const next = index >= 0 && index < sequence.length - 1 ? sequence[index + 1] : null;
   const duration = lesson ? getDuration(lesson) : null;
 
-  const toggleCompleted = () => {
+  const toggleCompleted = async () => {
     if (!lesson?.id) return;
     const next = !completed;
-    learningProgress.setCompleted(lesson.id, next);
-    setCompleted(next);
+    setSavingProgress(true);
+    setProgressError("");
+    try {
+      const nextStatus = await learningProgress.setCompletedOnServer(lesson.id, next);
+      setCompleted(next);
+      setQuizStatus(nextStatus);
+    } catch (progressError) {
+      setProgressError(formatApiErrorDetail(progressError.response?.data?.detail) || progressError.message);
+    } finally {
+      setSavingProgress(false);
+    }
   };
 
   if (loading) {
@@ -154,6 +175,7 @@ export default function EducationDetail() {
             <button
               type="button"
               onClick={toggleCompleted}
+              disabled={savingProgress}
               data-testid="mark-lesson-complete"
               className={`px-4 py-2 text-xs tracking-[0.18em] uppercase border transition-colors ${
                 completed
@@ -161,10 +183,11 @@ export default function EducationDetail() {
                   : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:border-[var(--hc-gold)]"
               }`}
             >
-              {completed ? "Lección completada" : "Marcar como completada"}
+              {savingProgress ? "Guardando…" : completed ? "Lección completada" : "Marcar como completada"}
             </button>
             <BookmarkButton contentType="education" contentId={lesson.id} />
           </div>
+          {progressError ? <div className="mt-3 text-xs text-[#913f3f]">{progressError}</div> : null}
         </div>
 
         {lesson.cover_url ? (
@@ -206,6 +229,23 @@ export default function EducationDetail() {
       >
         <RichContent html={lesson.body} />
       </div>
+
+      {quizStatus?.quiz && quizStatus.content_completed ? (
+        <section className="mt-10 border border-[var(--hc-gold)]/60 bg-[var(--hc-gold-soft)] p-5 sm:p-7" data-testid="course-quiz-cta">
+          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+            <div>
+              <div className="flex items-center gap-2 hc-overline"><ShieldQuestion className="h-4 w-4" /> Evaluación final</div>
+              <h2 className="mt-2 text-xl font-medium tracking-tight text-[var(--hc-text)]">{quizStatus.quiz.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--hc-text-secondary)]">
+                {quizStatus.completed ? `Curso aprobado · mejor puntuación ${quizStatus.best_score}%` : `Completa el quiz con ${quizStatus.quiz.passing_score}% o más para finalizar el curso.`}
+              </p>
+            </div>
+            <Link to={`/courses/${lesson.course_id}/quiz`} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 bg-[var(--hc-ink)] px-5 py-3 text-xs uppercase tracking-[0.18em] text-white hover:bg-[var(--hc-gold)] sm:w-auto">
+              {quizStatus.completed ? "Ver evaluación" : "Iniciar quiz"} <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <nav className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-4" aria-label="Navegación de lecciones">
         {previous ? (

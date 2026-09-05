@@ -46,6 +46,7 @@
     { "source": "/research/:id", "destination": "/index.html" },
     { "source": "/education", "destination": "/index.html" },
     { "source": "/education/:id", "destination": "/index.html" },
+    { "source": "/courses/:courseId/quiz", "destination": "/index.html" },
     { "source": "/reports", "destination": "/index.html" },
     { "source": "/reports/:id", "destination": "/index.html" },
     { "source": "/companies", "destination": "/index.html" },
@@ -56,6 +57,7 @@
     { "source": "/profile", "destination": "/index.html" },
     { "source": "/directory", "destination": "/index.html" },
     { "source": "/search", "destination": "/index.html" },
-    { "source": "/admin/members", "destination": "/index.html" }
+    { "source": "/admin/members", "destination": "/index.html" },
+    { "source": "/admin/quizzes", "destination": "/index.html" }
   ]
 }

@@ -22,6 +22,7 @@ const ResearchLibrary = lazy(() => import("@/pages/ResearchLibrary"));
 const ResearchDetail = lazy(() => import("@/pages/ResearchDetail"));
 const InvestmentEducation = lazy(() => import("@/pages/InvestmentEducation"));
 const EducationDetail = lazy(() => import("@/pages/EducationDetail"));
+const CourseQuiz = lazy(() => import("@/pages/CourseQuiz"));
 const MonthlyReports = lazy(() => import("@/pages/MonthlyReports"));
 const ReportDetail = lazy(() => import("@/pages/ReportDetail"));
 const CompanyAnalysis = lazy(() => import("@/pages/CompanyAnalysis"));
@@ -33,6 +34,7 @@ const MemberProfile = lazy(() => import("@/pages/MemberProfile"));
 const MemberDirectory = lazy(() => import("@/pages/MemberDirectory"));
 const SearchResults = lazy(() => import("@/pages/SearchResults"));
 const AdminMembers = lazy(() => import("@/pages/AdminMembers"));
+const AdminQuizzes = lazy(() => import("@/pages/AdminQuizzes"));
 
 const PageLoader = () => (
   <div className="px-4 py-8 sm:px-6 lg:px-8">
@@ -81,6 +83,7 @@ function App() {
               <Route path="/research/:id" element={withLoader(<ResearchDetail />)} />
               <Route path="/education" element={withLoader(<InvestmentEducation />)} />
               <Route path="/education/:id" element={withLoader(<EducationDetail />)} />
+              <Route path="/courses/:courseId/quiz" element={withLoader(<CourseQuiz />)} />
               <Route path="/reports" element={withLoader(<MonthlyReports />)} />
               <Route path="/reports/:id" element={withLoader(<ReportDetail />)} />
               <Route path="/companies" element={withLoader(<CompanyAnalysis />)} />
@@ -92,6 +95,7 @@ function App() {
               <Route path="/directory" element={withLoader(<MemberDirectory />)} />
               <Route path="/search" element={withLoader(<SearchResults />)} />
               <Route path="/admin/members" element={withLoader(<AdminMembers />)} />
+              <Route path="/admin/quizzes" element={withLoader(<AdminQuizzes />)} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

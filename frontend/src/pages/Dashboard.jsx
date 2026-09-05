@@ -15,6 +15,7 @@ import {
   FileText,
   BarChart3,
   CalendarClock,
+  ShieldQuestion,
 } from "lucide-react";
 
 const KPI = ({ label, value, sub, testid }) => (
@@ -61,6 +62,8 @@ export default function Dashboard() {
   const [latestResearch, setLatestResearch] = useState([]);
   const [educationLessons, setEducationLessons] = useState([]);
   const [latestReport, setLatestReport] = useState(null);
+  const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds());
+  const [courseStatuses, setCourseStatuses] = useState([]);
 
   useEffect(() => {
     let cancel = false;
@@ -70,9 +73,10 @@ export default function Dashboard() {
       cachedApiGet("/education"),
       cachedApiGet("/reports"),
       cachedApiGet("/companies"),
+      learningProgress.syncWithServer(),
     ]).then((rs) => {
       if (cancel) return;
-      const [books, research, education, reports, companies] = rs.map((x) =>
+      const [books, research, education, reports, companies, progress] = rs.map((x) =>
         x.status === "fulfilled" ? x.value : [],
       );
       setCounts({
@@ -86,6 +90,8 @@ export default function Dashboard() {
       setLatestResearch(research.slice(0, 4));
       setEducationLessons(education);
       setLatestReport(reports[0] || null);
+      setCourseStatuses(progress);
+      setCompletedIds(learningProgress.getCompletedIds());
     });
     return () => {
       cancel = true;
@@ -99,12 +105,12 @@ export default function Dashboard() {
     day: "numeric",
   });
 
-  const completedIds = learningProgress.getCompletedIds();
   const orderedLessons = sortLessons(educationLessons);
   const completedLessons = orderedLessons.filter((lesson) => completedIds.has(lesson.id)).length;
-  const progressPercent = learningProgress.getPercent(orderedLessons);
-  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id));
+  const progressPercent = orderedLessons.length ? Math.round((completedLessons / orderedLessons.length) * 100) : 0;
+  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lesson.course_locked);
   const allLessonsComplete = orderedLessons.length > 0 && !nextLesson;
+  const pendingQuiz = courseStatuses.find((course) => course.content_completed && course.quiz && !course.completed);
 
   return (
     <div data-testid="dashboard-page">
@@ -186,7 +192,15 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {nextLesson ? (
+            {pendingQuiz ? (
+              <Link
+                to={`/courses/${pendingQuiz.course.id}/quiz`}
+                data-testid="dashboard-start-quiz"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
+              >
+                Iniciar evaluación <ShieldQuestion className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Link>
+            ) : nextLesson ? (
               <Link
                 to={`/education/${nextLesson.id}`}
                 data-testid="dashboard-continue-learning"

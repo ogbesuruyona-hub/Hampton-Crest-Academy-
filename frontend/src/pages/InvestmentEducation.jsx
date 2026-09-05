@@ -8,9 +8,9 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { EDUCATION_TRACKS, formatDate } from "../lib/content";
-import { learningProgress } from "../lib/learningProgress";
+import { courseIdFromTrack, learningProgress } from "../lib/learningProgress";
 import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
-import { ArrowUpRight, BookOpenCheck, GraduationCap, Layers } from "lucide-react";
+import { ArrowUpRight, BookOpenCheck, GraduationCap, Layers, LockKeyhole, ShieldQuestion } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -39,7 +39,7 @@ const groupBy = (items, getKey) =>
     return acc;
   }, {});
 
-const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
+const LessonRow = ({ lesson, isAdmin, completed, locked, onEdit, onDelete }) => {
   return (
     <article className="grid grid-cols-[72px_minmax(0,1fr)] sm:grid-cols-[88px_minmax(0,1fr)] gap-x-4 gap-y-3 items-start py-5 border-t border-[var(--hc-border)] first:border-t-0">
       <div className={`relative h-14 w-[72px] sm:h-16 sm:w-[88px] overflow-hidden flex items-center justify-center border text-xs ${
@@ -90,13 +90,19 @@ const LessonRow = ({ lesson, isAdmin, completed, onEdit, onDelete }) => {
         </div>
       </div>
       <div className="col-span-2 sm:col-start-2 sm:col-span-1 flex items-center gap-2 flex-wrap">
-        <Link
-          to={`/education/${lesson.id}`}
-          data-testid={`lesson-link-${lesson.id}`}
-          className="inline-flex min-h-9 items-center gap-1.5 bg-[var(--hc-ink)] px-3.5 py-2 text-[0.65rem] tracking-[0.16em] uppercase text-white hover:bg-[var(--hc-gold)] transition-colors whitespace-nowrap"
-        >
-          Ver lección <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
-        </Link>
+        {locked ? (
+          <div className="inline-flex min-h-9 items-center gap-1.5 border border-[var(--hc-border)] bg-[var(--hc-bg)] px-3.5 py-2 text-[0.65rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">
+            <LockKeyhole className="h-3 w-3" /> Bloqueada
+          </div>
+        ) : (
+          <Link
+            to={`/education/${lesson.id}`}
+            data-testid={`lesson-link-${lesson.id}`}
+            className="inline-flex min-h-9 items-center gap-1.5 bg-[var(--hc-ink)] px-3.5 py-2 text-[0.65rem] tracking-[0.16em] uppercase text-white hover:bg-[var(--hc-gold)] transition-colors whitespace-nowrap"
+          >
+            Ver lección <ArrowUpRight className="h-3 w-3" strokeWidth={1.5} />
+          </Link>
+        )}
         {isAdmin && (
           <AdminInlineActions
             testid={`education-admin-${lesson.id}`}
@@ -126,6 +132,7 @@ export default function InvestmentEducation() {
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState("");
   const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds());
+  const [courseProgress, setCourseProgress] = useState({});
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -135,6 +142,12 @@ export default function InvestmentEducation() {
     try {
       const data = await cachedApiGet("/education");
       setItems(sortLessons(data));
+      try {
+        const statuses = await learningProgress.syncWithServer();
+        setCourseProgress(Object.fromEntries(statuses.map((status) => [status.course.id, status])));
+      } catch {
+        // Keep the compatible local view if progress synchronization is temporarily unavailable.
+      }
       setCompletedIds(learningProgress.getCompletedIds());
     } finally {
       setLoading(false);
@@ -154,6 +167,8 @@ export default function InvestmentEducation() {
     const grouped = groupBy(visibleItems, (item) => item.track || "Ruta general");
     return Object.entries(grouped).map(([name, lessons]) => ({
       name,
+      courseId: courseIdFromTrack(name),
+      progress: courseProgress[courseIdFromTrack(name)],
       lessons: sortLessons(lessons),
       modules: Object.entries(groupBy(sortLessons(lessons), (item) => item.category || "Módulo general")).map(
         ([moduleName, moduleLessons]) => ({
@@ -162,10 +177,10 @@ export default function InvestmentEducation() {
         }),
       ),
     }));
-  }, [visibleItems]);
+  }, [courseProgress, visibleItems]);
 
-  const nextLesson = visibleItems.find((item) => !completedIds.has(item.id));
-  const selectedPathComplete = visibleItems.length > 0 && !nextLesson;
+  const nextLesson = visibleItems.find((item) => !completedIds.has(item.id) && !item.course_locked);
+  const selectedPathComplete = visibleItems.length > 0 && visibleItems.every((item) => completedIds.has(item.id));
 
   const openNew = () => {
     setEditing(null);
@@ -300,12 +315,23 @@ export default function InvestmentEducation() {
                   </div>
                 </div>
                 </div>
-                {path.lessons.find((lesson) => !completedIds.has(lesson.id)) ? (
+                {path.progress?.locked ? (
+                  <div className="inline-flex items-center gap-2 border border-[var(--hc-border)] bg-[var(--hc-bg)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--hc-text-muted)]">
+                    <LockKeyhole className="h-3.5 w-3.5" /> Curso bloqueado
+                  </div>
+                ) : path.lessons.find((lesson) => !completedIds.has(lesson.id)) ? (
                   <Link
                     to={`/education/${path.lessons.find((lesson) => !completedIds.has(lesson.id)).id}`}
                     className="inline-flex items-center gap-2 px-4 py-2 text-xs tracking-[0.18em] uppercase border border-[var(--hc-border)] text-[var(--hc-gold)] hover:border-[var(--hc-gold)] transition-colors"
                   >
                     Continuar aprendiendo <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </Link>
+                ) : path.progress?.quiz ? (
+                  <Link
+                    to={`/courses/${path.courseId}/quiz`}
+                    className={`inline-flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-[0.18em] ${path.progress.completed ? "border-[#7d9b7f]/50 bg-[#edf3ea] text-[#426246]" : "border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]"}`}
+                  >
+                    <ShieldQuestion className="h-3.5 w-3.5" /> {path.progress.completed ? "Curso completado" : "Iniciar evaluación"}
                   </Link>
                 ) : (
                   <div className="px-4 py-2 text-xs tracking-[0.18em] uppercase border border-[var(--hc-gold)] text-[var(--hc-gold)] bg-[var(--hc-gold-soft)]">
@@ -337,6 +363,7 @@ export default function InvestmentEducation() {
                           lesson={lesson}
                           isAdmin={isAdmin}
                           completed={completedIds.has(lesson.id)}
+                          locked={Boolean(path.progress?.locked || lesson.course_locked)}
                           onEdit={openEdit}
                           onDelete={setDeleteTarget}
                         />

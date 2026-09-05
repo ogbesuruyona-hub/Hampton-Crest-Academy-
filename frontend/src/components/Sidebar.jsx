@@ -14,6 +14,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Sparkles,
+  ShieldQuestion,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import BrandLockup, { BrandCrest } from "./BrandLockup";
@@ -33,6 +34,7 @@ const NAV = [
 const ADMIN_NAV = [
   { to: "/directory", label: "Directorio de Miembros", icon: UserCircle, testid: "nav-directory" },
   { to: "/admin/members", label: "Miembros", icon: Users, testid: "nav-admin-members" },
+  { to: "/admin/quizzes", label: "Quizzes", icon: ShieldQuestion, testid: "nav-admin-quizzes" },
 ];
 
 export const SidebarContent = ({ collapsed = false, onItemClick }) => {
