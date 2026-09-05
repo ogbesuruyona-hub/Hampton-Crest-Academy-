@@ -246,7 +246,9 @@ async def _question_snapshots(db, quiz_id: str) -> list[dict]:
         raise HTTPException(409, "Este quiz debe tener exactamente 10 preguntas activas antes de iniciarse.")
     snapshots = []
     for question in questions:
-        options = await db.quiz_options.find({"question_id": question["_id"]}).sort("position", 1).to_list(20)
+        options = await db.quiz_options.find(
+            {"question_id": question["_id"], "archived": {"$ne": True}}
+        ).sort("position", 1).to_list(20)
         if len(options) != 4 or sum(bool(option.get("is_correct")) for option in options) != 1:
             raise HTTPException(409, "El quiz tiene una pregunta con opciones incompletas.")
         shuffled_options = list(options)
@@ -285,48 +287,79 @@ def _validate_admin_quiz(payload: QuizAdminIn) -> None:
 
 
 async def _replace_questions(db, now_utc, new_id, quiz_id: str, questions: list[QuizQuestionAdminIn]) -> None:
-    previous = await db.quiz_questions.find({"quiz_id": quiz_id}, {"_id": 1}).to_list(500)
-    previous_ids = [question["_id"] for question in previous]
-    if previous_ids:
-        await db.quiz_options.delete_many({"question_id": {"$in": previous_ids}})
-    await db.quiz_questions.delete_many({"quiz_id": quiz_id})
+    previous = await db.quiz_questions.find({"quiz_id": quiz_id}).to_list(500)
+    previous_by_id = {question["_id"]: question for question in previous}
+    retained_question_ids: set[str] = set()
     now = now_utc()
     for question_position, item in enumerate(questions):
-        question_id = new_id()
-        await db.quiz_questions.insert_one(
-            {
-                "_id": question_id,
-                "quiz_id": quiz_id,
-                "question_text": item.question_text.strip(),
-                "explanation": item.explanation.strip(),
-                "difficulty": item.difficulty,
-                "position": question_position,
-                "is_active": item.is_active,
-                "created_at": now,
+        question_id = item.id if item.id in previous_by_id else new_id()
+        retained_question_ids.add(question_id)
+        question_fields = {
+            "quiz_id": quiz_id,
+            "question_text": item.question_text.strip(),
+            "explanation": item.explanation.strip(),
+            "difficulty": item.difficulty,
+            "position": question_position,
+            "is_active": item.is_active,
+            "archived": False,
+            "updated_at": now,
+        }
+        if question_id in previous_by_id:
+            await db.quiz_questions.update_one({"_id": question_id}, {"$set": question_fields})
+        else:
+            await db.quiz_questions.insert_one({"_id": question_id, "created_at": now, **question_fields})
+
+        previous_options = await db.quiz_options.find({"question_id": question_id}).to_list(50)
+        previous_options_by_id = {option["_id"]: option for option in previous_options}
+        retained_option_ids: set[str] = set()
+        for option_position, option in enumerate(item.options):
+            option_id = option.id if option.id in previous_options_by_id else new_id()
+            retained_option_ids.add(option_id)
+            option_fields = {
+                "question_id": question_id,
+                "option_text": option.option_text.strip(),
+                "position": option_position,
+                "is_correct": option.is_correct,
+                "archived": False,
                 "updated_at": now,
             }
-        )
-        await db.quiz_options.insert_many(
-            [
-                {
-                    "_id": new_id(),
-                    "question_id": question_id,
-                    "option_text": option.option_text.strip(),
-                    "position": option_position,
-                    "is_correct": option.is_correct,
-                    "created_at": now,
-                    "updated_at": now,
-                }
-                for option_position, option in enumerate(item.options)
-            ]
-        )
+            if option_id in previous_options_by_id:
+                await db.quiz_options.update_one({"_id": option_id}, {"$set": option_fields})
+            else:
+                await db.quiz_options.insert_one({"_id": option_id, "created_at": now, **option_fields})
+
+        removed_option_ids = set(previous_options_by_id) - retained_option_ids
+        for option_id in removed_option_ids:
+            referenced = await db.quiz_attempt_answers.find_one({"selected_option_id": option_id}, {"_id": 1})
+            if referenced:
+                await db.quiz_options.update_one(
+                    {"_id": option_id}, {"$set": {"archived": True, "updated_at": now}}
+                )
+            else:
+                await db.quiz_options.delete_one({"_id": option_id})
+
+    removed_question_ids = set(previous_by_id) - retained_question_ids
+    for question_id in removed_question_ids:
+        referenced = await db.quiz_attempt_answers.find_one({"question_id": question_id}, {"_id": 1})
+        if referenced:
+            await db.quiz_questions.update_one(
+                {"_id": question_id},
+                {"$set": {"is_active": False, "archived": True, "updated_at": now}},
+            )
+        else:
+            await db.quiz_options.delete_many({"question_id": question_id})
+            await db.quiz_questions.delete_one({"_id": question_id})
 
 
 async def _admin_quiz(db, quiz: dict) -> dict:
-    questions = await db.quiz_questions.find({"quiz_id": quiz["_id"]}).sort("position", 1).to_list(100)
+    questions = await db.quiz_questions.find(
+        {"quiz_id": quiz["_id"], "archived": {"$ne": True}}
+    ).sort("position", 1).to_list(100)
     output_questions = []
     for question in questions:
-        options = await db.quiz_options.find({"question_id": question["_id"]}).sort("position", 1).to_list(20)
+        options = await db.quiz_options.find(
+            {"question_id": question["_id"], "archived": {"$ne": True}}
+        ).sort("position", 1).to_list(20)
         output_questions.append(
             {
                 "id": question["_id"],
