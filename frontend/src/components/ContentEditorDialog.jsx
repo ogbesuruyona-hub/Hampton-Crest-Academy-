@@ -15,6 +15,7 @@ import {
 } from "../lib/content";
 import { RichTextEditor } from "./RichTextEditor";
 import { PdfUploader } from "./PdfUploader";
+import { BookPdfUploader } from "./BookPdfUploader";
 import { ImageUploader } from "./ImageUploader";
 
 const inputCls =
@@ -37,6 +38,9 @@ const blank = {
   pdf_url: null,
   pdf_filename: null,
   pdf_size: null,
+  file_path: "",
+  file_name: "",
+  file_size: null,
 };
 
 export const ContentEditorDialog = ({
@@ -50,6 +54,7 @@ export const ContentEditorDialog = ({
   const [form, setForm] = useState(blank);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +73,7 @@ export const ContentEditorDialog = ({
       });
     }
     setError("");
+    setUploading(false);
   }, [open, initial]);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -75,6 +81,10 @@ export const ContentEditorDialog = ({
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    if (uploading) {
+      setError("Espera a que termine la carga del PDF antes de guardar la lección.");
+      return;
+    }
     // Client-side period validation for reports (mirrors backend regex)
     if (contentType === "reports" && !/^\d{4}-(0[1-9]|1[0-2])$/.test(form.period.trim())) {
       setError("Period must be in YYYY-MM format (e.g. 2026-05).");
@@ -98,6 +108,9 @@ export const ContentEditorDialog = ({
       payload.order_index = Number(form.order_index) || 0;
       payload.cover_url = form.cover_url?.trim() || null;
       payload.estimated_duration_minutes = Number(form.estimated_duration_minutes) || 15;
+      payload.file_path = form.file_path || null;
+      payload.file_name = form.file_name || null;
+      payload.file_size = form.file_size || null;
     }
     if (contentType === "reports") {
       payload.period = form.period;
@@ -183,6 +196,32 @@ export const ContentEditorDialog = ({
                   placeholder="https://…/portada.jpg"
                 />
               </details>
+            </div>
+          )}
+
+          {contentType === "education" && (
+            <div>
+              <label className={labelCls}>Documento PDF de la lección</label>
+              <BookPdfUploader
+                value={
+                  form.file_path
+                    ? { path: form.file_path, filename: form.file_name, size: form.file_size }
+                    : null
+                }
+                endpoint="/education/uploads/sign"
+                uploadingLabel="Subiendo el documento"
+                itemLabel="documento"
+                onUploadingChange={setUploading}
+                testid="education-pdf-uploader"
+                onChange={(file) => {
+                  update("file_path", file?.path || "");
+                  update("file_name", file?.filename || "");
+                  update("file_size", file?.size || null);
+                }}
+              />
+              <p className="mt-2 text-[0.68rem] leading-relaxed text-[var(--hc-text-muted)]">
+                El PDF se guarda de forma privada y solo los miembros con acceso podrán abrirlo.
+              </p>
             </div>
           )}
 
@@ -362,11 +401,11 @@ export const ContentEditorDialog = ({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploading}
               data-testid="editor-save"
               className="px-6 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors disabled:opacity-60"
             >
-              {saving ? "Guardando…" : initial ? "Guardar cambios" : `Crear ${cfg.singular.toLowerCase()}`}
+              {uploading ? "Subiendo PDF…" : saving ? "Guardando…" : initial ? "Guardar cambios" : `Crear ${cfg.singular.toLowerCase()}`}
             </button>
           </DialogFooter>
         </form>

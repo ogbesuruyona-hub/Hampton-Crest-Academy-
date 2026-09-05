@@ -51,6 +51,28 @@ def test_book_source_accepts_private_storage_path():
     server._validate_book_source(payload)
 
 
+def test_education_pdf_accepts_scoped_private_storage_path():
+    payload = server.EducationIn(
+        title="Valoración de activos",
+        file_path=f"education/{'b' * 32}.pdf",
+        file_name="valoracion-de-activos.pdf",
+        file_size=2048,
+    )
+    server._validate_education_pdf(payload)
+
+
+def test_education_pdf_rejects_book_or_unscoped_path():
+    payload = server.EducationIn(
+        title="Valoración de activos",
+        file_path=f"books/{'b' * 32}.pdf",
+        file_name="valoracion-de-activos.pdf",
+        file_size=2048,
+    )
+    with pytest.raises(HTTPException) as exc:
+        server._validate_education_pdf(payload)
+    assert exc.value.status_code == 422
+
+
 def test_create_upload_returns_only_scoped_token(monkeypatch):
     monkeypatch.setattr(server, "SUPABASE_URL", "https://project-ref.supabase.co")
     monkeypatch.setattr(server, "SUPABASE_SERVICE_ROLE_KEY", "test-service-role")

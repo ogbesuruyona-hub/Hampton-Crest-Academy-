@@ -973,6 +973,9 @@ class EducationIn(ResearchIn):
     order_index: int = 0
     cover_url: Optional[str] = None
     estimated_duration_minutes: Optional[int] = Field(default=15, ge=5, le=45)
+    file_path: Optional[str] = Field(default=None, max_length=200)
+    file_name: Optional[str] = Field(default=None, max_length=255)
+    file_size: Optional[int] = Field(default=None, ge=1, le=BOOK_PDF_MAX_BYTES)
 
 
 class ReportIn(ResearchIn):
@@ -1198,6 +1201,14 @@ def _validate_book_source(payload: BookIn) -> None:
         raise HTTPException(422, "La ruta del archivo del libro no es válida.")
 
 
+def _validate_education_pdf(payload: EducationIn) -> None:
+    file_path = (payload.file_path or "").strip()
+    if file_path and not re.fullmatch(r"education/[a-f0-9]{32}\.pdf", file_path):
+        raise HTTPException(422, "La ruta del PDF de la lección no es válida.")
+    if not file_path and (payload.file_name or payload.file_size):
+        raise HTTPException(422, "El PDF de la lección no terminó de cargarse.")
+
+
 def _supabase_storage_settings() -> tuple[str, dict[str, str]]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not SUPABASE_BOOKS_BUCKET:
         raise HTTPException(503, "El almacenamiento de libros no está configurado.")
@@ -1250,11 +1261,14 @@ def _create_supabase_upload(bucket: str, path: str, failure_message: str) -> dic
         raise HTTPException(503, failure_message) from exc
 
 
-def _create_supabase_book_upload(path: str) -> dict:
+def _create_supabase_book_upload(
+    path: str,
+    failure_message: str = "No pudimos preparar la carga del libro.",
+) -> dict:
     return _create_supabase_upload(
         SUPABASE_BOOKS_BUCKET,
         path,
-        "No pudimos preparar la carga del libro.",
+        failure_message,
     )
 
 
@@ -1272,7 +1286,10 @@ def _create_supabase_image_upload(path: str) -> dict:
     return signed
 
 
-def _create_supabase_book_download(path: str) -> str:
+def _create_supabase_book_download(
+    path: str,
+    failure_message: str = "No pudimos abrir el libro en este momento.",
+) -> str:
     api_url, headers = _supabase_storage_settings()
     endpoint = (
         f"{api_url}/object/sign/"
@@ -1287,7 +1304,7 @@ def _create_supabase_book_download(path: str) -> str:
         return signed_path if signed_path.startswith("http") else f"{api_url}{signed_path}"
     except (requests.RequestException, ValueError, TypeError) as exc:
         logger.error("Supabase book download signing failed: %s", exc)
-        raise HTTPException(503, "No pudimos abrir el libro en este momento.") from exc
+        raise HTTPException(503, failure_message) from exc
 
 
 def _extract_book_metadata(source_url: str, data: bytes, content_type: str) -> dict:
@@ -1411,6 +1428,25 @@ async def delete_research(content_id: str, current_user: dict = Depends(require_
 
 
 # ---------------- Routes: education ----------------
+@api_router.post("/education/uploads/sign")
+async def sign_education_pdf_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
+    filename = payload.filename.strip()
+    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Solo se aceptan archivos PDF.")
+    path = f"education/{new_id()}.pdf"
+    signed = await asyncio.to_thread(
+        _create_supabase_book_upload,
+        path,
+        "No pudimos preparar la carga del documento.",
+    )
+    return {
+        **signed,
+        "filename": filename,
+        "size": payload.size,
+        "content_type": "application/pdf",
+    }
+
+
 @api_router.get("/education")
 async def list_education(
     current_user: dict = Depends(get_current_user),
@@ -1434,8 +1470,23 @@ async def get_education(content_id: str, current_user: dict = Depends(get_curren
     return serialize_doc(await _get_or_404("education_modules", content_id, current_user))
 
 
+@api_router.get("/education/{content_id}/open")
+async def open_education_pdf(content_id: str, current_user: dict = Depends(require_member)):
+    lesson = await _get_or_404("education_modules", content_id, current_user)
+    file_path = (lesson.get("file_path") or "").strip()
+    if not file_path:
+        raise HTTPException(404, "Esta lección no tiene un PDF disponible.")
+    signed_url = await asyncio.to_thread(
+        _create_supabase_book_download,
+        file_path,
+        "No pudimos abrir el documento en este momento.",
+    )
+    return RedirectResponse(signed_url, status_code=307)
+
+
 @api_router.post("/education")
 async def create_education(payload: EducationIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
+    _validate_education_pdf(payload)
     doc = _build_content_doc(payload.model_dump(), current_user)
     await db.education_modules.insert_one(doc)
     await _maybe_dispatch(bg, content_type="education", before=None, after=doc)
@@ -1444,6 +1495,7 @@ async def create_education(payload: EducationIn, bg: BackgroundTasks, current_us
 
 @api_router.put("/education/{content_id}")
 async def update_education(content_id: str, payload: EducationIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
+    _validate_education_pdf(payload)
     existing = await db.education_modules.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")

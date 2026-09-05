@@ -11,7 +11,15 @@ const formatSize = (bytes) => {
   return megabytes >= 1 ? `${megabytes.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 };
 
-export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "book-pdf-uploader" }) => {
+export const BookPdfUploader = ({
+  value,
+  onChange,
+  onUploadingChange,
+  testid = "book-pdf-uploader",
+  endpoint = "/books/uploads/sign",
+  uploadingLabel = "Subiendo el libro",
+  itemLabel = "libro",
+}) => {
   const inputRef = useRef(null);
   const uploadRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -71,7 +79,7 @@ export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "
       return;
     }
     if (file.size > MAX_BOOK_BYTES) {
-      setError("El libro supera el límite de 50 MB.");
+      setError(`El ${itemLabel} supera el límite de 50 MB.`);
       return;
     }
 
@@ -79,7 +87,7 @@ export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "
     onUploadingChange?.(true);
     setProgress(0);
     try {
-      const { data: signed } = await api.post("/books/uploads/sign", {
+      const { data: signed } = await api.post(endpoint, {
         filename: file.name,
         size: file.size,
         content_type: "application/pdf",
@@ -113,7 +121,7 @@ export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "
       setError(
         formatApiErrorDetail(uploadError.response?.data?.detail) ||
           uploadError.message ||
-          "No se pudo subir el libro.",
+          `No se pudo subir el ${itemLabel}.`,
       );
     } finally {
       uploadRef.current = null;
@@ -154,7 +162,7 @@ export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "
             </span>
             <div className="min-w-0">
               <div className="truncate text-sm font-medium text-[var(--hc-text)]" data-testid="book-pdf-filename">
-                {value.filename || "Libro en PDF"}
+                {value.filename || `${itemLabel.charAt(0).toUpperCase()}${itemLabel.slice(1)} en PDF`}
               </div>
               <div className="mt-0.5 text-[0.72rem] text-[var(--hc-text-muted)]">{formatSize(value.size)}</div>
             </div>
@@ -192,7 +200,7 @@ export const BookPdfUploader = ({ value, onChange, onUploadingChange, testid = "
           </span>
           <span className="mt-3 block">
             <span className="block text-sm font-medium tracking-tight text-[var(--hc-text)]">
-              {uploading ? `Subiendo el libro… ${progress}%` : "Seleccionar PDF"}
+              {uploading ? `${uploadingLabel}… ${progress}%` : "Seleccionar PDF"}
             </span>
             <span className="mt-1 block text-xs text-[var(--hc-text-muted)]">
               {uploading ? "No cierres esta ventana" : "Toca aquí para elegirlo desde tu dispositivo"}

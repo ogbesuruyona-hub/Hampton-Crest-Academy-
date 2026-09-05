@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
-import { formatApiErrorDetail } from "../lib/api";
+import { ArrowLeft, ArrowRight, Clock, FileDown } from "lucide-react";
+import { API, formatApiErrorDetail } from "../lib/api";
 import { formatDate } from "../lib/content";
 import { RichContent } from "../components/RichContent";
 import { BookmarkButton } from "../components/BookmarkButton";
@@ -174,6 +174,26 @@ export default function EducationDetail() {
               alt={`Portada de ${lesson.title}`}
               className="h-full w-full object-cover"
             />
+          </div>
+        ) : null}
+
+        {lesson.file_path ? (
+          <div className="mt-6 flex items-center justify-between gap-4 border border-[var(--hc-border)] bg-[var(--hc-surface)] px-4 py-4 sm:px-5">
+            <div className="min-w-0">
+              <div className="hc-overline">Documento de la lección</div>
+              <div className="mt-1 truncate text-sm tracking-tight text-[var(--hc-text)]">
+                {lesson.file_name || "material-de-la-leccion.pdf"}
+              </div>
+            </div>
+            <a
+              href={`${API}/education/${lesson.id}/open`}
+              target="_blank"
+              rel="noopener"
+              data-testid="education-pdf-open"
+              className="inline-flex shrink-0 items-center gap-2 bg-[var(--hc-ink)] px-4 py-2.5 text-[0.65rem] tracking-[0.16em] uppercase text-white hover:bg-[var(--hc-gold)] transition-colors"
+            >
+              <FileDown className="h-3.5 w-3.5" strokeWidth={1.5} /> Abrir PDF
+            </a>
           </div>
         ) : null}
 
