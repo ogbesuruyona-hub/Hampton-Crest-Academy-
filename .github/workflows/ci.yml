@@ -39,4 +39,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: python -m py_compile backend/server.py api/index.py
-      - run: pytest --noconftest -q backend/tests/test_billing_policy_unit.py
+      - run: >-
+          pytest --noconftest -q
+          backend/tests/test_billing_policy_unit.py
+          backend/tests/test_quiz_domain_unittest.py
+          backend/tests/test_quiz_admin_persistence_unittest.py
