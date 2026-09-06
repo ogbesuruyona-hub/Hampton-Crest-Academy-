@@ -113,6 +113,10 @@ Passwords are hashed before storage and must never be printed or exposed by API 
 
 ## Test/Demo User Cleanup
 
+Premium QA users must be provisioned as complimentary members without creating a
+Stripe customer or subscription. Their progress should begin empty so course
+completion can be validated independently.
+
 Known test/demo users can be reviewed and deleted with:
 
 ```bash
