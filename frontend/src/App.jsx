@@ -15,9 +15,9 @@ import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import RiskDisclosure from "@/pages/RiskDisclosure";
 import NotFound from "@/pages/NotFound";
+import BookDetail from "@/pages/BookDetail";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const BooksLibrary = lazy(() => import("@/pages/BooksLibrary"));
-const BookDetail = lazy(() => import("@/pages/BookDetail"));
 const ResearchLibrary = lazy(() => import("@/pages/ResearchLibrary"));
 const ResearchDetail = lazy(() => import("@/pages/ResearchDetail"));
 const InvestmentEducation = lazy(() => import("@/pages/InvestmentEducation"));
@@ -78,7 +78,7 @@ function App() {
             >
               <Route path="/dashboard" element={withLoader(<Dashboard />)} />
               <Route path="/books" element={withLoader(<BooksLibrary />)} />
-              <Route path="/books/:id" element={withLoader(<BookDetail />)} />
+              <Route path="/books/:id" element={<BookDetail />} />
               <Route path="/research" element={withLoader(<ResearchLibrary />)} />
               <Route path="/research/:id" element={withLoader(<ResearchDetail />)} />
               <Route path="/education" element={withLoader(<InvestmentEducation />)} />
@@ -94,8 +94,8 @@ function App() {
               <Route path="/profile" element={withLoader(<MemberProfile />)} />
               <Route path="/directory" element={withLoader(<MemberDirectory />)} />
               <Route path="/search" element={withLoader(<SearchResults />)} />
-              <Route path="/admin/members" element={withLoader(<AdminMembers />)} />
-              <Route path="/admin/quizzes" element={withLoader(<AdminQuizzes />)} />
+              <Route path="/admin/members" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminMembers />)}</ProtectedRoute>} />
+              <Route path="/admin/quizzes" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminQuizzes />)}</ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -7,7 +7,8 @@ import { BookEditorDialog } from "../components/BookEditorDialog";
 import { BookCard } from "../components/BookCard";
 import { useAuth } from "../context/AuthContext";
 import { LIBRARY_CATEGORIES } from "../lib/content";
-import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
+import { cachedApiGet, invalidateCachedApi, primeCachedApi } from "../lib/resourceCache";
+import { RequestError } from "../components/RequestError";
 import { BookOpen, Search } from "lucide-react";
 
 export default function BooksLibrary() {
@@ -21,6 +22,9 @@ export default function BooksLibrary() {
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     setQ(searchParams.get("q") || "");
@@ -28,17 +32,44 @@ export default function BooksLibrary() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const params = {};
+      const params = { page: 1, page_size: 24 };
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
       const data = await cachedApiGet("/books", { params });
       setItems(data);
+      data.forEach((book) => primeCachedApi(`/books/${book.id}`, book));
+      setPage(1);
+      setHasMore(data.length === 24);
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
   }, [category, q, statusFilter, isAdmin]);
+
+  const loadMore = async () => {
+    const nextPage = page + 1;
+    const params = { page: nextPage, page_size: 24 };
+    if (category) params.category = category;
+    if (q) params.q = q;
+    if (isAdmin && statusFilter) params.status = statusFilter;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await cachedApiGet("/books", { params });
+      data.forEach((book) => primeCachedApi(`/books/${book.id}`, book));
+      setItems((current) => [...current, ...data]);
+      setPage(nextPage);
+      setHasMore(data.length === 24);
+    } catch (loadError) {
+      setError(loadError);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -134,10 +165,12 @@ export default function BooksLibrary() {
         ))}
       </div>
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
           Cargando biblioteca...
         </div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={BookOpen}
@@ -166,6 +199,14 @@ export default function BooksLibrary() {
           ))}
         </div>
       )}
+
+      {items.length > 0 && hasMore ? (
+        <div className="mt-8 text-center">
+          <button type="button" onClick={loadMore} disabled={loading} className="min-h-11 border border-[var(--hc-border)] px-6 text-xs uppercase tracking-[0.16em] text-[var(--hc-text-secondary)] hover:border-[var(--hc-gold)] disabled:opacity-60">
+            {loading ? "Cargando…" : "Cargar más libros"}
+          </button>
+        </div>
+      ) : null}
 
       <BookEditorDialog
         open={editorOpen}

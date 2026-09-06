@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api, formatApiErrorDetail } from "../lib/api";
+import { clearCachedApi } from "../lib/resourceCache";
 
 const AuthContext = createContext(null);
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -23,8 +24,16 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const handleMembershipInactive = () => fetchMe();
+    const handleSessionExpired = () => {
+      clearCachedApi();
+      setUser(null);
+    };
     window.addEventListener("hc:membership-inactive", handleMembershipInactive);
-    return () => window.removeEventListener("hc:membership-inactive", handleMembershipInactive);
+    window.addEventListener("hc:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("hc:membership-inactive", handleMembershipInactive);
+      window.removeEventListener("hc:session-expired", handleSessionExpired);
+    };
   }, [fetchMe]);
 
   const logout = useCallback(async () => {
@@ -33,6 +42,7 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // ignore
     }
+    clearCachedApi();
     setUser(null);
   }, []);
 
@@ -63,6 +73,7 @@ export const AuthProvider = ({ children }) => {
       if (data.requires_2fa) {
         return { ok: true, requires_2fa: true, temp_token: data.temp_token };
       }
+      clearCachedApi();
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -77,6 +88,7 @@ export const AuthProvider = ({ children }) => {
   const verify2fa = async (tempToken, code) => {
     try {
       const { data } = await api.post("/auth/2fa/verify", { temp_token: tempToken, code });
+      clearCachedApi();
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -91,6 +103,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
+      clearCachedApi();
       setUser(data.user);
       return { ok: true };
     } catch (e) {

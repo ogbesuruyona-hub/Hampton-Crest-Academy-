@@ -9,9 +9,10 @@ import { useAuth } from "../context/AuthContext";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { EDUCATION_TRACKS, formatDate } from "../lib/content";
 import { courseIdFromTrack, learningProgress } from "../lib/learningProgress";
-import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
+import { invalidateCachedApi } from "../lib/resourceCache";
 import { ArrowUpRight, BookOpenCheck, GraduationCap, Layers, LockKeyhole, ShieldQuestion } from "lucide-react";
 import { toast } from "sonner";
+import { RequestError } from "../components/RequestError";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,6 +127,7 @@ const deleteLesson = async (lesson, onDeleted) => {
 };
 
 export default function InvestmentEducation() {
+  const pageSize = 50;
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
@@ -136,12 +138,18 @@ export default function InvestmentEducation() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const data = await cachedApiGet("/education");
-      setItems(sortLessons(data));
+      const params = { page, page_size: pageSize };
+      const { data, headers } = await api.get("/education", { params });
+      setItems((current) => sortLessons(page === 1 ? data : [...current, ...data]));
+      setTotal(Number(headers["x-total-count"] || data.length));
       try {
         const statuses = await learningProgress.syncWithServer(user?.id);
         setCourseProgress(Object.fromEntries(statuses.map((status) => [status.course.id, status])));
@@ -149,10 +157,12 @@ export default function InvestmentEducation() {
         // Keep the compatible local view if progress synchronization is temporarily unavailable.
       }
       setCompletedIds(learningProgress.getCompletedIds(user?.id));
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, page]);
 
   useEffect(() => {
     load();
@@ -197,7 +207,8 @@ export default function InvestmentEducation() {
 
   const refreshEducation = () => {
     invalidateCachedApi("/education");
-    load();
+    if (page === 1) load();
+    else setPage(1);
   };
 
   return (
@@ -292,6 +303,8 @@ export default function InvestmentEducation() {
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
           Cargando rutas de aprendizaje...
         </div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : visibleItems.length === 0 ? (
         <EmptyState
           icon={GraduationCap}
@@ -391,6 +404,12 @@ export default function InvestmentEducation() {
           ))}
         </div>
       )}
+
+      {!loading && !error && items.length < total ? (
+        <div className="mt-6 text-center">
+          <button type="button" onClick={() => setPage((value) => value + 1)} className="min-h-11 border border-[var(--hc-border)] px-5 text-xs uppercase tracking-[0.14em] hover:border-[var(--hc-gold)]">Cargar más lecciones</button>
+        </div>
+      ) : null}
 
       <ContentEditorDialog
         open={editorOpen}

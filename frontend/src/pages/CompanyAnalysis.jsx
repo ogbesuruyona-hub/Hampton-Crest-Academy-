@@ -7,10 +7,13 @@ import { AdminAction } from "../components/AdminActions";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { COMPANY_SECTORS } from "../lib/content";
-import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
+import { invalidateCachedApi } from "../lib/resourceCache";
+import { api } from "../lib/api";
 import { BarChart3, Search, ArrowUpRight } from "lucide-react";
+import { RequestError } from "../components/RequestError";
 
 export default function CompanyAnalysis() {
+  const pageSize = 30;
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
@@ -19,20 +22,27 @@ export default function CompanyAnalysis() {
   const [sector, setSector] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const params = {};
+      const params = { page, page_size: pageSize };
       if (q) params.q = q;
       if (sector) params.sector = sector;
       if (statusFilter) params.status = statusFilter;
-      const data = await cachedApiGet("/companies", { params });
-      setItems(data);
+      const { data, headers } = await api.get("/companies", { params });
+      setItems((current) => (page === 1 ? data : [...current, ...data]));
+      setTotal(Number(headers["x-total-count"] || data.length));
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [q, sector, statusFilter]);
+  }, [q, sector, statusFilter, page]);
 
   useEffect(() => {
     load();
@@ -64,7 +74,10 @@ export default function CompanyAnalysis() {
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por ticker o compañía..."
             data-testid="companies-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] placeholder:text-[var(--hc-text-muted)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
@@ -72,7 +85,10 @@ export default function CompanyAnalysis() {
         </div>
         <select
           value={sector}
-          onChange={(e) => setSector(e.target.value)}
+          onChange={(e) => {
+            setSector(e.target.value);
+            setPage(1);
+          }}
           data-testid="companies-sector-select"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
@@ -83,7 +99,10 @@ export default function CompanyAnalysis() {
         </select>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           data-testid="companies-status-select"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
@@ -96,6 +115,8 @@ export default function CompanyAnalysis() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando...</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={BarChart3}
@@ -143,6 +164,12 @@ export default function CompanyAnalysis() {
           ))}
         </div>
       )}
+
+      {!loading && !error && items.length < total ? (
+        <div className="mt-6 text-center">
+          <button type="button" onClick={() => setPage((value) => value + 1)} className="min-h-11 border border-[var(--hc-border)] px-5 text-xs uppercase tracking-[0.14em] hover:border-[var(--hc-gold)]">Cargar más</button>
+        </div>
+      ) : null}
 
       <CompanyEditorDialog
         open={editorOpen}

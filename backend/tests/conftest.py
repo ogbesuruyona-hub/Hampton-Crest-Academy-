@@ -16,12 +16,14 @@ from pymongo import MongoClient
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
+MONGO_URL = os.environ.get("MONGO_URL", "")
+DB_NAME = os.environ.get("DB_NAME", "")
 
 
 @pytest.fixture(scope="session")
 def mongo_db():
+    if not MONGO_URL or not DB_NAME:
+        pytest.skip("MongoDB test database is not configured")
     client = MongoClient(MONGO_URL)
     yield client[DB_NAME]
     client.close()
@@ -39,7 +41,12 @@ def make_active(mongo_db):
 
 
 @pytest.fixture(autouse=True)
-def _clear_login_attempts(mongo_db):
+def _clear_login_attempts():
     # don't let leftover lockouts from previous runs break the next case
-    mongo_db.login_attempts.delete_many({})
+    if not MONGO_URL or not DB_NAME:
+        yield
+        return
+    client = MongoClient(MONGO_URL)
+    client[DB_NAME].login_attempts.delete_many({})
     yield
+    client.close()

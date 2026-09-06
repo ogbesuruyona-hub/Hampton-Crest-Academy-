@@ -14,7 +14,6 @@ import {
   CONTENT_TYPES,
 } from "../lib/content";
 import { RichTextEditor } from "./RichTextEditor";
-import { PdfUploader } from "./PdfUploader";
 import { BookPdfUploader } from "./BookPdfUploader";
 import { ImageUploader } from "./ImageUploader";
 
@@ -38,6 +37,7 @@ const blank = {
   pdf_url: null,
   pdf_filename: null,
   pdf_size: null,
+  pdf_storage_path: "",
   file_path: "",
   file_name: "",
   file_size: null,
@@ -74,7 +74,7 @@ export const ContentEditorDialog = ({
     }
     setError("");
     setUploading(false);
-  }, [open, initial]);
+  }, [open, initial, contentType]);
 
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -117,6 +117,7 @@ export const ContentEditorDialog = ({
       payload.pdf_url = form.pdf_url;
       payload.pdf_filename = form.pdf_filename;
       payload.pdf_size = form.pdf_size;
+      payload.pdf_storage_path = form.pdf_storage_path || null;
     }
     try {
       if (initial?.id) {
@@ -341,14 +342,21 @@ export const ContentEditorDialog = ({
               </div>
               <div>
                 <label className={labelCls}>Adjunto PDF</label>
-                <PdfUploader
+                <BookPdfUploader
                   value={
-                    form.pdf_url
-                      ? { url: form.pdf_url, filename: form.pdf_filename, size: form.pdf_size }
+                    form.pdf_storage_path || form.pdf_url
+                      ? { path: form.pdf_storage_path || "legacy", filename: form.pdf_filename, size: form.pdf_size }
                       : null
                   }
+                  endpoint="/reports/uploads/sign"
+                  uploadingLabel="Subiendo el reporte"
+                  itemLabel="reporte"
+                  maxBytes={25 * 1024 * 1024}
+                  maxLabel="25 MB"
+                  onUploadingChange={setUploading}
                   onChange={(v) => {
-                    update("pdf_url", v?.url || null);
+                    update("pdf_storage_path", v?.path && v.path !== "legacy" ? v.path : null);
+                    if (!v || v.path !== "legacy") update("pdf_url", null);
                     update("pdf_filename", v?.filename || null);
                     update("pdf_size", v?.size || null);
                   }}

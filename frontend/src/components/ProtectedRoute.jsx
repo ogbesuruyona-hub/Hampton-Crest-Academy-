@@ -1,8 +1,9 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { canAccessRole } from "../lib/requestState";
 
-export const ProtectedRoute = ({ children }) => {
+export const ProtectedRoute = ({ children, requiredRole }) => {
   const { user } = useAuth();
   const location = useLocation();
 
@@ -30,6 +31,17 @@ export const ProtectedRoute = ({ children }) => {
 
   if (user.requires_2fa_setup && location.pathname !== "/settings") {
     return <Navigate to="/settings" replace state={{ securitySetupRequired: true }} />;
+  }
+
+  if (!canAccessRole(user, requiredRole)) {
+    return (
+      <main className="min-h-[60vh] flex items-center justify-center px-4" data-testid="admin-access-denied">
+        <div className="max-w-lg border border-[#a74444]/35 bg-[#f8e9e7] p-8 text-center text-[#713535]">
+          <h1 className="text-xl font-medium">No tiene permisos para acceder a esta sección</h1>
+          <p className="mt-3 text-sm">Esta área está reservada para administradores.</p>
+        </div>
+      </main>
+    );
   }
 
   return children;

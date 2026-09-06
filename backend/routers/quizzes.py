@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import asyncio
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -396,14 +397,20 @@ async def _admin_quiz(db, quiz: dict) -> dict:
 def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
     @router.get("/progress/courses")
     async def course_progress(current_user: dict = Depends(require_member)):
-        results = []
-        for course in COURSE_CATALOG:
-            status = await _quiz_status(db, now_utc, current_user, course["id"])
-            progress = await db.course_progress.find_one(
-                {"user_id": current_user["id"], "course_id": course["id"]}
-            ) or {}
-            results.append({**status, "completed_lesson_ids": progress.get("completed_lesson_ids", [])})
-        return results
+        statuses = await asyncio.gather(
+            *[_quiz_status(db, now_utc, current_user, course["id"]) for course in COURSE_CATALOG]
+        )
+        progress_docs = await db.course_progress.find(
+            {"user_id": current_user["id"], "course_id": {"$in": [course["id"] for course in COURSE_CATALOG]}},
+            {"course_id": 1, "completed_lesson_ids": 1},
+        ).to_list(len(COURSE_CATALOG))
+        completed_by_course = {
+            progress["course_id"]: progress.get("completed_lesson_ids", []) for progress in progress_docs
+        }
+        return [
+            {**status, "completed_lesson_ids": completed_by_course.get(status["course"]["id"], [])}
+            for status in statuses
+        ]
 
     @router.post("/progress/lessons/sync")
     async def sync_lesson_progress(_payload: LessonProgressSyncIn, current_user: dict = Depends(require_member)):

@@ -4,17 +4,24 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { API, formatApiErrorDetail } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
-import { cachedApiGet } from "../lib/resourceCache";
+import { cachedApiGet, peekCachedApi } from "../lib/resourceCache";
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return null;
+  const megabytes = bytes / (1024 * 1024);
+  return megabytes >= 1 ? `${megabytes.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+};
 
 export default function BookDetail() {
   const { id } = useParams();
-  const [book, setBook] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialBook = peekCachedApi(`/books/${id}`) || null;
+  const [book, setBook] = useState(initialBook);
+  const [loading, setLoading] = useState(!initialBook);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setLoading(!peekCachedApi(`/books/${id}`));
     setError("");
     cachedApiGet(`/books/${id}`)
       .then((data) => {
@@ -73,7 +80,8 @@ export default function BookDetail() {
             <img
               src={book.cover_url}
               alt={book.title}
-              loading="lazy"
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
               className="w-full h-full object-cover"
             />
@@ -103,6 +111,12 @@ export default function BookDetail() {
               Por {book.author}
             </div>
           )}
+
+          {formatFileSize(book.file_size) ? (
+            <div className="mt-3 text-xs uppercase tracking-[0.14em] text-[var(--hc-text-muted)]" data-testid="book-file-size">
+              PDF · {formatFileSize(book.file_size)}
+            </div>
+          ) : null}
 
           {book.description ? (
             <p className="mt-6 text-base text-[var(--hc-text-secondary)] leading-relaxed tracking-tight">

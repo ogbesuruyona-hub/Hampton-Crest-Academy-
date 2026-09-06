@@ -71,7 +71,6 @@ export const RichTextEditor = ({ value, onChange, placeholder, testid }) => {
     if (value !== undefined && value !== current) {
       editor.commands.setContent(value || "", false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, value]);
 
   if (!editor) return null;

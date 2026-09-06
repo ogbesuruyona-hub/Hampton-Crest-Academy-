@@ -42,6 +42,12 @@ export const CONTENT_TYPES = {
   },
 };
 
+export const formatFileSize = (bytes) => {
+  if (!bytes) return "";
+  const megabytes = bytes / (1024 * 1024);
+  return megabytes >= 1 ? `${megabytes.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+};
+
 export const RESEARCH_CATEGORIES = [
   "Macro",
   "Acciones",

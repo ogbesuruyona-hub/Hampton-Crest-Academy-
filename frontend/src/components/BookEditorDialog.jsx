@@ -96,7 +96,7 @@ export const BookEditorDialog = ({ open, onOpenChange, initial, onSaved }) => {
           ? `Detectamos ${detectedFields.join(", ")} · ${data.source_type}. Puedes corregirlos antes de guardar.`
           : `El enlace funciona, pero la página no publicó datos del libro. Complétalos manualmente.`,
       );
-    } catch (err) {
+    } catch {
       setDetectionMessage(
         "No pudimos leer automáticamente esa página. Puedes completar los datos del libro manualmente.",
       );

@@ -16,6 +16,9 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { toast } from "sonner";
+import { RequestError } from "../components/RequestError";
+
+const PAGE_SIZE = 25;
 
 const StatusPill = ({ user }) => {
   if (user.role === "admin") {
@@ -89,38 +92,36 @@ export default function AdminMembers() {
   const [statusFilter, setStatusFilter] = useState("");
   const [actionTarget, setActionTarget] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState({ active: 0, inactive: 0, admin: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const params = {};
+      const params = { page, page_size: PAGE_SIZE };
       if (q) params.q = q;
       if (statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/admin/members", { params });
+      const { data, headers } = await api.get("/admin/members", { params });
       setMembers(data);
+      setTotal(Number(headers["x-total-count"] || data.length));
+      setCounts({
+        active: Number(headers["x-member-active-count"] || 0),
+        inactive: Number(headers["x-member-inactive-count"] || 0),
+        admin: Number(headers["x-member-admin-count"] || 0),
+      });
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [q, statusFilter]);
+  }, [q, statusFilter, page]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const counts = members.reduce(
-    (acc, m) => {
-      if (m.role === "admin") acc.admin += 1;
-      else if (
-        m.complimentary ||
-        m.membership_status === "active" ||
-        m.membership_status === "past_due" ||
-        m.membership_status === "canceled"
-      ) acc.active += 1;
-      else acc.inactive += 1;
-      return acc;
-    },
-    { active: 0, inactive: 0, admin: 0 },
-  );
 
   const toggleComplimentary = async (user) => {
     try {
@@ -202,7 +203,10 @@ export default function AdminMembers() {
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por correo o nombre..."
             data-testid="members-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
@@ -210,7 +214,10 @@ export default function AdminMembers() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           data-testid="members-status-filter"
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
         >
@@ -222,6 +229,8 @@ export default function AdminMembers() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -312,6 +321,14 @@ export default function AdminMembers() {
           </div>
         </Panel>
       )}
+
+      {!loading && !error && total > PAGE_SIZE ? (
+        <nav aria-label="Paginación de miembros" className="mt-6 flex items-center justify-between gap-4">
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="min-h-11 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Anterior</button>
+          <span className="text-xs text-[var(--hc-text-muted)]">Página {page} de {Math.ceil(total / PAGE_SIZE)}</span>
+          <button type="button" onClick={() => setPage((value) => value + 1)} disabled={page * PAGE_SIZE >= total} className="min-h-11 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Siguiente</button>
+        </nav>
+      ) : null}
 
       <AlertDialog
         open={confirmAction === "revoke"}

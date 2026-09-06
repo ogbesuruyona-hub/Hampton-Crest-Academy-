@@ -985,7 +985,8 @@ class ReportIn(ResearchIn):
     period: str = Field(pattern="^\\d{4}-(0[1-9]|1[0-2])$")
     pdf_url: Optional[str] = None
     pdf_filename: Optional[str] = None
-    pdf_size: Optional[int] = None
+    pdf_size: Optional[int] = Field(default=None, ge=1, le=PDF_MAX_BYTES)
+    pdf_storage_path: Optional[str] = Field(default=None, max_length=200)
 
 
 class KeyMetric(BaseModel):
@@ -1383,11 +1384,14 @@ async def _maybe_dispatch(bg: BackgroundTasks, *, content_type: str, before: Opt
 # ---------------- Routes: research ----------------
 @api_router.get("/research")
 async def list_research(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     status: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=100),
 ):
     query = _published_filter(current_user, status)
     if category:
@@ -1395,7 +1399,9 @@ async def list_research(
     if tag:
         query["tags"] = tag
     _apply_search(query, q, ["title", "summary", "body"])
-    docs = await db.research_notes.find(query).sort("created_at", -1).limit(200).to_list(200)
+    total = await db.research_notes.count_documents(query)
+    docs = await db.research_notes.find(query).sort("created_at", -1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     return [serialize_doc(d) for d in docs]
 
 
@@ -1452,11 +1458,14 @@ async def sign_education_pdf_upload(payload: BookUploadSignIn, current_user: dic
 
 @api_router.get("/education")
 async def list_education(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     status: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
 ):
     query = _published_filter(current_user, status)
     if category:
@@ -1464,7 +1473,9 @@ async def list_education(
     if tag:
         query["tags"] = tag
     _apply_search(query, q, ["title", "summary", "body", "track"])
-    docs = await db.education_modules.find(query).sort([("order_index", 1), ("created_at", -1)]).limit(200).to_list(200)
+    total = await db.education_modules.count_documents(query)
+    docs = await db.education_modules.find(query).sort([("order_index", 1), ("created_at", -1)]).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     lock_cache: dict[str, bool] = {}
     serialized = []
     for doc in docs:
@@ -1531,24 +1542,59 @@ async def delete_education(content_id: str, current_user: dict = Depends(require
 
 
 # ---------------- Routes: reports ----------------
+@api_router.post("/reports/uploads/sign")
+async def sign_report_pdf_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
+    filename = payload.filename.strip()
+    if payload.size > PDF_MAX_BYTES:
+        raise HTTPException(413, f"PDF exceeds {PDF_MAX_BYTES // (1024 * 1024)} MB limit")
+    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Solo se aceptan archivos PDF.")
+    path = f"reports/{new_id()}.pdf"
+    signed = await asyncio.to_thread(
+        _create_supabase_book_upload,
+        path,
+        "No pudimos preparar la carga del reporte.",
+    )
+    return {**signed, "filename": filename, "size": payload.size, "content_type": "application/pdf"}
+
+
 @api_router.get("/reports")
 async def list_reports(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     status: Optional[str] = None,
     year: Optional[str] = None,
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=100),
 ):
     query = _published_filter(current_user, status)
     if year:
         query["period"] = {"$regex": f"^{re.escape(year)}-"}
     _apply_search(query, q, ["title", "summary", "body"])
-    docs = await db.monthly_reports.find(query).sort([("period", -1), ("created_at", -1)]).limit(200).to_list(200)
+    total = await db.monthly_reports.count_documents(query)
+    docs = await db.monthly_reports.find(query).sort([("period", -1), ("created_at", -1)]).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     return [serialize_doc(d) for d in docs]
 
 
 @api_router.get("/reports/{content_id}")
 async def get_report(content_id: str, current_user: dict = Depends(get_current_user)):
     return serialize_doc(await _get_or_404("monthly_reports", content_id, current_user))
+
+
+@api_router.get("/reports/{content_id}/open")
+async def open_report_pdf(content_id: str, current_user: dict = Depends(require_member)):
+    report = await _get_or_404("monthly_reports", content_id, current_user)
+    storage_path = (report.get("pdf_storage_path") or "").strip()
+    if not storage_path:
+        raise HTTPException(404, "Este reporte no tiene un PDF privado disponible.")
+    signed_url = await asyncio.to_thread(
+        _create_supabase_book_download,
+        storage_path,
+        "No pudimos abrir el reporte en este momento.",
+    )
+    return RedirectResponse(signed_url, status_code=307)
 
 
 @api_router.post("/reports")
@@ -1586,10 +1632,13 @@ async def delete_report(content_id: str, current_user: dict = Depends(require_ad
 # ---------------- Routes: companies ----------------
 @api_router.get("/companies")
 async def list_companies(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     status: Optional[str] = None,
     sector: Optional[str] = None,
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=30, ge=1, le=100),
 ):
     query: dict = {}
     if status:
@@ -1597,7 +1646,9 @@ async def list_companies(
     if sector:
         query["sector"] = sector
     _apply_search(query, q, ["ticker", "name", "thesis_summary"])
-    docs = await db.companies.find(query).sort("ticker", 1).limit(500).to_list(500)
+    total = await db.companies.count_documents(query)
+    docs = await db.companies.find(query).sort("ticker", 1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     cleaned = []
     for d in docs:
         s = serialize_doc(d)
@@ -1714,16 +1765,21 @@ async def inspect_book_metadata(payload: BookMetadataIn, current_user: dict = De
 
 @api_router.get("/books")
 async def list_books(
+    response: Response,
     current_user: dict = Depends(get_current_user),
     status: Optional[str] = None,
     category: Optional[str] = None,
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=24, ge=1, le=100),
 ):
     query = _published_filter(current_user, status)
     if category:
         query["category"] = category
     _apply_search(query, q, ["title", "author", "description"])
-    docs = await db.books.find(query).sort([("created_at", -1)]).limit(500).to_list(500)
+    total = await db.books.count_documents(query)
+    docs = await db.books.find(query).sort([("created_at", -1)]).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     return [serialize_doc(d) for d in docs]
 
 
@@ -1768,6 +1824,54 @@ async def open_book(content_id: str, current_user: dict = Depends(require_member
     if external_url and urlparse(external_url).scheme in {"http", "https"}:
         return RedirectResponse(external_url, status_code=307)
     raise HTTPException(404, "Este libro no tiene un archivo disponible.")
+
+
+# ---------------- Routes: member dashboard ----------------
+@api_router.get("/dashboard-summary")
+async def dashboard_summary(current_user: dict = Depends(get_current_user)):
+    """Return only the small slices rendered above the fold."""
+    content_query = {} if current_user.get("role") == "admin" else {"status": "published"}
+    book_projection = {
+        "title": 1, "author": 1, "cover_url": 1, "description": 1,
+        "category": 1, "external_url": 1, "file_path": 1, "file_name": 1,
+        "file_size": 1, "status": 1, "created_at": 1,
+    }
+    research_projection = {
+        "title": 1, "summary": 1, "category": 1, "status": 1,
+        "published_at": 1, "created_at": 1,
+    }
+    education_projection = {
+        "title": 1, "track": 1, "order_index": 1, "status": 1, "created_at": 1,
+    }
+    report_projection = {
+        "title": 1, "summary": 1, "period": 1, "status": 1, "created_at": 1,
+    }
+
+    async def latest(collection, query, projection, sort, limit):
+        return await collection.find(query, projection).sort(sort).limit(limit).to_list(limit)
+
+    (
+        book_count, research_count, education_count, report_count, company_count,
+        latest_books, latest_research, education_lessons, latest_reports,
+    ) = await asyncio.gather(
+        db.books.count_documents(content_query),
+        db.research_notes.count_documents(content_query),
+        db.education_modules.count_documents(content_query),
+        db.monthly_reports.count_documents(content_query),
+        db.companies.count_documents({}),
+        latest(db.books, content_query, book_projection, [("created_at", -1)], 4),
+        latest(db.research_notes, content_query, research_projection, [("created_at", -1)], 4),
+        latest(db.education_modules, content_query, education_projection, [("order_index", 1), ("created_at", -1)], 100),
+        latest(db.monthly_reports, content_query, report_projection, [("period", -1), ("created_at", -1)], 1),
+    )
+    return {
+        "counts": {"books": book_count, "research": research_count, "education": education_count,
+                   "reports": report_count, "companies": company_count},
+        "latest_books": [serialize_doc(doc) for doc in latest_books],
+        "latest_research": [serialize_doc(doc) for doc in latest_research],
+        "education_lessons": [serialize_doc(doc) for doc in education_lessons],
+        "latest_report": serialize_doc(latest_reports[0]) if latest_reports else None,
+    }
 
 
 # ---------------- Routes: search ----------------
@@ -2680,9 +2784,12 @@ async def membership_config():
 # ---------------- Admin: members ----------------
 @api_router.get("/admin/members")
 async def admin_list_members(
+    response: Response,
     current_user: dict = Depends(require_admin),
     q: Optional[str] = None,
     status: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
 ):
     query: dict = {}
     if status == "active":
@@ -2708,7 +2815,30 @@ async def admin_list_members(
         existing = query.pop("$and", [])
         existing.append({"$or": [{"email": regex}, {"name": regex}]})
         query["$and"] = existing
-    docs = await db.users.find(query).sort("created_at", -1).limit(500).to_list(500)
+    admin_query = {"role": "admin"}
+    active_query = {
+        "role": {"$ne": "admin"},
+        "$or": [
+            {"complimentary": True},
+            {"membership_status": {"$in": [MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]}},
+        ],
+    }
+    inactive_query = {
+        "role": {"$ne": "admin"},
+        "complimentary": {"$ne": True},
+        "membership_status": {"$nin": [MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]},
+    }
+    total, active_count, inactive_count, admin_count = await asyncio.gather(
+        db.users.count_documents(query),
+        db.users.count_documents(active_query),
+        db.users.count_documents(inactive_query),
+        db.users.count_documents(admin_query),
+    )
+    docs = await db.users.find(query).sort("created_at", -1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Member-Active-Count"] = str(active_count)
+    response.headers["X-Member-Inactive-Count"] = str(inactive_count)
+    response.headers["X-Member-Admin-Count"] = str(admin_count)
     refreshed = [await refresh_membership_state(d) for d in docs]
     return [serialize_user(d) for d in refreshed]
 
@@ -2927,9 +3057,15 @@ async def _runtime_bootstrap():
     ensure_database_configured()
     await db.users.create_index("email", unique=True)
     await db.research_notes.create_index([("status", 1), ("created_at", -1)])
+    await db.research_notes.create_index([("status", 1), ("category", 1), ("created_at", -1)])
     await db.education_modules.create_index([("status", 1), ("order_index", 1)])
-    await db.monthly_reports.create_index([("period", -1)])
+    await db.education_modules.create_index([("status", 1), ("track", 1), ("order_index", 1)])
+    await db.monthly_reports.create_index([("status", 1), ("period", -1), ("created_at", -1)])
     await db.companies.create_index("ticker", unique=True)
+    await db.companies.create_index([("status", 1), ("sector", 1), ("ticker", 1)])
+    await db.books.create_index([("status", 1), ("created_at", -1)])
+    await db.books.create_index([("status", 1), ("category", 1), ("created_at", -1)])
+    await db.users.create_index([("role", 1), ("membership_status", 1), ("created_at", -1)])
     await db.bookmarks.create_index([("user_id", 1), ("content_type", 1), ("content_id", 1)], unique=True)
     await db.login_attempts.create_index("locked_until", expireAfterSeconds=60 * 60 * 24)
     await db.api_rate_limits.create_index("expires_at", expireAfterSeconds=0)

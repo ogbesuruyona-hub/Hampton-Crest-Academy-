@@ -5,8 +5,9 @@ import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatPeriod } from "../lib/content";
-import { learningProgress } from "../lib/learningProgress";
-import { cachedApiGet } from "../lib/resourceCache";
+import { courseIdFromTrack, learningProgress } from "../lib/learningProgress";
+import { cachedApiGet, primeCachedApi } from "../lib/resourceCache";
+import { RequestError } from "../components/RequestError";
 import {
   ArrowUpRight,
   BookOpen,
@@ -64,39 +65,59 @@ export default function Dashboard() {
   const [latestReport, setLatestReport] = useState(null);
   const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds(user?.id));
   const [courseStatuses, setCourseStatuses] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState(null);
+  const [progressError, setProgressError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const prepareBookDetail = (book) => {
+    primeCachedApi(`/books/${book.id}`, book);
+    import("./BookDetail");
+  };
 
   useEffect(() => {
     let cancel = false;
-    Promise.allSettled([
-      cachedApiGet("/books"),
-      cachedApiGet("/research"),
-      cachedApiGet("/education"),
-      cachedApiGet("/reports"),
-      cachedApiGet("/companies"),
-      learningProgress.syncWithServer(user?.id),
-    ]).then((rs) => {
-      if (cancel) return;
-      const [books, research, education, reports, companies, progress] = rs.map((x) =>
-        x.status === "fulfilled" ? x.value : [],
-      );
-      setCounts({
-        books: books.length,
-        research: research.length,
-        education: education.length,
-        reports: reports.length,
-        companies: companies.length,
+    setSummaryLoading(true);
+    setProgressLoading(true);
+    setSummaryError(null);
+    setProgressError(null);
+
+    cachedApiGet("/dashboard-summary", {}, { ttl: 60_000, force: reloadKey > 0 })
+      .then((summary) => {
+        if (cancel) return;
+        (summary.latest_books || []).forEach((book) => {
+          primeCachedApi(`/books/${book.id}`, book);
+        });
+        setCounts(summary.counts);
+        setLatestBooks(summary.latest_books || []);
+        setLatestResearch(summary.latest_research || []);
+        setEducationLessons(summary.education_lessons || []);
+        setLatestReport(summary.latest_report || null);
+      })
+      .catch((error) => {
+        if (!cancel) setSummaryError(error);
+      })
+      .finally(() => {
+        if (!cancel) setSummaryLoading(false);
       });
-      setLatestBooks(books.slice(0, 4));
-      setLatestResearch(research.slice(0, 4));
-      setEducationLessons(education);
-      setLatestReport(reports[0] || null);
-      setCourseStatuses(progress);
-      setCompletedIds(learningProgress.getCompletedIds(user?.id));
-    });
+
+    learningProgress.syncWithServer(user?.id)
+      .then((progress) => {
+        if (cancel) return;
+        setCourseStatuses(progress);
+        setCompletedIds(learningProgress.getCompletedIds(user?.id));
+      })
+      .catch((error) => {
+        if (!cancel) setProgressError(error);
+      })
+      .finally(() => {
+        if (!cancel) setProgressLoading(false);
+      });
     return () => {
       cancel = true;
     };
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
 
   const today = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -108,7 +129,8 @@ export default function Dashboard() {
   const orderedLessons = sortLessons(educationLessons);
   const completedLessons = orderedLessons.filter((lesson) => completedIds.has(lesson.id)).length;
   const progressPercent = orderedLessons.length ? Math.round((completedLessons / orderedLessons.length) * 100) : 0;
-  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lesson.course_locked);
+  const lockedCourseIds = new Set(courseStatuses.filter((course) => course.locked).map((course) => course.course.id));
+  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lockedCourseIds.has(courseIdFromTrack(lesson.track)));
   const allLessonsComplete = orderedLessons.length > 0 && !nextLesson;
   const pendingQuiz = courseStatuses.find((course) => course.content_completed && course.quiz && !course.completed);
   const availableCourseStatuses = courseStatuses.filter((course) => course.total_lessons > 0);
@@ -126,40 +148,47 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-10">
         <KPI
           label="Libros"
-          value={counts.books || "—"}
+          value={summaryLoading ? "…" : counts.books || "—"}
           sub={counts.books ? "En la biblioteca" : "Curación en proceso"}
           testid="kpi-books"
         />
         <KPI
           label="Investigación"
-          value={counts.research || "—"}
+          value={summaryLoading ? "…" : counts.research || "—"}
           sub={counts.research ? "Notas internas" : "Investigación en preparación"}
           testid="kpi-research"
         />
         <KPI
           label="Módulos educativos"
-          value={counts.education || "—"}
+          value={summaryLoading ? "…" : counts.education || "—"}
           sub={counts.education ? "Disponibles" : "Currículum en preparación"}
           testid="kpi-education"
         />
         <KPI
           label="Reportes mensuales"
-          value={counts.reports || "—"}
+          value={summaryLoading ? "…" : counts.reports || "—"}
           sub={counts.reports ? "Reportes archivados" : "Próximo reporte: este mes"}
           testid="kpi-reports"
         />
         <KPI
           label="Compañías cubiertas"
-          value={counts.companies || "—"}
+          value={summaryLoading ? "…" : counts.companies || "—"}
           sub={counts.companies ? "Cobertura activa" : "Lista pendiente"}
           testid="kpi-companies"
         />
       </div>
 
+      {summaryError ? (
+        <div className="mb-8"><RequestError error={summaryError} onRetry={() => setReloadKey((value) => value + 1)} /></div>
+      ) : null}
+
       <section
         className="mb-10 border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6 hc-enter"
         data-testid="dashboard-learning-progress"
       >
+        {progressError ? <RequestError error={progressError} onRetry={() => setReloadKey((value) => value + 1)} compact /> : null}
+        {!progressError && progressLoading ? <div className="h-20 animate-pulse bg-[var(--hc-surface-elevated)]" data-testid="dashboard-progress-loading" /> : null}
+        {!progressError && !progressLoading ? (
         <div className="flex items-start justify-between gap-6 flex-wrap">
           <div className="min-w-0">
             <div className="hc-overline">Progreso de academia</div>
@@ -229,6 +258,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+        ) : null}
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -246,7 +276,11 @@ export default function Dashboard() {
             </Link>
           }
         >
-          {latestBooks.length === 0 ? (
+          {summaryLoading ? (
+            <div className="h-28 animate-pulse bg-[var(--hc-surface-elevated)]" />
+          ) : summaryError ? (
+            <RequestError error={summaryError} onRetry={() => setReloadKey((value) => value + 1)} compact />
+          ) : latestBooks.length === 0 ? (
             <EmptyState
               icon={BookOpen}
               title="Aún no hay libros"
@@ -258,6 +292,9 @@ export default function Dashboard() {
                 <Link
                   key={book.id}
                   to={`/books/${book.id}`}
+                  onMouseEnter={() => prepareBookDetail(book)}
+                  onFocus={() => prepareBookDetail(book)}
+                  onTouchStart={() => prepareBookDetail(book)}
                   className="group grid grid-cols-1 sm:grid-cols-[100px_1fr_24px] gap-2 sm:gap-4 items-start sm:items-center py-4 first:pt-0 last:pb-0 hover:bg-[var(--hc-surface-elevated)] -mx-2 px-2 transition-colors"
                 >
                   <span className="hc-overline">{book.author || book.category || "Libro"}</span>
@@ -295,7 +332,11 @@ export default function Dashboard() {
             </Link>
           }
         >
-          {latestResearch.length === 0 ? (
+          {summaryLoading ? (
+            <div className="h-28 animate-pulse bg-[var(--hc-surface-elevated)]" />
+          ) : summaryError ? (
+            <RequestError error={summaryError} onRetry={() => setReloadKey((value) => value + 1)} compact />
+          ) : latestResearch.length === 0 ? (
             <EmptyState
               icon={FileSearch}
               title="Sin investigación publicada"
@@ -336,7 +377,11 @@ export default function Dashboard() {
           className="hc-enter hc-enter-delay-3"
           testid="panel-latest-report"
         >
-          {latestReport ? (
+          {summaryLoading ? (
+            <div className="h-28 animate-pulse bg-[var(--hc-surface-elevated)]" />
+          ) : summaryError ? (
+            <RequestError error={summaryError} onRetry={() => setReloadKey((value) => value + 1)} compact />
+          ) : latestReport ? (
             <Link
               to={`/reports/${latestReport.id}`}
               className="block group"

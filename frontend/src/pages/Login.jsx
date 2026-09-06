@@ -88,14 +88,16 @@ export default function Login() {
   return (
     <main className="min-h-screen grid lg:grid-cols-[1.06fr_0.94fr] bg-[var(--hc-bg)] text-[var(--hc-text)]">
       <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-[var(--hc-border)] overflow-hidden bg-[var(--hc-ink)] text-white">
-        <div
-          className="absolute inset-0 opacity-95"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
-          }}
+        <img
+          src="/assets/academy-hero-1280.7c59e529.webp"
+          srcSet="/assets/academy-hero-768.e982fdfb.webp 768w, /assets/academy-hero-1280.7c59e529.webp 1280w, /assets/academy-hero-1920.0786ca53.webp 1920w"
+          sizes="53vw"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-95"
         />
         <div className="absolute inset-0 bg-[#071925]/44" />
         <div className="absolute inset-0 bg-gradient-to-br from-[#071925] via-[#071925]/72 to-[#071925]/34" />
