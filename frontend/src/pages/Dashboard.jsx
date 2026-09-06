@@ -86,6 +86,9 @@ export default function Dashboard() {
     cachedApiGet("/dashboard-summary", {}, { ttl: 60_000, force: reloadKey > 0 })
       .then((summary) => {
         if (cancel) return;
+        (summary.latest_books || []).forEach((book) => {
+          primeCachedApi(`/books/${book.id}`, book);
+        });
         setCounts(summary.counts);
         setLatestBooks(summary.latest_books || []);
         setLatestResearch(summary.latest_research || []);
