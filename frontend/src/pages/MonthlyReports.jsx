@@ -7,6 +7,7 @@ import { AdminAction } from "../components/AdminActions";
 import { useAuth } from "../context/AuthContext";
 import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { FileText } from "lucide-react";
+import { RequestError } from "../components/RequestError";
 
 const yearOptions = (() => {
   const now = new Date().getFullYear();
@@ -21,13 +22,17 @@ export default function MonthlyReports() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = { year };
       const data = await cachedApiGet("/reports", { params });
       setItems(data);
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
@@ -84,6 +89,8 @@ export default function MonthlyReports() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={FileText}

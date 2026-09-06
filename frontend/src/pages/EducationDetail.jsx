@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Clock, FileDown, ShieldQuestion } from "lucide-react";
 import { API, formatApiErrorDetail } from "../lib/api";
-import { formatDate } from "../lib/content";
+import { formatDate, formatFileSize } from "../lib/content";
 import { RichContent } from "../components/RichContent";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { StatusBadge } from "../components/StatusBadge";
@@ -207,6 +207,7 @@ export default function EducationDetail() {
               <div className="mt-1 truncate text-sm tracking-tight text-[var(--hc-text)]">
                 {lesson.file_name || "material-de-la-leccion.pdf"}
               </div>
+              {lesson.file_size ? <div className="mt-1 text-xs text-[var(--hc-text-muted)]">PDF · {formatFileSize(lesson.file_size)}</div> : null}
             </div>
             <a
               href={`${API}/education/${lesson.id}/open`}

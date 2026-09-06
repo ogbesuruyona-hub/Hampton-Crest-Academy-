@@ -16,6 +16,9 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { toast } from "sonner";
+import { RequestError } from "../components/RequestError";
+
+const PAGE_SIZE = 25;
 
 const StatusPill = ({ user }) => {
   if (user.role === "admin") {
@@ -89,18 +92,29 @@ export default function AdminMembers() {
   const [statusFilter, setStatusFilter] = useState("");
   const [actionTarget, setActionTarget] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const params = {};
+      const params = { page, page_size: PAGE_SIZE };
       if (q) params.q = q;
       if (statusFilter) params.status = statusFilter;
-      const { data } = await api.get("/admin/members", { params });
+      const { data, headers } = await api.get("/admin/members", { params });
       setMembers(data);
+      setTotal(Number(headers["x-total-count"] || data.length));
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
+  }, [q, statusFilter, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [q, statusFilter]);
 
   useEffect(() => {
@@ -222,6 +236,8 @@ export default function AdminMembers() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando…</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -312,6 +328,14 @@ export default function AdminMembers() {
           </div>
         </Panel>
       )}
+
+      {!loading && !error && total > PAGE_SIZE ? (
+        <nav aria-label="Paginación de miembros" className="mt-6 flex items-center justify-between gap-4">
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="min-h-11 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Anterior</button>
+          <span className="text-xs text-[var(--hc-text-muted)]">Página {page} de {Math.ceil(total / PAGE_SIZE)}</span>
+          <button type="button" onClick={() => setPage((value) => value + 1)} disabled={page * PAGE_SIZE >= total} className="min-h-11 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Siguiente</button>
+        </nav>
+      ) : null}
 
       <AlertDialog
         open={confirmAction === "revoke"}

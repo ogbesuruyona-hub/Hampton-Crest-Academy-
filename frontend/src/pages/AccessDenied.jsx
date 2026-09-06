@@ -5,8 +5,7 @@ import { ArrowUpRight, CreditCard, RefreshCw, ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localizeBillingInterval, withSpanishCheckoutLocale } from "../lib/paymentLinks";
 
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
+const LOGO_URL = "/assets/hampton-crest-320.94f2cd23.webp";
 
 export default function AccessDenied() {
   const { user, refresh } = useAuth();

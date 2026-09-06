@@ -106,7 +106,7 @@ export const ChatWidget = () => {
       });
       if (!sessionId) persistSession(data.session_id);
       setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
-    } catch (err) {
+    } catch {
       setMessages((m) => [
         ...m,
         {

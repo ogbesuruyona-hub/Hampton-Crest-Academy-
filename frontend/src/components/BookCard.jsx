@@ -5,6 +5,7 @@ import { StatusBadge } from "./StatusBadge";
 import { BookmarkButton } from "./BookmarkButton";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { toast } from "sonner";
+import { primeCachedApi } from "../lib/resourceCache";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,14 +38,23 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
 
   const open = () => {
     if (book.id) {
+      primeCachedApi(`/books/${book.id}`, book);
       navigate(`/books/${book.id}`);
     }
+  };
+
+  const prepareDetail = () => {
+    if (book.id) primeCachedApi(`/books/${book.id}`, book);
+    import("../pages/BookDetail");
   };
 
   return (
     <div
       data-testid={`book-card-${book.id}`}
       onClick={open}
+      onMouseEnter={prepareDetail}
+      onFocus={prepareDetail}
+      onTouchStart={prepareDetail}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

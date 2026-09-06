@@ -91,12 +91,16 @@ export default function PublicLanding() {
 
       <main>
       <section className="relative min-h-[640px] sm:min-h-[680px] overflow-hidden border-b border-[#c7a34f]/30 bg-[#071925]">
-        <div
-          className="absolute inset-0 bg-cover bg-[68%_bottom] opacity-[0.78] sm:bg-center sm:opacity-100"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85)",
-          }}
+        <img
+          src="/assets/academy-hero-1280.7c59e529.webp"
+          srcSet="/assets/academy-hero-768.e982fdfb.webp 768w, /assets/academy-hero-1280.7c59e529.webp 1280w, /assets/academy-hero-1920.0786ca53.webp 1920w"
+          sizes="100vw"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-[68%_bottom] opacity-[0.78] sm:object-center sm:opacity-100"
         />
         <div className="absolute inset-0 bg-[#071925]/58 sm:bg-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#071925] via-[#071925]/92 to-[#071925]/55 sm:from-[#071925]/82 sm:via-[#071925]/34 sm:to-transparent" />

@@ -94,8 +94,8 @@ function App() {
               <Route path="/profile" element={withLoader(<MemberProfile />)} />
               <Route path="/directory" element={withLoader(<MemberDirectory />)} />
               <Route path="/search" element={withLoader(<SearchResults />)} />
-              <Route path="/admin/members" element={withLoader(<AdminMembers />)} />
-              <Route path="/admin/quizzes" element={withLoader(<AdminQuizzes />)} />
+              <Route path="/admin/members" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminMembers />)}</ProtectedRoute>} />
+              <Route path="/admin/quizzes" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminQuizzes />)}</ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

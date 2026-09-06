@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { RESEARCH_CATEGORIES } from "../lib/content";
 import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { FileSearch, Search } from "lucide-react";
+import { RequestError } from "../components/RequestError";
 
 export default function ResearchLibrary() {
   const { user } = useAuth();
@@ -19,9 +20,11 @@ export default function ResearchLibrary() {
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = {};
       if (category) params.category = category;
@@ -29,6 +32,8 @@ export default function ResearchLibrary() {
       if (isAdmin && statusFilter) params.status = statusFilter;
       const data = await cachedApiGet("/research", { params });
       setItems(data);
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
@@ -130,6 +135,8 @@ export default function ResearchLibrary() {
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
           Cargando investigación...
         </div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={FileSearch}

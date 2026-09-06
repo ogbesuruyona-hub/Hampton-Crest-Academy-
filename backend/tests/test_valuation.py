@@ -8,7 +8,7 @@ if not BASE_URL:
     # Fallback: read frontend/.env
     from pathlib import Path
     fe_env = Path(__file__).resolve().parents[2] / "frontend" / ".env"
-    for line in fe_env.read_text().splitlines():
+    for line in (fe_env.read_text().splitlines() if fe_env.exists() else []):
         if line.startswith("REACT_APP_BACKEND_URL="):
             BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
             break

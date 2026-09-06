@@ -48,6 +48,12 @@ export const cachedApiGet = async (url, config = {}, options = {}) => {
   }
 };
 
+export const primeCachedApi = (url, data, config = {}) => {
+  cache.set(getCacheKey(url, config), { data, timestamp: Date.now() });
+};
+
+export const peekCachedApi = (url, config = {}) => cache.get(getCacheKey(url, config))?.data;
+
 export const invalidateCachedApi = (prefix) => {
   for (const key of cache.keys()) {
     if (key.startsWith(prefix)) cache.delete(key);
@@ -55,4 +61,9 @@ export const invalidateCachedApi = (prefix) => {
   for (const key of inFlight.keys()) {
     if (key.startsWith(prefix)) inFlight.delete(key);
   }
+};
+
+export const clearCachedApi = () => {
+  cache.clear();
+  inFlight.clear();
 };

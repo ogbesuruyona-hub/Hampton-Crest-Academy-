@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { api, formatApiErrorDetail } from "../lib/api";
-import { CONTENT_TYPES, formatDate, formatPeriod } from "../lib/content";
+import { CONTENT_TYPES, formatDate, formatFileSize, formatPeriod } from "../lib/content";
 import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { useAuth } from "../context/AuthContext";
 import { BookmarkButton } from "./BookmarkButton";
@@ -152,7 +152,7 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
       </header>
 
       {/* PDF attachment for reports */}
-      {contentType === "reports" && item.pdf_url && (
+      {contentType === "reports" && (item.pdf_storage_path || item.pdf_url) && (
         <div
           data-testid="report-pdf-block"
           className="mt-8 flex items-center justify-between gap-4 border border-[var(--hc-border)] bg-[var(--hc-surface)] px-5 py-4"
@@ -162,9 +162,10 @@ export const ContentDetailView = ({ contentType, EditorComponent }) => {
             <div className="mt-1 text-sm tracking-tight text-[var(--hc-text)] truncate">
               {item.pdf_filename || "reporte.pdf"}
             </div>
+            {item.pdf_size ? <div className="mt-1 text-xs text-[var(--hc-text-muted)]">PDF · {formatFileSize(item.pdf_size)}</div> : null}
           </div>
           <button
-            onClick={() => openPdf(item.pdf_url)}
+            onClick={() => item.pdf_storage_path ? window.open(`${api.defaults.baseURL}/reports/${item.id}/open`, "_blank", "noopener") : openPdf(item.pdf_url)}
             data-testid="report-pdf-open"
             className="flex items-center gap-2 px-4 py-2 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors"
           >

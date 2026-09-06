@@ -108,6 +108,11 @@ export const PdfUploader = ({ value, onChange, testid, endpoint = "/uploads/repo
           {error}
         </div>
       )}
+      {value?.size > 10 * 1024 * 1024 ? (
+        <div className="mt-3 border border-[#b98b3f]/45 bg-[#fff5dc] px-3 py-2.5 text-xs leading-relaxed text-[#76531b]" data-testid="large-report-pdf-warning">
+          Este PDF pesa {sizeLabel}. Los archivos mayores de 10 MB pueden tardar más en abrirse en conexiones móviles.
+        </div>
+      ) : null}
     </div>
   );
 };

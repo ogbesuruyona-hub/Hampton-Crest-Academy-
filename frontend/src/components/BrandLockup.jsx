@@ -1,7 +1,6 @@
 import React from "react";
 
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_hampton-crest/artifacts/nj6t4ufd_35939535-7E23-42A3-BF88-4E1ED39508BB.png";
+const LOGO_URL = "/assets/hampton-crest-320.94f2cd23.webp";
 
 export function BrandCrest({ className = "", compact = false, testId }) {
   return (
@@ -10,7 +9,14 @@ export function BrandCrest({ className = "", compact = false, testId }) {
       aria-hidden="true"
       data-testid={testId}
     >
-      <img src={LOGO_URL} alt="" />
+      <img
+        src={LOGO_URL}
+        srcSet="/assets/hampton-crest-160.98f77372.webp 160w, /assets/hampton-crest-320.94f2cd23.webp 320w, /assets/hampton-crest-640.e8758d14.webp 640w"
+        sizes={compact ? "40px" : "64px"}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
     </span>
   );
 }

@@ -3,6 +3,7 @@ import { CheckCircle2, FileText, Loader2, RefreshCw, Upload, X } from "lucide-re
 import { api, formatApiErrorDetail } from "../lib/api";
 
 const MAX_BOOK_BYTES = 50 * 1024 * 1024;
+const LARGE_PDF_WARNING_BYTES = 10 * 1024 * 1024;
 const RETRY_DELAYS = [0, 2000, 5000];
 
 const formatSize = (bytes) => {
@@ -19,12 +20,15 @@ export const BookPdfUploader = ({
   endpoint = "/books/uploads/sign",
   uploadingLabel = "Subiendo el libro",
   itemLabel = "libro",
+  maxBytes = MAX_BOOK_BYTES,
+  maxLabel = "50 MB",
 }) => {
   const inputRef = useRef(null);
   const uploadRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [largeFileSize, setLargeFileSize] = useState(value?.size > LARGE_PDF_WARNING_BYTES ? value.size : 0);
 
   useEffect(
     () => () => {
@@ -78,10 +82,11 @@ export const BookPdfUploader = ({
       setError("Solo se aceptan archivos PDF.");
       return;
     }
-    if (file.size > MAX_BOOK_BYTES) {
-      setError(`El ${itemLabel} supera el límite de 50 MB.`);
+    if (file.size > maxBytes) {
+      setError(`El ${itemLabel} supera el límite de ${maxLabel}.`);
       return;
     }
+    setLargeFileSize(file.size > LARGE_PDF_WARNING_BYTES ? file.size : 0);
 
     setUploading(true);
     onUploadingChange?.(true);
@@ -135,6 +140,7 @@ export const BookPdfUploader = ({
     uploadRef.current = null;
     setProgress(0);
     setError("");
+    setLargeFileSize(0);
     onChange?.(null);
   };
 
@@ -218,8 +224,13 @@ export const BookPdfUploader = ({
       )}
 
       <p className="mt-2 text-center text-[0.68rem] text-[var(--hc-text-muted)]">
-        Solo PDF · máximo 50 MB · hasta 3 intentos automáticos
+        Solo PDF · máximo {maxLabel} · hasta 3 intentos automáticos
       </p>
+      {largeFileSize ? (
+        <div className="mt-3 rounded-sm border border-[#b98b3f]/45 bg-[#fff5dc] px-3 py-2.5 text-xs leading-relaxed text-[#76531b]" data-testid="large-pdf-warning">
+          Este PDF pesa {formatSize(largeFileSize)}. Los archivos mayores de 10 MB pueden tardar más en abrirse en conexiones móviles.
+        </div>
+      ) : null}
       {error ? (
         <div className="mt-3 rounded-sm border border-[#b75d5d]/35 bg-[#f8e9e7] px-3 py-2.5 text-xs leading-relaxed text-[#913f3f]">
           <strong className="font-medium">No pudimos subir el PDF.</strong> {error}

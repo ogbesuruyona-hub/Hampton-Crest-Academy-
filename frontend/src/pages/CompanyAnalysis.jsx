@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { COMPANY_SECTORS } from "../lib/content";
 import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
 import { BarChart3, Search, ArrowUpRight } from "lucide-react";
+import { RequestError } from "../components/RequestError";
 
 export default function CompanyAnalysis() {
   const { user } = useAuth();
@@ -19,9 +20,11 @@ export default function CompanyAnalysis() {
   const [sector, setSector] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = {};
       if (q) params.q = q;
@@ -29,6 +32,8 @@ export default function CompanyAnalysis() {
       if (statusFilter) params.status = statusFilter;
       const data = await cachedApiGet("/companies", { params });
       setItems(data);
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
@@ -96,6 +101,8 @@ export default function CompanyAnalysis() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando...</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={BarChart3}
