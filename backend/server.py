@@ -2907,6 +2907,19 @@ async def seed_test_member():
         logger.info("Refreshed test member %s", email)
 
 
+async def rotate_premium_qa_password_once():
+    """Rotate the requested QA account without storing its plaintext password."""
+    email = "academy.premium.qa+20260906@example.com"
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {
+            "password_hash": "$2y$12$zJXZMSySGRQUD9JSRE/1h.OgsSArNMR/ZkR9EAWgOqp0V/lL/Vx6K",
+            "updated_at": now_utc(),
+        }},
+    )
+    await db.login_attempts.delete_one({"_id": f"login:{email}"})
+
+
 async def runtime_bootstrap():
     global _runtime_bootstrap_done, _runtime_bootstrap_error
     if _runtime_bootstrap_done:
@@ -2940,6 +2953,7 @@ async def _runtime_bootstrap():
     await ensure_quiz_engine(db, now_utc)
     await seed_admin()
     await seed_test_member()
+    await rotate_premium_qa_password_once()
     # Init storage but don't fail startup if down
     try:
         await asyncio.to_thread(_init_storage)
