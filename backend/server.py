@@ -3103,6 +3103,8 @@ async def _runtime_bootstrap():
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
     from migrations.quiz_engine_v1 import ensure_quiz_engine
     from migrations.quiz_engine_v2 import restore_fundamentos_demo_after_qa
+    from migrations.education_single_course_v1 import publish_existing_education_as_fundamentos
+    await publish_existing_education_as_fundamentos(db, now_utc)
     await ensure_quiz_engine(db, now_utc)
     await restore_fundamentos_demo_after_qa(db, now_utc)
     await seed_admin()
