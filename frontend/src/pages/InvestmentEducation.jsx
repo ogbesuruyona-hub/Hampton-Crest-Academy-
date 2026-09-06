@@ -131,7 +131,7 @@ export default function InvestmentEducation() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState("");
-  const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds());
+  const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds(user?.id));
   const [courseProgress, setCourseProgress] = useState({});
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -143,16 +143,16 @@ export default function InvestmentEducation() {
       const data = await cachedApiGet("/education");
       setItems(sortLessons(data));
       try {
-        const statuses = await learningProgress.syncWithServer();
+        const statuses = await learningProgress.syncWithServer(user?.id);
         setCourseProgress(Object.fromEntries(statuses.map((status) => [status.course.id, status])));
       } catch {
         // Keep the compatible local view if progress synchronization is temporarily unavailable.
       }
-      setCompletedIds(learningProgress.getCompletedIds());
+      setCompletedIds(learningProgress.getCompletedIds(user?.id));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     load();
@@ -181,6 +181,9 @@ export default function InvestmentEducation() {
 
   const nextLesson = visibleItems.find((item) => !completedIds.has(item.id) && !item.course_locked);
   const selectedPathComplete = visibleItems.length > 0 && visibleItems.every((item) => completedIds.has(item.id));
+  const selectedPendingQuiz = learningPaths.find(
+    (path) => path.progress?.content_completed && path.progress?.quiz && !path.progress?.completed,
+  );
 
   const openNew = () => {
     setEditing(null);
@@ -218,7 +221,8 @@ export default function InvestmentEducation() {
         <button
           onClick={() => setTrack("")}
           data-testid="track-filter-all"
-          className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
+          aria-pressed={!track}
+          className={`min-h-11 px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
             !track
               ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
               : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
@@ -230,7 +234,8 @@ export default function InvestmentEducation() {
           <button
             key={t}
             onClick={() => setTrack(t)}
-            className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
+            aria-pressed={track === t}
+            className={`min-h-11 px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
               track === t
                 ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
                 : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
@@ -260,6 +265,16 @@ export default function InvestmentEducation() {
               Ver lección <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
             </Link>
           </div>
+        </section>
+      ) : selectedPendingQuiz ? (
+        <section className="mb-8 border border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] p-6" data-testid="learning-quiz-pending">
+          <div className="hc-overline">Contenido completado</div>
+          <h2 className="mt-2 text-xl font-medium tracking-tight text-[var(--hc-text)]">
+            La evaluación de {selectedPendingQuiz.name} está pendiente.
+          </h2>
+          <p className="mt-2 text-sm text-[var(--hc-text-secondary)] leading-relaxed">
+            Aprueba el quiz para completar el curso y desbloquear la siguiente ruta.
+          </p>
         </section>
       ) : selectedPathComplete ? (
         <section className="mb-8 border border-[var(--hc-border)] bg-[var(--hc-surface)] p-6" data-testid="learning-complete">
@@ -306,11 +321,11 @@ export default function InvestmentEducation() {
                     <div className="h-1.5 w-40 bg-[var(--hc-bg)] border border-[var(--hc-border)]">
                       <div
                         className="h-full bg-[var(--hc-gold)]"
-                        style={{ width: `${learningProgress.getPercent(path.lessons)}%` }}
+                        style={{ width: `${learningProgress.getPercent(path.lessons, user?.id)}%` }}
                       />
                     </div>
                     <span className="text-[0.7rem] tracking-[0.16em] uppercase text-[var(--hc-text-muted)]">
-                      {learningProgress.getPercent(path.lessons)}% completado
+                      {learningProgress.getPercent(path.lessons, user?.id)}% {path.progress?.quiz && !path.progress?.completed ? "contenido · evaluación pendiente" : "completado"}
                     </span>
                   </div>
                 </div>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { DesktopSidebar, SidebarContent } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import ChatWidget from "./ChatWidget";
 import BillingNotice from "./BillingNotice";
 
@@ -21,6 +21,10 @@ export const AppLayout = () => {
           className="p-0 w-[280px] bg-[var(--hc-surface)] border-r border-[var(--hc-border)] text-[var(--hc-text)]"
           data-testid="mobile-sidebar"
         >
+          <SheetTitle className="sr-only">Navegación de Hampton Crest Academy</SheetTitle>
+          <SheetDescription className="sr-only">
+            Menú principal de la academia para miembros Premium.
+          </SheetDescription>
           <SidebarContent onItemClick={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>

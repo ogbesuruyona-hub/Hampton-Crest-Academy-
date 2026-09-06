@@ -103,7 +103,7 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
             {book.category}
           </div>
         )}
-        <h3 className="text-[0.62rem] font-medium leading-[1.2] tracking-tight text-[var(--hc-text)] line-clamp-2 transition-colors group-hover:text-[var(--hc-gold)] sm:text-sm sm:leading-snug">
+        <h3 title={book.title} className="text-[0.65rem] font-medium leading-[1.2] tracking-tight text-[var(--hc-text)] line-clamp-4 transition-colors group-hover:text-[var(--hc-gold)] sm:text-sm sm:leading-snug sm:line-clamp-2">
           {book.title}
         </h3>
         {book.author && (

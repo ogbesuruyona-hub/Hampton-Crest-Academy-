@@ -62,7 +62,7 @@ export default function Dashboard() {
   const [latestResearch, setLatestResearch] = useState([]);
   const [educationLessons, setEducationLessons] = useState([]);
   const [latestReport, setLatestReport] = useState(null);
-  const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds());
+  const [completedIds, setCompletedIds] = useState(() => learningProgress.getCompletedIds(user?.id));
   const [courseStatuses, setCourseStatuses] = useState([]);
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function Dashboard() {
       cachedApiGet("/education"),
       cachedApiGet("/reports"),
       cachedApiGet("/companies"),
-      learningProgress.syncWithServer(),
+      learningProgress.syncWithServer(user?.id),
     ]).then((rs) => {
       if (cancel) return;
       const [books, research, education, reports, companies, progress] = rs.map((x) =>
@@ -91,12 +91,12 @@ export default function Dashboard() {
       setEducationLessons(education);
       setLatestReport(reports[0] || null);
       setCourseStatuses(progress);
-      setCompletedIds(learningProgress.getCompletedIds());
+      setCompletedIds(learningProgress.getCompletedIds(user?.id));
     });
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [user?.id]);
 
   const today = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -111,6 +111,9 @@ export default function Dashboard() {
   const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lesson.course_locked);
   const allLessonsComplete = orderedLessons.length > 0 && !nextLesson;
   const pendingQuiz = courseStatuses.find((course) => course.content_completed && course.quiz && !course.completed);
+  const availableCourseStatuses = courseStatuses.filter((course) => course.total_lessons > 0);
+  const allAvailableCoursesComplete =
+    availableCourseStatuses.length > 0 && availableCourseStatuses.every((course) => course.completed);
 
   return (
     <div data-testid="dashboard-page">
@@ -161,14 +164,18 @@ export default function Dashboard() {
           <div className="min-w-0">
             <div className="hc-overline">Progreso de academia</div>
             <h2 className="mt-2 text-xl font-medium tracking-tight text-[var(--hc-text)]">
-              {allLessonsComplete
-                ? "Ruta de aprendizaje completada"
-                : "Continuar aprendiendo"}
+              {pendingQuiz
+                ? "Contenido completado · evaluación pendiente"
+                : allAvailableCoursesComplete
+                  ? "Ruta de aprendizaje completada"
+                  : "Continuar aprendiendo"}
             </h2>
             <p className="mt-2 text-sm text-[var(--hc-text-secondary)] leading-relaxed">
               {educationLessons.length === 0
                 ? "Las lecciones de la academia aparecerán aquí cuando estén disponibles."
-                : allLessonsComplete
+                : pendingQuiz
+                  ? `Completaste las lecciones de ${pendingQuiz.course.title}. Aprueba la evaluación para completar el curso.`
+                  : allAvailableCoursesComplete
                   ? "Has completado todas las lecciones disponibles. Nuevas publicaciones aparecerán aquí para continuar tu avance."
                   : `${completedLessons} de ${educationLessons.length} lecciones completadas.`}
             </p>

@@ -123,7 +123,7 @@ export default function Settings() {
               <button
                 onClick={() => setDisableOpen(true)}
                 data-testid="disable-2fa-button"
-                className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors shrink-0"
+                className="min-h-11 px-5 py-2.5 text-xs tracking-[0.18em] uppercase border border-[#7A2424] text-[#E07A7A] hover:bg-[#2A0F0F] transition-colors shrink-0"
               >
                 Desactivar
               </button>
@@ -131,7 +131,7 @@ export default function Settings() {
               <button
                 onClick={() => setSetupOpen(true)}
                 data-testid="enable-2fa-button"
-                className="px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0"
+                className="min-h-11 px-5 py-2.5 text-xs tracking-[0.18em] uppercase bg-[var(--hc-platinum)] text-[var(--hc-bg)] hover:bg-white transition-colors shrink-0"
               >
                 Activar 2FA
               </button>

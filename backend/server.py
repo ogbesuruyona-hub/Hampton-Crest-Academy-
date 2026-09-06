@@ -2937,7 +2937,9 @@ async def _runtime_bootstrap():
     await db.password_resets.create_index("expires_at", expireAfterSeconds=60 * 60 * 24)
     await db.stripe_events.create_index("received_at", expireAfterSeconds=60 * 60 * 24 * 90)
     from migrations.quiz_engine_v1 import ensure_quiz_engine
+    from migrations.quiz_engine_v2 import restore_fundamentos_demo_after_qa
     await ensure_quiz_engine(db, now_utc)
+    await restore_fundamentos_demo_after_qa(db, now_utc)
     await seed_admin()
     await seed_test_member()
     # Init storage but don't fail startup if down

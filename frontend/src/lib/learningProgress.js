@@ -2,6 +2,9 @@ import { api } from "./api";
 
 const STORAGE_KEY = "hc_completed_lessons";
 
+const storageKeyForUser = (userId) =>
+  userId ? `${STORAGE_KEY}:${String(userId)}` : null;
+
 export const COURSE_CATALOG = [
   { id: "fundamentos", title: "Fundamentos", position: 0 },
   { id: "macro-y-ciclos-de-capital", title: "Macro y Ciclos de Capital", position: 1 },
@@ -21,9 +24,11 @@ export const courseIdFromTrack = (value = "") => {
   return slug === "foundations" ? "fundamentos" : slug || "ruta-general";
 };
 
-const readSet = () => {
+const readSet = (userId) => {
+  const storageKey = storageKeyForUser(userId);
+  if (!storageKey) return new Set();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : [];
     return new Set(Array.isArray(parsed) ? parsed : []);
   } catch {
@@ -31,45 +36,44 @@ const readSet = () => {
   }
 };
 
-const writeSet = (set) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+const writeSet = (userId, set) => {
+  const storageKey = storageKeyForUser(userId);
+  if (!storageKey) return;
+  localStorage.setItem(storageKey, JSON.stringify([...set]));
 };
 
 export const learningProgress = {
-  getCompletedIds() {
-    return readSet();
+  getCompletedIds(userId) {
+    return readSet(userId);
   },
-  isCompleted(id) {
+  isCompleted(id, userId) {
     if (!id) return false;
-    return readSet().has(id);
+    return readSet(userId).has(id);
   },
-  setCompleted(id, completed = true) {
+  setCompleted(id, completed = true, userId) {
     if (!id) return;
-    const set = readSet();
+    const set = readSet(userId);
     if (completed) set.add(id);
     else set.delete(id);
-    writeSet(set);
+    writeSet(userId, set);
   },
-  getPercent(lessons) {
+  getPercent(lessons, userId) {
     if (!Array.isArray(lessons) || lessons.length === 0) return 0;
-    const set = readSet();
+    const set = readSet(userId);
     const completed = lessons.filter((lesson) => set.has(lesson.id)).length;
     return Math.round((completed / lessons.length) * 100);
   },
-  async syncWithServer() {
-    const lessonIds = [...readSet()];
-    const { data } = lessonIds.length
-      ? await api.post("/progress/lessons/sync", { lesson_ids: lessonIds })
-      : await api.get("/progress/courses");
+  async syncWithServer(userId) {
+    const { data } = await api.get("/progress/courses");
     const serverIds = new Set(
       (Array.isArray(data) ? data : []).flatMap((course) => course.completed_lesson_ids || []),
     );
-    writeSet(serverIds);
+    writeSet(userId, serverIds);
     return Array.isArray(data) ? data : [];
   },
-  async setCompletedOnServer(id, completed = true) {
+  async setCompletedOnServer(id, completed = true, userId) {
     const { data } = await api.post(`/progress/lessons/${id}`, { completed });
-    this.setCompleted(id, completed);
+    this.setCompleted(id, completed, userId);
     return data;
   },
 };

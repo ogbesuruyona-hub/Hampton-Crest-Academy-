@@ -406,30 +406,10 @@ def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
         return results
 
     @router.post("/progress/lessons/sync")
-    async def sync_lesson_progress(payload: LessonProgressSyncIn, current_user: dict = Depends(require_member)):
-        unique_ids = list(dict.fromkeys(payload.lesson_ids))
-        if unique_ids:
-            query = {"_id": {"$in": unique_ids}}
-            if current_user.get("role") != "admin":
-                query["status"] = "published"
-            lessons = await db.education_modules.find(query, {"_id": 1, "track": 1}).to_list(500)
-            grouped: dict[str, list[str]] = {}
-            for lesson in lessons:
-                course_id = slugify_course(lesson.get("track"))
-                grouped.setdefault(course_id, []).append(str(lesson["_id"]))
-            for course_id, lesson_ids in grouped.items():
-                await db.course_progress.update_one(
-                    {"user_id": current_user["id"], "course_id": course_id},
-                    {
-                        "$addToSet": {"completed_lesson_ids": {"$each": lesson_ids}},
-                        "$setOnInsert": {
-                            "user_id": current_user["id"],
-                            "course_id": course_id,
-                            "created_at": now_utc(),
-                        },
-                    },
-                    upsert=True,
-                )
+    async def sync_lesson_progress(_payload: LessonProgressSyncIn, current_user: dict = Depends(require_member)):
+        # Backward-compatible endpoint for previously deployed clients. Browser
+        # storage is not an authority and must never be imported into a newly
+        # authenticated account; server progress is returned unchanged.
         return await course_progress(current_user)
 
     @router.post("/progress/lessons/{lesson_id}")
@@ -629,99 +609,6 @@ def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
     async def list_admin_quizzes(current_user: dict = Depends(require_admin)):
         quizzes = await db.quizzes.find({}).sort("course_id", 1).to_list(100)
         return [await _admin_quiz(db, quiz) for quiz in quizzes]
-
-    @router.get("/admin/quiz-qa-integrity")
-    async def quiz_qa_integrity(current_user: dict = Depends(require_admin)):
-        """Temporary aggregate-only production QA probe; removed after validation."""
-        quizzes = await db.quizzes.find({}, {"_id": 1, "course_id": 1}).to_list(1000)
-        questions = await db.quiz_questions.find({}, {"_id": 1, "quiz_id": 1}).to_list(10000)
-        options = await db.quiz_options.find({}, {"_id": 1, "question_id": 1}).to_list(50000)
-        attempts = await db.quiz_attempts.find({}).to_list(50000)
-        answers = await db.quiz_attempt_answers.find({}).to_list(250000)
-        progress = await db.course_progress.find({}).to_list(50000)
-
-        quiz_ids = {item["_id"] for item in quizzes}
-        question_ids = {item["_id"] for item in questions}
-        option_ids = {item["_id"] for item in options}
-        attempt_ids = {item["_id"] for item in attempts}
-
-        active_keys = [(item.get("user_id"), item.get("quiz_id")) for item in attempts if item.get("status") == "in_progress"]
-        answer_keys = [(item.get("attempt_id"), item.get("question_id")) for item in answers]
-
-        attempt_numbers: dict[tuple[str, str], list[int]] = {}
-        best_scores: dict[tuple[str, str], int] = {}
-        quiz_course = {item["_id"]: item.get("course_id") for item in quizzes}
-        for item in attempts:
-            key = (item.get("user_id"), item.get("quiz_id"))
-            attempt_numbers.setdefault(key, []).append(int(item.get("attempt_number") or 0))
-            if item.get("status") == "completed" and item.get("score") is not None:
-                best_scores[key] = max(best_scores.get(key, -1), int(item["score"]))
-
-        progress_by_key = {(item.get("user_id"), item.get("course_id")): item for item in progress}
-        best_score_mismatches = 0
-        for (user_id, quiz_id), best_score in best_scores.items():
-            item = progress_by_key.get((user_id, quiz_course.get(quiz_id)))
-            if not item or int(item.get("best_score") if item.get("best_score") is not None else -1) != best_score:
-                best_score_mismatches += 1
-
-        qa_emails = {
-            "hamptoncrest.quiz.qa+pass-20260905@example.com",
-            "hamptoncrest.quiz.qa+retry-20260905@example.com",
-        }
-        qa_users = await db.users.find({"email": {"$in": list(qa_emails)}}, {"_id": 1, "email": 1}).to_list(10)
-        qa_user_ids = {str(item["_id"]): item["email"] for item in qa_users}
-        qa_summary = []
-        for user_id, email in qa_user_ids.items():
-            user_attempts = [item for item in attempts if item.get("user_id") == user_id]
-            user_progress = [item for item in progress if item.get("user_id") == user_id]
-            qa_summary.append({
-                "account": email.split("+")[-1].split("@")[0],
-                "attempts": [
-                    {
-                        "attempt_number": item.get("attempt_number"),
-                        "status": item.get("status"),
-                        "score": item.get("score"),
-                        "passed": item.get("passed"),
-                    }
-                    for item in sorted(user_attempts, key=lambda value: value.get("attempt_number", 0))
-                ],
-                "progress": [
-                    {
-                        "course_id": item.get("course_id"),
-                        "content_completed": item.get("content_completed"),
-                        "quiz_passed": item.get("quiz_passed"),
-                        "completed": item.get("completed"),
-                        "best_score": item.get("best_score"),
-                    }
-                    for item in user_progress
-                ],
-            })
-
-        return {
-            "counts": {
-                "quizzes": len(quizzes),
-                "quiz_questions": len(questions),
-                "quiz_options": len(options),
-                "quiz_attempts": len(attempts),
-                "quiz_attempt_answers": len(answers),
-                "course_progress": len(progress),
-            },
-            "integrity": {
-                "duplicate_active_attempt_groups": len(active_keys) - len(set(active_keys)),
-                "duplicate_attempt_answer_groups": len(answer_keys) - len(set(answer_keys)),
-                "attempt_number_sequence_gaps": sum(
-                    1 for values in attempt_numbers.values() if sorted(values) != list(range(1, len(values) + 1))
-                ),
-                "best_score_mismatches": best_score_mismatches,
-                "orphan_questions": sum(1 for item in questions if item.get("quiz_id") not in quiz_ids),
-                "orphan_options": sum(1 for item in options if item.get("question_id") not in question_ids),
-                "orphan_attempts": sum(1 for item in attempts if item.get("quiz_id") not in quiz_ids),
-                "orphan_answers_attempt": sum(1 for item in answers if item.get("attempt_id") not in attempt_ids),
-                "orphan_answers_question": sum(1 for item in answers if item.get("question_id") not in question_ids),
-                "orphan_answers_option": sum(1 for item in answers if item.get("selected_option_id") not in option_ids),
-            },
-            "qa_accounts": qa_summary,
-        }
 
     @router.post("/admin/quizzes")
     async def create_admin_quiz(payload: QuizAdminIn, current_user: dict = Depends(require_admin)):

@@ -88,7 +88,7 @@ export default function BooksLibrary() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar libro, autor o tema..."
             data-testid="books-search"
-            className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
+            className="h-11 w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 focus:outline-none focus:border-[var(--hc-gold)]"
           />
         </div>
         {isAdmin && (
@@ -96,7 +96,7 @@ export default function BooksLibrary() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             data-testid="books-status-filter"
-            className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
+            className="min-h-11 bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           >
             <option value="">Todos</option>
             <option value="published">Publicados</option>
@@ -109,7 +109,8 @@ export default function BooksLibrary() {
         <button
           onClick={() => setCategory("")}
           data-testid="book-category-all"
-          className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
+          aria-pressed={!category}
+          className={`min-h-11 px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
             !category
               ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
               : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"
@@ -121,7 +122,8 @@ export default function BooksLibrary() {
           <button
             key={c}
             onClick={() => setCategory(c)}
-            className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
+            aria-pressed={category === c}
+            className={`min-h-11 px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
               category === c
                 ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
                 : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)]"

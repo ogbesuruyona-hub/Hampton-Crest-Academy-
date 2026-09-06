@@ -113,7 +113,7 @@ export const TwoFASetupDialog = ({ open, onOpenChange, onEnabled }) => {
                   <button
                     type="button"
                     onClick={() => navigator.clipboard?.writeText(secret)}
-                    className="h-9 w-9 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[var(--hc-text)]"
+                    className="h-11 w-11 flex items-center justify-center border border-[var(--hc-border)] text-[var(--hc-text-muted)] hover:text-[var(--hc-text)]"
                     aria-label="Copiar clave"
                   >
                     <Copy className="h-4 w-4" strokeWidth={1.5} />

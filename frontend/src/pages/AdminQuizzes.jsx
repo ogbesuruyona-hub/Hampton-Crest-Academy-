@@ -36,19 +36,14 @@ export default function AdminQuizzes() {
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [form, setForm] = useState(null);
-  const [integrity, setIntegrity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data }, { data: integrityData }] = await Promise.all([
-        api.get("/admin/quizzes"),
-        api.get("/admin/quiz-qa-integrity"),
-      ]);
+      const { data } = await api.get("/admin/quizzes");
       setQuizzes(data);
-      setIntegrity(integrityData);
       setForm((current) => current || (data[0] ? structuredClone(data[0]) : blankQuiz()));
     } catch (error) {
       toast.error(formatApiErrorDetail(error.response?.data?.detail) || error.message);
@@ -131,15 +126,6 @@ export default function AdminQuizzes() {
           </button>
         }
       />
-
-      {integrity && (
-        <section data-testid="quiz-qa-integrity" className="mb-6 border border-[var(--hc-border)] bg-[var(--hc-surface)] p-4">
-          <div className="hc-overline mb-3">Auditoría temporal de integridad</div>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-[var(--hc-text-secondary)]">
-            {JSON.stringify(integrity, null, 2)}
-          </pre>
-        </section>
-      )}
 
       {loading || !form ? (
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)] py-14 text-center text-sm text-[var(--hc-text-muted)]">Cargando quizzes…</div>

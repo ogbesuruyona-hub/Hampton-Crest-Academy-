@@ -49,13 +49,13 @@ export default function EducationDetail() {
         setLesson(detail);
         setAllLessons(Array.isArray(list) ? list : []);
         try {
-          const statuses = await learningProgress.syncWithServer();
+          const statuses = await learningProgress.syncWithServer(user?.id);
           if (cancelled) return;
           const courseStatus = statuses.find((status) => status.course.id === detail.course_id);
           setQuizStatus(courseStatus || null);
           setCompleted(Boolean(courseStatus?.completed_lesson_ids?.includes(detail.id)));
         } catch {
-          setCompleted(learningProgress.isCompleted(detail.id));
+          setCompleted(learningProgress.isCompleted(detail.id, user?.id));
         }
       })
       .catch((e) => {
@@ -67,7 +67,7 @@ export default function EducationDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   const sequence = useMemo(() => {
     if (!lesson) return [];
@@ -90,7 +90,7 @@ export default function EducationDetail() {
     setSavingProgress(true);
     setProgressError("");
     try {
-      const nextStatus = await learningProgress.setCompletedOnServer(lesson.id, next);
+      const nextStatus = await learningProgress.setCompletedOnServer(lesson.id, next, user?.id);
       setCompleted(next);
       setQuizStatus(nextStatus);
     } catch (progressError) {

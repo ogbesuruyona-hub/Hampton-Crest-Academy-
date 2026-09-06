@@ -35,6 +35,7 @@ if find_spec("pymongo") is None:
     sys.modules["pymongo.errors"] = pymongo_errors
 
 from routers.quizzes import _replace_questions  # noqa: E402
+from migrations.quiz_engine_v2 import demo_restore_blueprint  # noqa: E402
 
 
 def _matches(document: dict, query: dict) -> bool:
@@ -113,6 +114,17 @@ class FakeDb:
 
 
 class QuizAdminPersistenceTests(unittest.IsolatedAsyncioTestCase):
+    def test_demo_restore_blueprint_is_complete_and_has_one_correct_option(self):
+        blueprint = demo_restore_blueprint()
+
+        self.assertEqual(len(blueprint), 10)
+        self.assertEqual([item["position"] for item in blueprint], list(range(10)))
+        self.assertEqual(blueprint[0]["question_text"], "¿Qué representa principalmente una acción ordinaria?")
+        self.assertEqual(blueprint[0]["difficulty"], "fundamental")
+        for question in blueprint:
+            self.assertEqual(len(question["options"]), 4)
+            self.assertEqual(sum(option["is_correct"] for option in question["options"]), 1)
+
     async def test_admin_edit_preserves_ids_and_archives_answered_removed_question(self):
         db = FakeDb()
         question = SimpleNamespace(
