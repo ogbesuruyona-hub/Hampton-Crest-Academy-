@@ -71,12 +71,10 @@ export default function EducationDetail() {
 
   const sequence = useMemo(() => {
     if (!lesson) return [];
-    const sameModule = allLessons.filter((item) => {
-      const sameTrack = (item.track || "") === (lesson.track || "");
-      const sameCategory = (item.category || "") === (lesson.category || "");
-      return sameTrack && sameCategory;
-    });
-    return sortLessons(sameModule.length ? sameModule : allLessons);
+    const courseLessons = sortLessons(allLessons.filter((item) => (
+      !item.is_course_intro && (item.course_id || "fundamentos") === (lesson.course_id || "fundamentos")
+    )));
+    return lesson.is_course_intro ? [lesson, ...courseLessons] : courseLessons;
   }, [allLessons, lesson]);
 
   const index = sequence.findIndex((item) => item.id === id);
@@ -138,7 +136,9 @@ export default function EducationDetail() {
 
       <header className="mt-8">
         <div className="flex items-center gap-3 mb-4 flex-wrap">
-          {lesson.track && <span className="hc-overline">Ruta de aprendizaje · {lesson.track}</span>}
+          <span className="hc-overline">
+            {lesson.is_course_intro ? "Introducción del curso" : "Lección"} · {lesson.course_title || "Fundamentos"}
+          </span>
           {lesson.category && (
             <>
               <span className="h-1 w-1 rounded-full bg-[var(--hc-text-muted)]" />
@@ -172,19 +172,21 @@ export default function EducationDetail() {
             {lesson.week_count ? <span>{lesson.week_count} semanas</span> : null}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={toggleCompleted}
-              disabled={savingProgress}
-              data-testid="mark-lesson-complete"
-              className={`px-4 py-2 text-xs tracking-[0.18em] uppercase border transition-colors ${
-                completed
-                  ? "border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]"
-                  : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:border-[var(--hc-gold)]"
-              }`}
-            >
-              {savingProgress ? "Guardando…" : completed ? "Lección completada" : "Marcar como completada"}
-            </button>
+            {!lesson.is_course_intro ? (
+              <button
+                type="button"
+                onClick={toggleCompleted}
+                disabled={savingProgress}
+                data-testid="mark-lesson-complete"
+                className={`px-4 py-2 text-xs tracking-[0.18em] uppercase border transition-colors ${
+                  completed
+                    ? "border-[var(--hc-gold)] bg-[var(--hc-gold-soft)] text-[var(--hc-gold)]"
+                    : "border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:border-[var(--hc-gold)]"
+                }`}
+              >
+                {savingProgress ? "Guardando…" : completed ? "Lección completada" : "Marcar como completada"}
+              </button>
+            ) : null}
             <BookmarkButton contentType="education" contentId={lesson.id} />
           </div>
           {progressError ? <div className="mt-3 text-xs text-[#913f3f]">{progressError}</div> : null}
@@ -231,7 +233,7 @@ export default function EducationDetail() {
         <RichContent html={lesson.body} />
       </div>
 
-      {quizStatus?.quiz && quizStatus.content_completed ? (
+      {!lesson.is_course_intro && quizStatus?.quiz && quizStatus.content_completed ? (
         <section className="mt-10 border border-[var(--hc-gold)]/60 bg-[var(--hc-gold-soft)] p-5 sm:p-7" data-testid="course-quiz-cta">
           <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
             <div>

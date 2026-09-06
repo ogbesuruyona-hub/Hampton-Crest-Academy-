@@ -40,7 +40,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, BeforeValidator, ConfigDict
 
-from quiz_domain import slugify_course
+from quiz_domain import course_definition, education_course_id, is_course_introduction, slugify_course
 from routers.quizzes import course_is_locked
 
 
@@ -971,6 +971,8 @@ class ResearchIn(BaseModel):
 
 
 class EducationIn(ResearchIn):
+    course_id: Optional[str] = Field(default="fundamentos", max_length=100)
+    is_course_intro: bool = False
     track: Optional[str] = None
     week_count: Optional[int] = None
     order_index: int = 0
@@ -1437,6 +1439,18 @@ async def delete_research(content_id: str, current_user: dict = Depends(require_
 
 
 # ---------------- Routes: education ----------------
+def _serialize_education(doc: dict, *, locked: bool = False) -> dict:
+    course_id = education_course_id(doc)
+    course = course_definition(course_id)
+    return {
+        **serialize_doc(doc),
+        "course_id": course_id,
+        "course_title": course["title"] if course else course_id.replace("-", " ").title(),
+        "is_course_intro": is_course_introduction(doc),
+        "course_locked": locked,
+    }
+
+
 @api_router.post("/education/uploads/sign")
 async def sign_education_pdf_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
     filename = payload.filename.strip()
@@ -1479,24 +1493,24 @@ async def list_education(
     lock_cache: dict[str, bool] = {}
     serialized = []
     for doc in docs:
-        course_id = slugify_course(doc.get("track"))
+        course_id = education_course_id(doc)
         if current_user.get("role") == "admin":
             locked = False
         else:
             if course_id not in lock_cache:
                 lock_cache[course_id] = await course_is_locked(db, current_user["id"], course_id)
             locked = lock_cache[course_id]
-        serialized.append({**serialize_doc(doc), "course_id": course_id, "course_locked": locked})
+        serialized.append(_serialize_education(doc, locked=locked))
     return serialized
 
 
 @api_router.get("/education/{content_id}")
 async def get_education(content_id: str, current_user: dict = Depends(get_current_user)):
     lesson = await _get_or_404("education_modules", content_id, current_user)
-    course_id = slugify_course(lesson.get("track"))
+    course_id = education_course_id(lesson)
     if current_user.get("role") != "admin" and await course_is_locked(db, current_user["id"], course_id):
         raise HTTPException(403, "Debes aprobar la evaluación del curso anterior para continuar.")
-    return {**serialize_doc(lesson), "course_id": course_id, "course_locked": False}
+    return _serialize_education(lesson)
 
 
 @api_router.get("/education/{content_id}/open")
@@ -1516,10 +1530,14 @@ async def open_education_pdf(content_id: str, current_user: dict = Depends(requi
 @api_router.post("/education")
 async def create_education(payload: EducationIn, bg: BackgroundTasks, current_user: dict = Depends(require_admin)):
     _validate_education_pdf(payload)
-    doc = _build_content_doc(payload.model_dump(), current_user)
+    data = payload.model_dump()
+    data["course_id"] = slugify_course(data.get("course_id") or "fundamentos")
+    course = course_definition(data["course_id"])
+    data["track"] = course["title"] if course else (data.get("track") or "Curso de inversión")
+    doc = _build_content_doc(data, current_user)
     await db.education_modules.insert_one(doc)
     await _maybe_dispatch(bg, content_type="education", before=None, after=doc)
-    return serialize_doc(doc)
+    return _serialize_education(doc)
 
 
 @api_router.put("/education/{content_id}")
@@ -1528,11 +1546,15 @@ async def update_education(content_id: str, payload: EducationIn, bg: Background
     existing = await db.education_modules.find_one({"_id": content_id})
     if not existing:
         raise HTTPException(404, "Not found")
-    update = _patch_update(payload.model_dump(), existing)
+    data = payload.model_dump()
+    data["course_id"] = slugify_course(data.get("course_id") or "fundamentos")
+    course = course_definition(data["course_id"])
+    data["track"] = course["title"] if course else (data.get("track") or "Curso de inversión")
+    update = _patch_update(data, existing)
     await db.education_modules.update_one({"_id": content_id}, {"$set": update})
     merged = {**existing, **update}
     await _maybe_dispatch(bg, content_type="education", before=existing, after=merged)
-    return serialize_doc(merged)
+    return _serialize_education(merged)
 
 
 @api_router.delete("/education/{content_id}")
@@ -1831,6 +1853,11 @@ async def open_book(content_id: str, current_user: dict = Depends(require_member
 async def dashboard_summary(current_user: dict = Depends(get_current_user)):
     """Return only the small slices rendered above the fold."""
     content_query = {} if current_user.get("role") == "admin" else {"status": "published"}
+    education_query = {
+        **content_query,
+        "is_course_intro": {"$ne": True},
+        "$nor": [{"title": {"$regex": r"^\s*introducci[oó]n", "$options": "i"}}],
+    }
     book_projection = {
         "title": 1, "author": 1, "cover_url": 1, "description": 1,
         "category": 1, "external_url": 1, "file_path": 1, "file_name": 1,
@@ -1841,7 +1868,8 @@ async def dashboard_summary(current_user: dict = Depends(get_current_user)):
         "published_at": 1, "created_at": 1,
     }
     education_projection = {
-        "title": 1, "track": 1, "order_index": 1, "status": 1, "created_at": 1,
+        "title": 1, "track": 1, "course_id": 1, "is_course_intro": 1,
+        "order_index": 1, "status": 1, "created_at": 1,
     }
     report_projection = {
         "title": 1, "summary": 1, "period": 1, "status": 1, "created_at": 1,
@@ -1856,12 +1884,12 @@ async def dashboard_summary(current_user: dict = Depends(get_current_user)):
     ) = await asyncio.gather(
         db.books.count_documents(content_query),
         db.research_notes.count_documents(content_query),
-        db.education_modules.count_documents(content_query),
+        db.education_modules.count_documents(education_query),
         db.monthly_reports.count_documents(content_query),
         db.companies.count_documents({}),
         latest(db.books, content_query, book_projection, [("created_at", -1)], 4),
         latest(db.research_notes, content_query, research_projection, [("created_at", -1)], 4),
-        latest(db.education_modules, content_query, education_projection, [("order_index", 1), ("created_at", -1)], 100),
+        latest(db.education_modules, education_query, education_projection, [("order_index", 1), ("created_at", -1)], 100),
         latest(db.monthly_reports, content_query, report_projection, [("period", -1), ("created_at", -1)], 1),
     )
     return {
@@ -1869,7 +1897,7 @@ async def dashboard_summary(current_user: dict = Depends(get_current_user)):
                    "reports": report_count, "companies": company_count},
         "latest_books": [serialize_doc(doc) for doc in latest_books],
         "latest_research": [serialize_doc(doc) for doc in latest_research],
-        "education_lessons": [serialize_doc(doc) for doc in education_lessons],
+        "education_lessons": [_serialize_education(doc) for doc in education_lessons],
         "latest_report": serialize_doc(latest_reports[0]) if latest_reports else None,
     }
 
@@ -3060,6 +3088,7 @@ async def _runtime_bootstrap():
     await db.research_notes.create_index([("status", 1), ("category", 1), ("created_at", -1)])
     await db.education_modules.create_index([("status", 1), ("order_index", 1)])
     await db.education_modules.create_index([("status", 1), ("track", 1), ("order_index", 1)])
+    await db.education_modules.create_index([("status", 1), ("course_id", 1), ("is_course_intro", 1), ("order_index", 1)])
     await db.monthly_reports.create_index([("status", 1), ("period", -1), ("created_at", -1)])
     await db.companies.create_index("ticker", unique=True)
     await db.companies.create_index([("status", 1), ("sector", 1), ("ticker", 1)])
