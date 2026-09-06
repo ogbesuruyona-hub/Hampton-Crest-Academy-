@@ -2910,22 +2910,23 @@ async def seed_test_member():
 async def seed_premium_qa_member_once():
     """Create the requested clean complimentary Premium QA account once."""
     email = "academy.premium.qa+20260906@example.com"
-    if await db.users.find_one({"email": email}) is not None:
-        return
-    await db.users.insert_one({
-        "email": email,
-        "password_hash": hash_password("HcPremium-QA#2026!"),
-        "name": "Academy Premium Test",
-        "role": "member",
-        "created_at": now_utc(),
-        "updated_at": now_utc(),
-        "totp_enabled": False,
-        "email_digest_opt_in": False,
-        "membership_status": MEMBERSHIP_ACTIVE,
-        "subscription_status": "complimentary",
-        "complimentary": True,
-    })
-    logger.info("Seeded requested Premium QA member %s", email)
+    if await db.users.find_one({"email": email}) is None:
+        await db.users.insert_one({
+            "email": email,
+            "password_hash": hash_password("HcPremium-QA#2026!"),
+            "name": "Academy Premium Test",
+            "role": "member",
+            "created_at": now_utc(),
+            "updated_at": now_utc(),
+            "totp_enabled": False,
+            "email_digest_opt_in": False,
+            "membership_status": MEMBERSHIP_ACTIVE,
+            "subscription_status": "complimentary",
+            "complimentary": True,
+        })
+        logger.info("Seeded requested Premium QA member %s", email)
+    # Clear only the lock caused by checking this account before its seed deploy.
+    await db.login_attempts.delete_one({"_id": f"login:{email}"})
 
 
 async def runtime_bootstrap():
