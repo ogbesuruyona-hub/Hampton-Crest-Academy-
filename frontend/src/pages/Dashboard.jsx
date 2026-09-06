@@ -5,7 +5,7 @@ import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatPeriod } from "../lib/content";
-import { courseIdFromTrack, learningProgress } from "../lib/learningProgress";
+import { learningProgress } from "../lib/learningProgress";
 import { cachedApiGet, primeCachedApi } from "../lib/resourceCache";
 import { RequestError } from "../components/RequestError";
 import {
@@ -126,11 +126,11 @@ export default function Dashboard() {
     day: "numeric",
   });
 
-  const orderedLessons = sortLessons(educationLessons);
+  const orderedLessons = sortLessons(educationLessons.filter((lesson) => !lesson.is_course_intro));
   const completedLessons = orderedLessons.filter((lesson) => completedIds.has(lesson.id)).length;
   const progressPercent = orderedLessons.length ? Math.round((completedLessons / orderedLessons.length) * 100) : 0;
   const lockedCourseIds = new Set(courseStatuses.filter((course) => course.locked).map((course) => course.course.id));
-  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lockedCourseIds.has(courseIdFromTrack(lesson.track)));
+  const nextLesson = orderedLessons.find((lesson) => !completedIds.has(lesson.id) && !lockedCourseIds.has(lesson.course_id || "fundamentos"));
   const allLessonsComplete = orderedLessons.length > 0 && !nextLesson;
   const pendingQuiz = courseStatuses.find((course) => course.content_completed && course.quiz && !course.completed);
   const availableCourseStatuses = courseStatuses.filter((course) => course.total_lessons > 0);
@@ -200,13 +200,13 @@ export default function Dashboard() {
                   : "Continuar aprendiendo"}
             </h2>
             <p className="mt-2 text-sm text-[var(--hc-text-secondary)] leading-relaxed">
-              {educationLessons.length === 0
+              {orderedLessons.length === 0
                 ? "Las lecciones de la academia aparecerán aquí cuando estén disponibles."
                 : pendingQuiz
                   ? `Completaste las lecciones de ${pendingQuiz.course.title}. Aprueba la evaluación para completar el curso.`
                   : allAvailableCoursesComplete
                   ? "Has completado todas las lecciones disponibles. Nuevas publicaciones aparecerán aquí para continuar tu avance."
-                  : `${completedLessons} de ${educationLessons.length} lecciones completadas.`}
+                  : `${completedLessons} de ${orderedLessons.length} lecciones completadas.`}
             </p>
           </div>
 
@@ -224,7 +224,7 @@ export default function Dashboard() {
                 <div className="h-full bg-[var(--hc-gold)]" style={{ width: `${progressPercent}%` }} />
               </div>
               <div className="mt-2 text-[0.7rem] tracking-tight text-[var(--hc-text-muted)]">
-                {completedLessons} completadas · {educationLessons.length} totales
+                {completedLessons} completadas · {orderedLessons.length} totales
               </div>
             </div>
 

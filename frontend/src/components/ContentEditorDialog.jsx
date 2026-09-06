@@ -10,9 +10,9 @@ import {
 import { api, formatApiErrorDetail } from "../lib/api";
 import {
   RESEARCH_CATEGORIES,
-  EDUCATION_TRACKS,
   CONTENT_TYPES,
 } from "../lib/content";
+import { COURSE_CATALOG } from "../lib/learningProgress";
 import { RichTextEditor } from "./RichTextEditor";
 import { BookPdfUploader } from "./BookPdfUploader";
 import { ImageUploader } from "./ImageUploader";
@@ -28,6 +28,8 @@ const blank = {
   category: "",
   tags: "",
   status: "draft",
+  course_id: "fundamentos",
+  is_course_intro: false,
   track: "",
   week_count: "",
   order_index: 0,
@@ -103,6 +105,8 @@ export const ContentEditorDialog = ({
       status: form.status,
     };
     if (contentType === "education") {
+      payload.course_id = form.course_id || "fundamentos";
+      payload.is_course_intro = Boolean(form.is_course_intro);
       payload.track = form.track || null;
       payload.week_count = form.week_count ? Number(form.week_count) : null;
       payload.order_index = Number(form.order_index) || 0;
@@ -267,16 +271,15 @@ export const ContentEditorDialog = ({
           {contentType === "education" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelCls}>Track</label>
+                <label className={labelCls}>Curso</label>
                 <select
-                  value={form.track}
-                  onChange={(e) => update("track", e.target.value)}
-                  data-testid="editor-track"
+                  value={form.course_id || "fundamentos"}
+                  onChange={(e) => update("course_id", e.target.value)}
+                  data-testid="editor-course"
                   className={inputCls}
                 >
-                  <option value="">— Ninguno —</option>
-                  {EDUCATION_TRACKS.map((t) => (
-                    <option key={t}>{t}</option>
+                  {COURSE_CATALOG.map((course) => (
+                    <option key={course.id} value={course.id}>{course.title}</option>
                   ))}
                 </select>
               </div>
@@ -301,7 +304,8 @@ export const ContentEditorDialog = ({
                     step="5"
                     value={form.estimated_duration_minutes}
                     onChange={(e) => update("estimated_duration_minutes", e.target.value)}
-                    required
+                    required={!form.is_course_intro}
+                    disabled={form.is_course_intro}
                     data-testid="editor-duration"
                     className={`${inputCls} pr-16`}
                   />
@@ -323,6 +327,21 @@ export const ContentEditorDialog = ({
                   className={inputCls}
                 />
               </div>
+              <label className="sm:col-span-2 flex items-start gap-3 border border-[var(--hc-border)] bg-[var(--hc-surface-elevated)] p-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_course_intro)}
+                  onChange={(e) => update("is_course_intro", e.target.checked)}
+                  data-testid="editor-course-intro"
+                  className="mt-0.5 h-4 w-4 accent-[var(--hc-gold)]"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-[var(--hc-text)]">Introducción del curso</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-[var(--hc-text-secondary)]">
+                    Se muestra antes del temario y no cuenta como lección ni para el progreso de la evaluación.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
 

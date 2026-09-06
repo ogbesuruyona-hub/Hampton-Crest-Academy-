@@ -16,7 +16,9 @@ from quiz_domain import (
     completion_result,
     course_gate_locked,
     course_definition,
+    education_course_id,
     grade_answer,
+    is_course_introduction,
     next_attempt_number,
     next_question,
     slugify_course,
@@ -112,13 +114,23 @@ async def _active_quiz(db, course_id: str) -> dict | None:
 
 
 async def _published_lessons(db, course_id: str) -> list[dict]:
-    course = course_definition(course_id)
-    title = course["title"] if course else _course_title(course_id)
-    aliases = [title]
+    course_id = slugify_course(course_id)
+    course_match = {"course_id": course_id}
     if course_id == "fundamentos":
-        aliases.append("Foundations")
+        course_match = {
+            "$or": [
+                {"course_id": course_id},
+                {"course_id": {"$exists": False}},
+                {"course_id": None},
+            ]
+        }
     return await db.education_modules.find(
-        {"status": "published", "track": {"$in": aliases}},
+        {
+            "status": "published",
+            **course_match,
+            "is_course_intro": {"$ne": True},
+            "$nor": [{"title": {"$regex": r"^\s*introducci[oó]n", "$options": "i"}}],
+        },
         {"_id": 1},
     ).to_list(500)
 
@@ -428,10 +440,15 @@ def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
         lesson_query = {"_id": lesson_id}
         if current_user.get("role") != "admin":
             lesson_query["status"] = "published"
-        lesson = await db.education_modules.find_one(lesson_query, {"_id": 1, "track": 1})
+        lesson = await db.education_modules.find_one(
+            lesson_query,
+            {"_id": 1, "track": 1, "course_id": 1, "title": 1, "is_course_intro": 1},
+        )
         if not lesson:
             raise HTTPException(404, "Lección no encontrada.")
-        course_id = slugify_course(lesson.get("track"))
+        if is_course_introduction(lesson):
+            raise HTTPException(409, "La introducción del curso no se marca como lección completada.")
+        course_id = education_course_id(lesson)
         update = {"$setOnInsert": {"user_id": current_user["id"], "course_id": course_id, "created_at": now_utc()}}
         if payload.completed:
             update["$addToSet"] = {"completed_lesson_ids": lesson_id}

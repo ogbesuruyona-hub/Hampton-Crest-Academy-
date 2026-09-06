@@ -14,6 +14,8 @@ COURSE_CATALOG = [
     {"id": "practica-avanzada", "title": "Práctica Avanzada", "position": 4},
 ]
 
+DEFAULT_EDUCATION_COURSE_ID = "fundamentos"
+
 
 def slugify_course(value: str | None) -> str:
     normalized = unicodedata.normalize("NFKD", (value or "").strip().lower())
@@ -22,6 +24,27 @@ def slugify_course(value: str | None) -> str:
     if slug == "foundations":
         return "fundamentos"
     return slug or "ruta-general"
+
+
+def education_course_id(document: dict | None) -> str:
+    """Resolve the explicit course for a lesson, keeping legacy records together.
+
+    Older Academy content only stored ``track``. The existing production records
+    are all chapters of the first investment course, so records without the new
+    field intentionally remain in Fundamentos instead of becoming separate
+    courses.
+    """
+    document = document or {}
+    return slugify_course(document.get("course_id") or DEFAULT_EDUCATION_COURSE_ID)
+
+
+def is_course_introduction(document: dict | None) -> bool:
+    """Return whether a resource introduces a course and is not a lesson."""
+    document = document or {}
+    if document.get("is_course_intro") is True:
+        return True
+    title_slug = slugify_course(document.get("title"))
+    return title_slug == "introduccion" or title_slug.startswith("introduccion-")
 
 
 def course_definition(course_id: str) -> dict | None:

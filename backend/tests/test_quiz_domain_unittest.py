@@ -16,7 +16,9 @@ from quiz_domain import (  # noqa: E402
     attempt_owned_by,
     completion_result,
     course_gate_locked,
+    education_course_id,
     grade_answer,
+    is_course_introduction,
     next_attempt_number,
     next_question,
     public_question,
@@ -101,7 +103,16 @@ class QuizDomainTests(unittest.TestCase):
         self.assertTrue(course_gate_locked("macro-y-ciclos-de-capital", active, set()))
         self.assertFalse(course_gate_locked("macro-y-ciclos-de-capital", active, {"fundamentos"}))
 
+    def test_legacy_education_records_stay_in_single_foundations_course(self):
+        self.assertEqual(education_course_id({"track": "Práctica Avanzada"}), "fundamentos")
+        self.assertEqual(education_course_id({"course_id": "practica-avanzada"}), "practica-avanzada")
+
+    def test_course_introduction_is_not_a_lesson(self):
+        self.assertTrue(is_course_introduction({"title": "Introducción"}))
+        self.assertTrue(is_course_introduction({"title": "Introducción al curso"}))
+        self.assertTrue(is_course_introduction({"title": "Otro título", "is_course_intro": True}))
+        self.assertFalse(is_course_introduction({"title": "Capítulo 1"}))
+
 
 if __name__ == "__main__":
     unittest.main()
-

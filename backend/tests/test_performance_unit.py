@@ -1,6 +1,7 @@
 """Isolated regressions for dashboard aggregation, pagination and admin RBAC."""
 
 import asyncio
+import re
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -13,6 +14,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import server  # noqa: E402
+from routers import quizzes as quiz_routes  # noqa: E402
 
 
 class FakeCursor:
@@ -54,10 +56,29 @@ class FakeCollection:
         return FakeCursor(documents)
 
     def _matching(self, query):
-        return [
-            document for document in self.documents
-            if all(document.get(key) == value for key, value in query.items())
-        ]
+        def matches(document, criteria):
+            for key, expected in criteria.items():
+                if key == "$nor" and any(matches(document, option) for option in expected):
+                    return False
+                if key == "$or" and not any(matches(document, option) for option in expected):
+                    return False
+                if key.startswith("$"):
+                    continue
+                actual = document.get(key)
+                if isinstance(expected, dict):
+                    if "$ne" in expected and actual == expected["$ne"]:
+                        return False
+                    if "$exists" in expected and (key in document) != expected["$exists"]:
+                        return False
+                    if "$regex" in expected:
+                        flags = re.IGNORECASE if "i" in expected.get("$options", "") else 0
+                        if not re.search(expected["$regex"], str(actual or ""), flags):
+                            return False
+                elif actual != expected:
+                    return False
+            return True
+
+        return [document for document in self.documents if matches(document, query)]
 
 
 class FakeDB:
@@ -65,7 +86,10 @@ class FakeDB:
         published = lambda name, index: {"_id": f"{name}-{index}", "title": f"{name} {index}", "status": "published", "created_at": index}
         self.books = FakeCollection([published("book", index) for index in range(8)])
         self.research_notes = FakeCollection([published("research", index) for index in range(3)])
-        self.education_modules = FakeCollection([{**published("lesson", 1), "order_index": 1, "track": "Fundamentos"}])
+        self.education_modules = FakeCollection([
+            {**published("lesson", 1), "order_index": 1, "track": "Fundamentos"},
+            {**published("Introducción", 0), "order_index": 0},
+        ])
         self.monthly_reports = FakeCollection([{**published("report", 1), "period": "2026-09"}])
         self.companies = FakeCollection([{"_id": "company-1", "ticker": "HCC"}])
 
@@ -74,8 +98,25 @@ def test_dashboard_summary_is_bounded_and_aggregated(monkeypatch):
     monkeypatch.setattr(server, "db", FakeDB())
     result = asyncio.run(server.dashboard_summary(current_user={"id": "member-1", "role": "member"}))
     assert result["counts"]["books"] == 8
+    assert result["counts"]["education"] == 1
+    assert result["education_lessons"][0]["course_id"] == "fundamentos"
+    assert result["education_lessons"][0]["is_course_intro"] is False
     assert len(result["latest_books"]) == 4
     assert result["latest_report"]["title"] == "report 1"
+
+
+def test_foundations_includes_legacy_lessons_but_not_course_introduction():
+    database = type("EducationDB", (), {
+        "education_modules": FakeCollection([
+            {"_id": "lesson-legacy", "title": "Capítulo 1", "status": "published", "track": "Práctica Avanzada"},
+            {"_id": "intro-legacy", "title": "Introducción", "status": "published"},
+            {"_id": "future-course", "title": "Macro", "status": "published", "course_id": "macro-y-ciclos-de-capital"},
+        ]),
+    })()
+
+    lessons = asyncio.run(quiz_routes._published_lessons(database, "fundamentos"))
+
+    assert [lesson["_id"] for lesson in lessons] == ["lesson-legacy"]
 
 
 def test_books_pagination_and_total_header(monkeypatch):
