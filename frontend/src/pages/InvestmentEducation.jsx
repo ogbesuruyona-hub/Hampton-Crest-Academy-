@@ -325,7 +325,7 @@ export default function InvestmentEducation() {
                       />
                     </div>
                     <span className="text-[0.7rem] tracking-[0.16em] uppercase text-[var(--hc-text-muted)]">
-                      {learningProgress.getPercent(path.lessons, user?.id)}% {path.progress?.quiz && !path.progress?.completed ? "contenido · evaluación pendiente" : "completado"}
+                      {learningProgress.getPercent(path.lessons, user?.id)}% {path.progress?.content_completed && path.progress?.quiz && !path.progress?.completed ? "contenido · evaluación pendiente" : "completado"}
                     </span>
                   </div>
                 </div>
