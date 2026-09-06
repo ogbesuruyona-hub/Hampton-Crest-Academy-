@@ -5,7 +5,8 @@ import { ContentCard } from "../components/ContentCard";
 import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
 import { useAuth } from "../context/AuthContext";
-import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
+import { invalidateCachedApi } from "../lib/resourceCache";
+import { api } from "../lib/api";
 import { FileText } from "lucide-react";
 import { RequestError } from "../components/RequestError";
 
@@ -15,6 +16,7 @@ const yearOptions = (() => {
 })();
 
 export default function MonthlyReports() {
+  const pageSize = 24;
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
@@ -23,20 +25,23 @@ export default function MonthlyReports() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = { year };
-      const data = await cachedApiGet("/reports", { params });
-      setItems(data);
+      const params = { year, page, page_size: pageSize };
+      const { data, headers } = await api.get("/reports", { params });
+      setItems((current) => (page === 1 ? data : [...current, ...data]));
+      setTotal(Number(headers["x-total-count"] || data.length));
     } catch (loadError) {
       setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, page]);
 
   useEffect(() => {
     load();
@@ -53,7 +58,8 @@ export default function MonthlyReports() {
 
   const refreshReports = () => {
     invalidateCachedApi("/reports");
-    load();
+    if (page === 1) load();
+    else setPage(1);
   };
 
   return (
@@ -78,7 +84,10 @@ export default function MonthlyReports() {
         <select
           data-testid="reports-year-select"
           value={year}
-          onChange={(e) => setYear(e.target.value)}
+          onChange={(e) => {
+            setYear(e.target.value);
+            setPage(1);
+          }}
           className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-4 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
         >
           {yearOptions.map((y) => (
@@ -117,6 +126,12 @@ export default function MonthlyReports() {
           ))}
         </div>
       )}
+
+      {!loading && !error && items.length < total ? (
+        <div className="mt-6 text-center">
+          <button type="button" onClick={() => setPage((value) => value + 1)} className="min-h-11 border border-[var(--hc-border)] px-5 text-xs uppercase tracking-[0.14em] hover:border-[var(--hc-gold)]">Cargar más</button>
+        </div>
+      ) : null}
 
       <ContentEditorDialog
         open={editorOpen}

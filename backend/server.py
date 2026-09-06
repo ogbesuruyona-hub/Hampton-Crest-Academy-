@@ -2815,9 +2815,30 @@ async def admin_list_members(
         existing = query.pop("$and", [])
         existing.append({"$or": [{"email": regex}, {"name": regex}]})
         query["$and"] = existing
-    total = await db.users.count_documents(query)
+    admin_query = {"role": "admin"}
+    active_query = {
+        "role": {"$ne": "admin"},
+        "$or": [
+            {"complimentary": True},
+            {"membership_status": {"$in": [MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]}},
+        ],
+    }
+    inactive_query = {
+        "role": {"$ne": "admin"},
+        "complimentary": {"$ne": True},
+        "membership_status": {"$nin": [MEMBERSHIP_ACTIVE, MEMBERSHIP_PAST_DUE, MEMBERSHIP_CANCELED]},
+    }
+    total, active_count, inactive_count, admin_count = await asyncio.gather(
+        db.users.count_documents(query),
+        db.users.count_documents(active_query),
+        db.users.count_documents(inactive_query),
+        db.users.count_documents(admin_query),
+    )
     docs = await db.users.find(query).sort("created_at", -1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
     response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Member-Active-Count"] = str(active_count)
+    response.headers["X-Member-Inactive-Count"] = str(inactive_count)
+    response.headers["X-Member-Admin-Count"] = str(admin_count)
     refreshed = [await refresh_membership_state(d) for d in docs]
     return [serialize_user(d) for d in refreshed]
 

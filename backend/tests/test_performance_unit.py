@@ -98,3 +98,36 @@ def test_member_cannot_use_admin_dependency():
     with pytest.raises(HTTPException) as denied:
         asyncio.run(server.require_admin({"id": "member-1", "role": "member"}))
     assert denied.value.status_code == 403
+
+
+def test_member_summary_headers_are_global_not_page_local(monkeypatch):
+    class MembersCollection:
+        async def count_documents(self, query):
+            if query == {}:
+                return 80
+            if query == {"role": "admin"}:
+                return 3
+            if "$or" in query:
+                return 62
+            return 15
+
+        def find(self, query):
+            return FakeCursor([])
+
+    fake_db = type("MemberDB", (), {"users": MembersCollection()})()
+    monkeypatch.setattr(server, "db", fake_db)
+    response = Response()
+    result = asyncio.run(server.admin_list_members(
+        response=response,
+        current_user={"id": "admin-1", "role": "admin"},
+        q=None,
+        status=None,
+        page=2,
+        page_size=25,
+    ))
+
+    assert result == []
+    assert response.headers["x-total-count"] == "80"
+    assert response.headers["x-member-active-count"] == "62"
+    assert response.headers["x-member-inactive-count"] == "15"
+    assert response.headers["x-member-admin-count"] == "3"

@@ -6,11 +6,13 @@ import { ContentEditorDialog } from "../components/ContentEditorDialog";
 import { AdminAction } from "../components/AdminActions";
 import { useAuth } from "../context/AuthContext";
 import { RESEARCH_CATEGORIES } from "../lib/content";
-import { cachedApiGet, invalidateCachedApi } from "../lib/resourceCache";
+import { invalidateCachedApi } from "../lib/resourceCache";
+import { api } from "../lib/api";
 import { FileSearch, Search } from "lucide-react";
 import { RequestError } from "../components/RequestError";
 
 export default function ResearchLibrary() {
+  const pageSize = 24;
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
@@ -21,23 +23,26 @@ export default function ResearchLibrary() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
+      const params = { page, page_size: pageSize };
       if (category) params.category = category;
       if (q) params.q = q;
       if (isAdmin && statusFilter) params.status = statusFilter;
-      const data = await cachedApiGet("/research", { params });
-      setItems(data);
+      const { data, headers } = await api.get("/research", { params });
+      setItems((current) => (page === 1 ? data : [...current, ...data]));
+      setTotal(Number(headers["x-total-count"] || data.length));
     } catch (loadError) {
       setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [category, q, statusFilter, isAdmin]);
+  }, [category, q, statusFilter, isAdmin, page]);
 
   useEffect(() => {
     load();
@@ -55,7 +60,8 @@ export default function ResearchLibrary() {
 
   const refreshResearch = () => {
     invalidateCachedApi("/research");
-    load();
+    if (page === 1) load();
+    else setPage(1);
   };
 
   return (
@@ -84,7 +90,10 @@ export default function ResearchLibrary() {
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar investigación..."
             data-testid="research-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
@@ -93,7 +102,10 @@ export default function ResearchLibrary() {
         {isAdmin && (
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
             data-testid="research-status-filter"
             className="bg-[var(--hc-surface)] border border-[var(--hc-border)] text-[var(--hc-text)] text-xs tracking-[0.14em] uppercase px-3 py-2 focus:outline-none focus:border-[var(--hc-gold)]"
           >
@@ -106,7 +118,10 @@ export default function ResearchLibrary() {
 
       <div className="flex items-center gap-1 mb-8 overflow-x-auto" data-testid="research-categories">
         <button
-          onClick={() => setCategory("")}
+          onClick={() => {
+            setCategory("");
+            setPage(1);
+          }}
           data-testid="research-category-all"
           className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
             !category
@@ -119,7 +134,10 @@ export default function ResearchLibrary() {
         {RESEARCH_CATEGORIES.map((c) => (
           <button
             key={c}
-            onClick={() => setCategory(c)}
+            onClick={() => {
+              setCategory(c);
+              setPage(1);
+            }}
             className={`px-4 py-2 text-xs tracking-[0.14em] uppercase border transition-colors whitespace-nowrap ${
               category === c
                 ? "border-[var(--hc-gold)] text-[var(--hc-text)] bg-[var(--hc-surface)]"
@@ -163,6 +181,12 @@ export default function ResearchLibrary() {
           ))}
         </div>
       )}
+
+      {!loading && !error && items.length < total ? (
+        <div className="mt-6 text-center">
+          <button type="button" onClick={() => setPage((value) => value + 1)} className="min-h-11 border border-[var(--hc-border)] px-5 text-xs uppercase tracking-[0.14em] hover:border-[var(--hc-gold)]">Cargar más</button>
+        </div>
+      ) : null}
 
       <ContentEditorDialog
         open={editorOpen}
