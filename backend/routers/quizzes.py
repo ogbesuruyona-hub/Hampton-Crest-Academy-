@@ -291,6 +291,12 @@ async def _replace_questions(db, now_utc, new_id, quiz_id: str, questions: list[
     previous_by_id = {question["_id"]: question for question in previous}
     retained_question_ids: set[str] = set()
     now = now_utc()
+    # Positions are uniquely indexed per quiz. Move existing rows out of the
+    # final range first so reordering cannot collide midway through the update.
+    for temporary_position, question_id in enumerate(previous_by_id, start=1000):
+        await db.quiz_questions.update_one(
+            {"_id": question_id}, {"$set": {"position": temporary_position}}
+        )
     for question_position, item in enumerate(questions):
         question_id = item.id if item.id in previous_by_id else new_id()
         retained_question_ids.add(question_id)
@@ -312,6 +318,11 @@ async def _replace_questions(db, now_utc, new_id, quiz_id: str, questions: list[
         previous_options = await db.quiz_options.find({"question_id": question_id}).to_list(50)
         previous_options_by_id = {option["_id"]: option for option in previous_options}
         retained_option_ids: set[str] = set()
+        # The same two-phase move is required by the per-question position index.
+        for temporary_position, option_id in enumerate(previous_options_by_id, start=100):
+            await db.quiz_options.update_one(
+                {"_id": option_id}, {"$set": {"position": temporary_position}}
+            )
         for option_position, option in enumerate(item.options):
             option_id = option.id if option.id in previous_options_by_id else new_id()
             retained_option_ids.add(option_id)

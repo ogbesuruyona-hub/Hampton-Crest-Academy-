@@ -63,6 +63,7 @@ class FakeCursor:
 class FakeCollection:
     def __init__(self, documents=()):
         self.documents = {document["_id"]: dict(document) for document in documents}
+        self.updates = []
 
     def find(self, query, _projection=None):
         return FakeCursor([document for document in self.documents.values() if _matches(document, query)])
@@ -75,6 +76,7 @@ class FakeCollection:
 
     async def update_one(self, query, update):
         document = next(document for document in self.documents.values() if _matches(document, query))
+        self.updates.append((document["_id"], dict(update.get("$set", {}))))
         document.update(update.get("$set", {}))
 
     async def delete_one(self, query):
@@ -138,6 +140,10 @@ class QuizAdminPersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.quiz_questions.documents["q1"]["question_text"], "Updated one")
         self.assertEqual(db.quiz_options.documents["q1-b"]["position"], 0)
         self.assertTrue(db.quiz_options.documents["q1-b"]["is_correct"])
+        self.assertIn(("q1", {"position": 1000}), db.quiz_questions.updates)
+        self.assertTrue(
+            any(item_id == "q1-b" and fields.get("position", 0) >= 100 for item_id, fields in db.quiz_options.updates)
+        )
         self.assertTrue(db.quiz_questions.documents["q2"]["archived"])
         self.assertIn("q2-a", db.quiz_options.documents)
         answer = db.quiz_attempt_answers.documents["answer"]
