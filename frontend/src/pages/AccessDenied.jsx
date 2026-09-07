@@ -74,35 +74,35 @@ export default function AccessDenied() {
             : "Hampton Crest Academy es un círculo privado reservado para miembros activos. Tu cuenta no tiene una suscripción activa o tu membresía expiró."}
         </p>
         {error && <p role="alert" className="mt-4 text-sm text-[#b33a3a]">{error}</p>}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="mx-auto mt-8 max-w-2xl">
+          {!user?.stripe_customer_id && paymentLink ? (
+            <p className="mb-4 text-sm font-semibold tracking-wide text-[var(--hc-text)]">
+              {config.price_display} · {billingInterval}
+            </p>
+          ) : null}
+          <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           {user?.stripe_customer_id ? (
             <button
               type="button"
               onClick={openBillingPortal}
               disabled={billingLoading}
               data-testid="access-denied-billing-portal"
-              className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors disabled:opacity-50"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#173b61] px-6 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#0f2e4d] disabled:opacity-50 sm:w-auto"
             >
               <CreditCard className="h-3.5 w-3.5" strokeWidth={1.5} />
               {billingLoading ? "Abriendo…" : "Actualizar método de pago"}
             </button>
           ) : paymentLink ? (
-            <div>
-              <p className="mb-3 text-sm font-semibold">{config.price_display} · {billingInterval}</p>
-              <a
-                href={paymentLink}
-                data-testid="access-denied-cta"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-[var(--hc-platinum)] text-[var(--hc-bg)] px-6 py-3 text-xs tracking-[0.18em] uppercase font-semibold hover:bg-white transition-colors"
-              >
-                Quiero ser miembro
-                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </a>
-              <p className="mt-3 max-w-xs text-xs leading-relaxed text-[var(--hc-text-muted)]">
-                Renovación automática; cancela desde el portal. Consulta los <Link className="underline" to="/terminos">términos</Link>.
-              </p>
-            </div>
+            <a
+              href={paymentLink}
+              data-testid="access-denied-cta"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#173b61] px-6 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#0f2e4d] sm:w-auto"
+            >
+              Quiero ser miembro
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </a>
           ) : (
             <div
               data-testid="access-denied-payment-not-configured"
@@ -118,7 +118,7 @@ export default function AccessDenied() {
               onClick={recheckMembership}
               disabled={checking}
               data-testid="access-denied-recheck"
-              className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] px-6 py-3 text-xs tracking-[0.18em] uppercase transition-colors disabled:opacity-50"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[var(--hc-border)] px-6 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--hc-text-secondary)] transition-colors hover:border-[var(--hc-gold)] hover:text-[var(--hc-text)] disabled:opacity-50 sm:w-auto"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} strokeWidth={1.5} />
               {checking ? "Comprobando…" : "Ya actualicé el pago"}
@@ -127,10 +127,16 @@ export default function AccessDenied() {
           <Link
             to="/login"
             data-testid="access-denied-signin"
-            className="inline-flex items-center gap-2 border border-[var(--hc-border)] text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] px-6 py-3 text-xs tracking-[0.18em] uppercase transition-colors"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[var(--hc-border)] bg-transparent px-6 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[#173b61] transition-colors hover:border-[var(--hc-gold)] hover:bg-[var(--hc-surface)] sm:w-auto"
           >
             Entrar con otra cuenta
           </Link>
+          </div>
+          {!user?.stripe_customer_id && paymentLink ? (
+            <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-[var(--hc-text-muted)]">
+              Renovación automática; cancela desde el portal. Consulta los <Link className="underline" to="/terminos">términos</Link>.
+            </p>
+          ) : null}
         </div>
         <div className="mt-14 inline-flex items-center gap-2 text-[0.65rem] tracking-[0.22em] uppercase text-[var(--hc-text-muted)]">
           <ShieldAlert className="h-3 w-3" strokeWidth={1.5} />
