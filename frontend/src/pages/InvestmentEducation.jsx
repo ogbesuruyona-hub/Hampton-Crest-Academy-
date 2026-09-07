@@ -99,30 +99,37 @@ const LessonRow = ({ lesson, index, completed, isNext, locked, isAdmin, onEdit, 
   </div>
 );
 
-const CourseCard = ({ course, number, completedIds, nextLessonId, isAdmin, onEdit, onDelete }) => {
-  const [open, setOpen] = useState(number === 1);
-  const completedCount = course.lessons.filter((lesson) => completedIds.has(lesson.id)).length;
-  const percentage = course.lessons.length ? Math.round((completedCount / course.lessons.length) * 100) : 0;
-  const totalMinutes = course.lessons.reduce((sum, lesson) => sum + (Number(lesson.estimated_duration_minutes) || 15), 0);
-  const locked = Boolean(course.progress?.locked || course.lessons.every((lesson) => lesson.course_locked));
-  const modules = buildEducationModules(course.lessons);
+const ModuleCard = ({ module, number, completedIds, nextLessonId, locked, isAdmin, onEdit, onDelete }) => {
+  const containsNextLesson = module.lessons.some((lesson) => lesson.id === nextLessonId);
+  const [open, setOpen] = useState(number === 1 || containsNextLesson);
+  const completedCount = module.lessons.filter((lesson) => completedIds.has(lesson.id)).length;
+  const percentage = module.lessons.length ? Math.round((completedCount / module.lessons.length) * 100) : 0;
+  const totalMinutes = module.lessons.reduce((sum, lesson) => sum + (Number(lesson.estimated_duration_minutes) || 15), 0);
   return (
-    <section className="overflow-hidden rounded-[1.45rem] border border-[var(--hc-border)] bg-[var(--hc-surface)] shadow-[0_20px_50px_rgba(28,38,47,0.065)]" data-testid={`learning-course-${course.id}`}>
-      <button type="button" onClick={() => setOpen((value) => !value)} className="grid w-full grid-cols-[64px_minmax(0,1fr)_42px] items-center gap-4 px-5 py-6 text-left sm:grid-cols-[78px_minmax(0,1fr)_46px] sm:px-7" aria-expanded={open}>
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--hc-border)] bg-[#f6f0e6] font-mono text-sm tracking-[0.18em] text-[#173b61] sm:h-[72px] sm:w-[72px]"><span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[var(--hc-gold)]" />{String(number).padStart(2, "0")}</div>
+    <section className="overflow-hidden rounded-[1.55rem] border border-[#173b61]/20 bg-[var(--hc-surface)] shadow-[0_22px_50px_rgba(20,47,75,0.10)]" data-testid={`education-module-${module.id}`}>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="grid w-full grid-cols-[minmax(0,1fr)_44px] items-center gap-4 bg-[#173b61] px-6 py-7 text-left text-white sm:px-8 sm:py-8" aria-expanded={open}>
         <div className="min-w-0">
-          <div className="text-[0.62rem] font-semibold uppercase tracking-[0.19em] text-[#9d8353]">Curso de inversión</div>
-          <div className="mt-1 text-[0.63rem] uppercase tracking-[0.16em] text-[var(--hc-text-muted)]">{course.lessons.length} lecciones · {formatMinutes(totalMinutes)}</div>
-          <h2 className="mt-2 truncate font-[Georgia] text-2xl leading-none text-[#173653] sm:text-3xl">{course.title}</h2>
-          <div className="mt-4 flex items-center gap-3"><ProgressBar value={percentage} className="max-w-[270px] flex-1" /><span className="text-xs text-[var(--hc-text-muted)]">{percentage}%</span></div>
+          <div className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-[#e0bf69]">Módulo {String(number).padStart(2, "0")}</div>
+          <h2 className="mt-3 max-w-3xl break-words font-[Georgia] text-2xl font-normal leading-[1.08] text-white [overflow-wrap:anywhere] sm:text-3xl">{module.title}</h2>
+          <div className="mt-3 text-[0.62rem] uppercase tracking-[0.16em] text-white/60">{module.lessons.length} {module.lessons.length === 1 ? "lección" : "lecciones"} · {formatMinutes(totalMinutes)}</div>
+          <div className="mt-5 flex max-w-sm items-center gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#d3ae54]" style={{ width: `${percentage}%` }} /></div><span className="text-xs text-white/60">{percentage}%</span></div>
         </div>
-        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--hc-border)] text-[#173b61]"><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-[#e0bf69]"><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></span>
       </button>
-      {open ? <div className="border-t border-[var(--hc-border)]" data-testid={`course-lessons-${course.id}`}>{modules.map((module, moduleIndex) => <section key={module.id} data-testid={`education-module-${module.id}`} className="border-t border-[var(--hc-border)] first:border-t-0"><header className="bg-[#f7f2e9] px-5 py-4 sm:px-7"><div className="text-[0.58rem] font-semibold uppercase tracking-[0.18em] text-[#a17c2f]">Módulo {String(moduleIndex + 1).padStart(2, "0")}</div><h3 className="mt-1 break-words font-[Georgia] text-xl leading-tight text-[#173b61] [overflow-wrap:anywhere] sm:text-2xl">{module.title}</h3><div className="mt-2 text-[0.62rem] uppercase tracking-[0.13em] text-[var(--hc-text-muted)]">{module.lessons.length} {module.lessons.length === 1 ? "lección" : "lecciones"}</div></header>{module.lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} index={course.lessons.indexOf(lesson)} completed={completedIds.has(lesson.id)} isNext={lesson.id === nextLessonId} locked={Boolean(locked || lesson.course_locked)} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />)}</section>)}</div> : null}
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--hc-border)] px-5 py-4 text-[0.62rem] uppercase tracking-[0.14em] text-[var(--hc-text-muted)] sm:px-7">
-        <span>{completedCount} de {course.lessons.length} completadas</span>
-        {course.progress?.quiz && course.progress?.content_completed ? <Link to={`/courses/${course.id}/quiz`} className="inline-flex items-center gap-1.5 font-semibold text-[#173b61]"><ShieldQuestion className="h-3.5 w-3.5" /> {course.progress.completed ? "Ver evaluación" : "Iniciar evaluación"} <ArrowRight className="h-3.5 w-3.5" /></Link> : <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 font-semibold text-[#173b61]">Abrir curso <ArrowRight className="h-3.5 w-3.5" /></button>}
-      </footer>
+      {open ? <div data-testid={`module-lessons-${module.id}`}>{module.lessons.map((lesson, lessonIndex) => <LessonRow key={lesson.id} lesson={lesson} index={lessonIndex} completed={completedIds.has(lesson.id)} isNext={lesson.id === nextLessonId} locked={Boolean(locked || lesson.course_locked)} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />)}</div> : null}
+      <footer className="flex items-center justify-between gap-3 border-t border-[var(--hc-border)] px-5 py-4 text-[0.62rem] uppercase tracking-[0.14em] text-[var(--hc-text-muted)] sm:px-7"><span>{completedCount} de {module.lessons.length} completadas</span><button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold text-[#173b61]">Abrir módulo <ArrowRight className="h-3.5 w-3.5" /></button></footer>
+    </section>
+  );
+};
+
+const CourseCard = ({ course, completedIds, nextLessonId, isAdmin, onEdit, onDelete }) => {
+  const modules = buildEducationModules(course.lessons);
+  const locked = Boolean(course.progress?.locked || course.lessons.every((lesson) => lesson.course_locked));
+  return (
+    <section data-testid={`learning-course-${course.id}`}>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 px-1"><div><div className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-[#9d8353]">Ruta de inversión</div><h2 className="mt-1 font-[Georgia] text-2xl text-[#173b61]">{course.title}</h2></div><div className="text-[0.62rem] uppercase tracking-[0.14em] text-[var(--hc-text-muted)]">{course.lessons.length} lecciones · {modules.length} {modules.length === 1 ? "módulo" : "módulos"}</div></div>
+      <div className="space-y-5">{modules.map((module, moduleIndex) => <ModuleCard key={module.id} module={module} number={moduleIndex + 1} completedIds={completedIds} nextLessonId={nextLessonId} locked={locked} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />)}</div>
+      <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-[var(--hc-border)] bg-[var(--hc-surface)] px-5 py-4 text-[0.62rem] uppercase tracking-[0.14em] text-[var(--hc-text-muted)] sm:px-7"><span>Evaluación final de la ruta</span>{course.progress?.quiz && course.progress?.content_completed ? <Link to={`/courses/${course.id}/quiz`} className="inline-flex items-center gap-1.5 font-semibold text-[#173b61]"><ShieldQuestion className="h-3.5 w-3.5" /> {course.progress.completed ? "Ver evaluación" : "Iniciar evaluación"} <ArrowRight className="h-3.5 w-3.5" /></Link> : <span className="inline-flex items-center gap-1.5"><ShieldQuestion className="h-3.5 w-3.5" /> Disponible al completar las lecciones</span>}</footer>
     </section>
   );
 };
@@ -210,7 +217,7 @@ export default function InvestmentEducation() {
 
         <IntroductionCard introduction={introduction} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
         <section className="mb-6"><div className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#9d8353]">Mapa de aprendizaje</div><h2 className="mt-3 font-[Georgia] text-3xl font-normal text-[#173b61] sm:text-4xl">Tu curso, paso a paso.</h2><p className="mt-2 text-sm leading-relaxed text-[var(--hc-text-secondary)]">La introducción orienta el recorrido; las lecciones siguientes son las que construyen tu progreso.</p></section>
-        <div className="space-y-5" data-testid="learning-courses">{courses.map((course, index) => <CourseCard key={course.id} course={course} number={index + 1} completedIds={completedIds} nextLessonId={nextLesson?.id} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />)}</div>
+        <div className="space-y-8" data-testid="learning-courses">{courses.map((course) => <CourseCard key={course.id} course={course} completedIds={completedIds} nextLessonId={nextLesson?.id} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />)}</div>
         {!loading && items.length < total ? <div className="mt-6 text-center"><button type="button" onClick={() => setPage((value) => value + 1)} className="min-h-11 rounded-full border border-[var(--hc-border)] px-5 text-xs uppercase tracking-[0.14em] hover:border-[var(--hc-gold)]">Cargar más lecciones</button></div> : null}
       </> : null}
 
