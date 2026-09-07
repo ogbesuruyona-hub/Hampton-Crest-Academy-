@@ -981,6 +981,22 @@ class EducationIn(ResearchIn):
     file_path: Optional[str] = Field(default=None, max_length=200)
     file_name: Optional[str] = Field(default=None, max_length=255)
     file_size: Optional[int] = Field(default=None, ge=1, le=BOOK_PDF_MAX_BYTES)
+    module_id: Optional[str] = Field(default=None, max_length=100)
+    module_title: Optional[str] = Field(default=None, max_length=200)
+    module_order: int = Field(default=0, ge=0, le=999)
+
+
+class EducationModuleLessonIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    estimated_duration_minutes: int = Field(default=15, ge=5, le=45)
+
+
+class EducationModuleIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    course_id: str = Field(default="fundamentos", min_length=1, max_length=100)
+    order_index: int = Field(default=0, ge=0, le=999)
+    status: str = Field(default="published", pattern="^(draft|published)$")
+    lessons: List[EducationModuleLessonIn] = Field(min_length=1, max_length=30)
 
 
 class ReportIn(ResearchIn):
@@ -1447,6 +1463,9 @@ def _serialize_education(doc: dict, *, locked: bool = False) -> dict:
         "course_id": course_id,
         "course_title": course["title"] if course else course_id.replace("-", " ").title(),
         "is_course_intro": is_course_introduction(doc),
+        "module_id": doc.get("module_id"),
+        "module_title": doc.get("module_title"),
+        "module_order": int(doc.get("module_order") or 0),
         "course_locked": locked,
     }
 
@@ -1538,6 +1557,42 @@ async def create_education(payload: EducationIn, bg: BackgroundTasks, current_us
     await db.education_modules.insert_one(doc)
     await _maybe_dispatch(bg, content_type="education", before=None, after=doc)
     return _serialize_education(doc)
+
+
+@api_router.post("/education/modules")
+async def create_education_module(payload: EducationModuleIn, current_user: dict = Depends(require_admin)):
+    course_id = slugify_course(payload.course_id or "fundamentos")
+    course = course_definition(course_id)
+    module_id = new_id()
+    documents = []
+    for lesson_position, lesson in enumerate(payload.lessons):
+        data = {
+            "title": lesson.title.strip(),
+            "summary": "",
+            "body": "",
+            "category": None,
+            "tags": [],
+            "status": payload.status,
+            "course_id": course_id,
+            "track": course["title"] if course else "Curso de inversión",
+            "is_course_intro": False,
+            "module_id": module_id,
+            "module_title": payload.title.strip(),
+            "module_order": payload.order_index,
+            "order_index": payload.order_index * 100 + lesson_position,
+            "estimated_duration_minutes": lesson.estimated_duration_minutes,
+            "cover_url": None,
+            "file_path": None,
+            "file_name": None,
+            "file_size": None,
+        }
+        documents.append(_build_content_doc(data, current_user))
+    await db.education_modules.insert_many(documents, ordered=True)
+    return {
+        "module_id": module_id,
+        "module_title": payload.title.strip(),
+        "lessons": [_serialize_education(document) for document in documents],
+    }
 
 
 @api_router.put("/education/{content_id}")
