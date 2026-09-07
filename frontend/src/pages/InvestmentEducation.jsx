@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, Clock3, GraduationCap, LockKeyhole, ShieldQuestion, Sparkles, Target, TimerReset } from "lucide-react";
 import { AdminAction, AdminInlineActions } from "../components/AdminActions";
 import { ContentEditorDialog } from "../components/ContentEditorDialog";
+import { EducationModuleDialog } from "../components/EducationModuleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { RequestError } from "../components/RequestError";
 import { StatusBadge } from "../components/StatusBadge";
@@ -103,6 +104,17 @@ const CourseCard = ({ course, number, completedIds, nextLessonId, isAdmin, onEdi
   const percentage = course.lessons.length ? Math.round((completedCount / course.lessons.length) * 100) : 0;
   const totalMinutes = course.lessons.reduce((sum, lesson) => sum + (Number(lesson.estimated_duration_minutes) || 15), 0);
   const locked = Boolean(course.progress?.locked || course.lessons.every((lesson) => lesson.course_locked));
+  const modules = Object.values(course.lessons.reduce((result, lesson) => {
+    const id = lesson.module_id || "legacy-module";
+    result[id] = result[id] || {
+      id,
+      title: lesson.module_title || "Módulo 1",
+      order: Number(lesson.module_order) || 0,
+      lessons: [],
+    };
+    result[id].lessons.push(lesson);
+    return result;
+  }, {})).sort((a, b) => a.order - b.order);
   return (
     <section className="overflow-hidden rounded-[1.45rem] border border-[var(--hc-border)] bg-[var(--hc-surface)] shadow-[0_20px_50px_rgba(28,38,47,0.065)]" data-testid={`learning-course-${course.id}`}>
       <button type="button" onClick={() => setOpen((value) => !value)} className="grid w-full grid-cols-[64px_minmax(0,1fr)_42px] items-center gap-4 px-5 py-6 text-left sm:grid-cols-[78px_minmax(0,1fr)_46px] sm:px-7" aria-expanded={open}>
@@ -115,7 +127,7 @@ const CourseCard = ({ course, number, completedIds, nextLessonId, isAdmin, onEdi
         </div>
         <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--hc-border)] text-[#173b61]"><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} /></span>
       </button>
-      {open ? <div className="border-t border-[var(--hc-border)]" data-testid={`course-lessons-${course.id}`}>{course.lessons.map((lesson, index) => <LessonRow key={lesson.id} lesson={lesson} index={index} completed={completedIds.has(lesson.id)} isNext={lesson.id === nextLessonId} locked={Boolean(locked || lesson.course_locked)} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />)}</div> : null}
+      {open ? <div className="border-t border-[var(--hc-border)]" data-testid={`course-lessons-${course.id}`}>{modules.map((module, moduleIndex) => <section key={module.id} data-testid={`education-module-${module.id}`} className="border-t border-[var(--hc-border)] first:border-t-0"><header className="bg-[#f7f2e9] px-5 py-4 sm:px-7"><div className="text-[0.58rem] font-semibold uppercase tracking-[0.18em] text-[#a17c2f]">Módulo {String(moduleIndex + 1).padStart(2, "0")}</div><h3 className="mt-1 font-[Georgia] text-xl text-[#173b61]">{module.title}</h3><div className="mt-1 text-[0.62rem] uppercase tracking-[0.13em] text-[var(--hc-text-muted)]">{module.lessons.length} {module.lessons.length === 1 ? "lección" : "lecciones"}</div></header>{module.lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} index={course.lessons.indexOf(lesson)} completed={completedIds.has(lesson.id)} isNext={lesson.id === nextLessonId} locked={Boolean(locked || lesson.course_locked)} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />)}</section>)}</div> : null}
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--hc-border)] px-5 py-4 text-[0.62rem] uppercase tracking-[0.14em] text-[var(--hc-text-muted)] sm:px-7">
         <span>{completedCount} de {course.lessons.length} completadas</span>
         {course.progress?.quiz && course.progress?.content_completed ? <Link to={`/courses/${course.id}/quiz`} className="inline-flex items-center gap-1.5 font-semibold text-[#173b61]"><ShieldQuestion className="h-3.5 w-3.5" /> {course.progress.completed ? "Ver evaluación" : "Iniciar evaluación"} <ArrowRight className="h-3.5 w-3.5" /></Link> : <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 font-semibold text-[#173b61]">Abrir curso <ArrowRight className="h-3.5 w-3.5" /></button>}
@@ -135,6 +147,7 @@ export default function InvestmentEducation() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [moduleEditorOpen, setModuleEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -177,7 +190,6 @@ export default function InvestmentEducation() {
   const completedCount = lessons.filter((lesson) => completedIds.has(lesson.id)).length;
   const progressPercent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0;
   const completedMinutes = lessons.filter((lesson) => completedIds.has(lesson.id)).reduce((sum, lesson) => sum + (Number(lesson.estimated_duration_minutes) || 15), 0);
-  const openNew = () => { setEditing(null); setEditorOpen(true); };
   const openEdit = (item) => { setEditing(item); setEditorOpen(true); };
   const refreshEducation = () => { invalidateCachedApi("/education"); if (page === 1) load(); else setPage(1); };
 
@@ -188,13 +200,13 @@ export default function InvestmentEducation() {
       <header className="mb-9 hc-enter">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-3xl"><div className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-[#a17c2f]"><Sparkles className="h-4 w-4" /> Academia · Panel de estudio</div><h1 className="mt-3 font-[Georgia] text-[2.35rem] font-normal leading-[1.02] tracking-[-0.025em] text-[#183653] sm:text-5xl">Educación de Inversión</h1><p className="mt-5 max-w-2xl text-base leading-relaxed text-[var(--hc-text-secondary)] sm:text-lg">Un itinerario pensado para convertir curiosidad en criterio. Avanza a tu ritmo, vuelve a las ideas importantes y construye una mirada propia.</p></div>
-          {isAdmin ? <AdminAction label="Nueva lección" testid="new-education-button" onClick={openNew} /> : null}
+          {isAdmin ? <AdminAction label="Agregar módulo" testid="new-education-button" onClick={() => setModuleEditorOpen(true)} /> : null}
         </div>
         {nextLesson ? <Link to={`/education/${nextLesson.id}`} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#173b61] px-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_14px_30px_rgba(23,59,97,0.18)] hover:bg-[#0f2e4d]">Continuar aprendiendo <ArrowUpRight className="h-4 w-4" /></Link> : null}
       </header>
 
       {error ? <RequestError error={error} onRetry={load} /> : null}
-      {!error && items.length === 0 ? <EmptyState icon={GraduationCap} overline="Academia" title="Currículum en preparación" description={isAdmin ? "Usa «Nueva lección» para publicar contenido de la academia." : "El curso aparecerá aquí cuando el equipo publique las primeras lecciones."} /> : null}
+      {!error && items.length === 0 ? <EmptyState icon={GraduationCap} overline="Academia" title="Currículum en preparación" description={isAdmin ? "Usa «Agregar módulo» para crear la estructura y sus primeras lecciones." : "El curso aparecerá aquí cuando el equipo publique las primeras lecciones."} /> : null}
 
       {!error && items.length > 0 ? <>
         {nextLesson ? <Link to={`/education/${nextLesson.id}`} className="relative mb-6 block overflow-hidden rounded-[1.65rem] bg-[#173b61] px-7 py-8 text-white shadow-[0_25px_55px_rgba(16,44,72,0.18)] sm:px-9 sm:py-10" data-testid="next-lesson-card"><div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-white/10" /><div className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full border border-white/10" /><div className="relative max-w-2xl"><div className="text-[0.63rem] font-semibold uppercase tracking-[0.2em] text-[#e0bf69]">Tu siguiente lección</div><h2 className="mt-4 max-w-xl font-[Georgia] text-3xl font-normal leading-[1.03] sm:text-4xl">{nextLesson.title}</h2><div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-white/65"><Clock3 className="h-4 w-4" /> {nextLesson.estimated_duration_minutes || 15} min · {nextLesson.course_title || "Fundamentos"}</div><div className="mt-8 inline-flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#f0d483]">Entrar a la lección <ArrowRight className="h-4 w-4" /></div></div></Link> : null}
@@ -211,6 +223,7 @@ export default function InvestmentEducation() {
       </> : null}
 
       <ContentEditorDialog open={editorOpen} onOpenChange={setEditorOpen} contentType="education" initial={editing} onSaved={refreshEducation} />
+      <EducationModuleDialog open={moduleEditorOpen} onOpenChange={setModuleEditorOpen} onSaved={refreshEducation} nextOrder={Math.max(0, ...lessons.map((lesson) => Number(lesson.module_order) || 0)) + 1} />
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}><AlertDialogContent className="rounded-none border-[var(--hc-border)] bg-[var(--hc-surface)] text-[var(--hc-text)]"><AlertDialogHeader><AlertDialogTitle>¿Eliminar este contenido?</AlertDialogTitle><AlertDialogDescription className="text-[var(--hc-text-secondary)]">{deleteTarget?.title ? `«${deleteTarget.title}» se eliminará del curso.` : "Esta acción no se puede deshacer."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-none border-[var(--hc-border)] bg-transparent">Cancelar</AlertDialogCancel><AlertDialogAction onClick={async () => { const target = deleteTarget; setDeleteTarget(null); if (target) await deleteResource(target, refreshEducation); }} className="rounded-none bg-[#7A2424] text-white hover:bg-[#9a2e2e]">Eliminar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );

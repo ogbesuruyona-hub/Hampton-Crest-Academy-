@@ -43,6 +43,9 @@ const blank = {
   file_path: "",
   file_name: "",
   file_size: null,
+  module_id: null,
+  module_title: null,
+  module_order: 0,
 };
 
 export const ContentEditorDialog = ({
@@ -115,6 +118,9 @@ export const ContentEditorDialog = ({
       payload.file_path = form.file_path || null;
       payload.file_name = form.file_name || null;
       payload.file_size = form.file_size || null;
+      payload.module_id = form.module_id || null;
+      payload.module_title = form.module_title || null;
+      payload.module_order = Number(form.module_order) || 0;
     }
     if (contentType === "reports") {
       payload.period = form.period;
