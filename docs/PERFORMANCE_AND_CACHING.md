@@ -21,3 +21,10 @@ Cloudflare must respect origin cache headers and must not add a cache-everything
 ## Documents
 
 PDFs stay in the private Supabase bucket. The open endpoint produces a short-lived signed redirect. Supabase range requests are required so PDF viewers can request only the needed byte ranges. Admin uploaders warn at 10 MB while retaining the existing 50 MB book and 25 MB report limits.
+# September 2026 remediation
+
+- The application request path no longer creates MongoDB indexes, applies data migrations, seeds users or initializes legacy storage. Run `cd backend && python -m scripts.release_setup` as a controlled release step.
+- Global search executes the five bounded collection queries concurrently. It intentionally retains escaped partial-match regex semantics; ordinary MongoDB text indexes are not added because they would change partial matching and ranking behavior rather than accelerate the current unanchored regex queries.
+- Bookmark hydration groups IDs by collection and performs at most one `$in` query per content type, preserving the saved order in memory.
+- Member Directory returns 25 records by default, permits at most 100, and exposes the total through `X-Total-Count`.
+- Interactive list filters use a 350 ms debounce to avoid a request per keystroke.

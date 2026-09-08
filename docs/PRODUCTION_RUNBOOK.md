@@ -31,6 +31,8 @@ El dominio público es `academy.hamptoncrestcapital.com`. Mantener `APP_PUBLIC_U
 
 Mantener un proyecto Vercel de staging con base Mongo, claves Stripe de prueba, webhook y remitente separados. Ningún secreto de producción debe estar disponible en previews. Todo cambio pasa CI, preview, prueba de login y prueba de webhook antes de promoverse. Los despliegues se revierten desde Vercel al último artefacto saludable; los cambios de esquema deben ser compatibles hacia atrás.
 
+Antes de desplegar código que incluya una migración, ejecutar desde un entorno controlado con las variables del destino: `cd backend && python -m scripts.release_setup`. Este comando crea índices y aplica migraciones idempotentes. Los seeds son deliberadamente opcionales (`--seed-admin` y `--seed-test-member`) y no deben usarse en producción salvo una operación autorizada. Mantener `RUN_DB_SETUP_ON_STARTUP=false`: las solicitudes, el login y `/api/health` nunca deben ejecutar migraciones, crear índices ni modificar credenciales. El storage legado se inicializa de forma diferida únicamente cuando una ruta heredada lo utiliza; Supabase no requiere inicialización en startup.
+
 ## Respuesta a exposición de secretos
 
 Rotar primero, limpiar después. Registrar qué secreto, periodo y accesos pudieron verse. Invalidar sesiones al rotar JWT, revisar logs de administrador y Stripe, limpiar el historial Git y pedir a colaboradores que vuelvan a clonar en lugar de fusionar historiales antiguos.

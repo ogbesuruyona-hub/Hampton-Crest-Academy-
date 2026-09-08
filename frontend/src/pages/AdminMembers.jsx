@@ -17,6 +17,7 @@ import {
 } from "../components/ui/alert-dialog";
 import { toast } from "sonner";
 import { RequestError } from "../components/RequestError";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 const PAGE_SIZE = 25;
 
@@ -89,6 +90,7 @@ export default function AdminMembers() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q);
   const [statusFilter, setStatusFilter] = useState("");
   const [actionTarget, setActionTarget] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -102,7 +104,7 @@ export default function AdminMembers() {
     setError(null);
     try {
       const params = { page, page_size: PAGE_SIZE };
-      if (q) params.q = q;
+      if (debouncedQ) params.q = debouncedQ;
       if (statusFilter) params.status = statusFilter;
       const { data, headers } = await api.get("/admin/members", { params });
       setMembers(data);
@@ -117,7 +119,7 @@ export default function AdminMembers() {
     } finally {
       setLoading(false);
     }
-  }, [q, statusFilter, page]);
+  }, [debouncedQ, statusFilter, page]);
 
   useEffect(() => {
     load();

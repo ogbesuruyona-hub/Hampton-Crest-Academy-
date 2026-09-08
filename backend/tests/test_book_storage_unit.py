@@ -135,3 +135,32 @@ def test_create_image_upload_returns_public_cover_url(monkeypatch):
         "https://project-ref.supabase.co/storage/v1/"
         "object/public/academy-images/images/cover.webp"
     )
+
+
+@pytest.mark.parametrize("signer", [
+    server.sign_book_upload,
+    server.sign_education_pdf_upload,
+    server.sign_report_pdf_upload,
+])
+def test_signed_pdf_upload_rejects_mime_extension_mismatch(signer):
+    mismatched = server.BookUploadSignIn(
+        filename="document.pdf",
+        content_type="image/png",
+        size=1024,
+    )
+    with pytest.raises(HTTPException) as rejected:
+        import asyncio
+        asyncio.run(signer(mismatched, current_user={"id": "admin", "role": "admin"}))
+    assert rejected.value.status_code == 400
+
+
+def test_signed_cover_upload_rejects_mime_extension_mismatch():
+    mismatched = server.ImageUploadSignIn(
+        filename="cover.png",
+        content_type="image/jpeg",
+        size=1024,
+    )
+    with pytest.raises(HTTPException) as rejected:
+        import asyncio
+        asyncio.run(server.sign_content_image_upload(mismatched, current_user={"id": "admin", "role": "admin"}))
+    assert rejected.value.status_code == 400

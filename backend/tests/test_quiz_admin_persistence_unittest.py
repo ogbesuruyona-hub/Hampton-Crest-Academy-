@@ -34,7 +34,7 @@ if find_spec("pymongo") is None:
     sys.modules["pymongo"] = pymongo
     sys.modules["pymongo.errors"] = pymongo_errors
 
-from routers.quizzes import _replace_questions  # noqa: E402
+from routers.quizzes import _replace_questions, _validated_course_id  # noqa: E402
 from migrations.quiz_engine_v2 import demo_restore_blueprint  # noqa: E402
 
 
@@ -114,6 +114,12 @@ class FakeDb:
 
 
 class QuizAdminPersistenceTests(unittest.IsolatedAsyncioTestCase):
+    def test_quiz_course_id_must_exist_on_create_and_update(self):
+        self.assertEqual(_validated_course_id("Fundamentos"), "fundamentos")
+        with self.assertRaises(Exception) as rejected:
+            _validated_course_id("curso-inexistente")
+        self.assertEqual(getattr(rejected.exception, "status_code", None), 422)
+
     def test_demo_restore_blueprint_is_complete_and_has_one_correct_option(self):
         blueprint = demo_restore_blueprint()
 

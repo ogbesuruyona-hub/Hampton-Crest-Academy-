@@ -26,12 +26,22 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
-      - name: Dependency audit (critical vulnerabilities block CI)
-        run: npm audit --omit=dev --audit-level=critical
+      - name: Dependency audit (high production vulnerabilities block CI)
+        run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,4 +51,26 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: python -m py_compile backend/server.py api/index.py
-      - run: pytest -q
+      - run: pytest -q --ignore=backend/tests/test_membership_boundary_integration.py
+      - name: Start isolated Academy API
+        env:
+          MONGO_URL: mongodb://127.0.0.1:27017
+          DB_NAME: academy_ci
+          JWT_SECRET: ci-only-secret-with-at-least-32-characters
+          EMAILS_ENABLED: "false"
+        run: |
+          cd backend
+          python -m scripts.release_setup
+          python -m uvicorn server:app --host 127.0.0.1 --port 8765 > /tmp/academy-ci-api.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:8765/api/health && break
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8765/api/health
+      - name: Membership boundary integration
+        env:
+          MEMBERSHIP_TEST_BASE_URL: http://127.0.0.1:8765
+          MEMBERSHIP_TEST_MONGO_URL: mongodb://127.0.0.1:27017
+          MEMBERSHIP_TEST_DB_NAME: academy_ci
+          MEMBERSHIP_TEST_JWT_SECRET: ci-only-secret-with-at-least-32-characters
+        run: pytest -q backend/tests/test_membership_boundary_integration.py

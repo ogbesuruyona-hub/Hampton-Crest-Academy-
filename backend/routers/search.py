@@ -5,6 +5,7 @@ members, billing, uploads) will progressively migrate to this layout.
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from fastapi import APIRouter, Depends, Query
 
@@ -37,26 +38,25 @@ def register_search_routes(*, db, require_member, serialize_doc):
             docs = await db[coll].find(query).limit(limit).to_list(limit)
             return [serialize_doc(d) for d in docs]
 
-        books = await search_collection("books", ["title", "author", "description", "category"])
-        research = await search_collection("research_notes", ["title", "summary", "body", "tags"])
-        education = await search_collection(
-            "education_modules", ["title", "summary", "body", "track"]
-        )
-        reports = await search_collection(
-            "monthly_reports", ["title", "summary", "body", "period"]
-        )
+        async def search_companies():
+            company_query: dict = {"$or": [
+                {"name": regex},
+                {"ticker": regex},
+                {"sector": regex},
+                {"thesis_summary": regex},
+            ]}
+            if not is_admin:
+                company_query["status"] = {"$in": ["covered", "watching"]}
+            docs = await db.companies.find(company_query).limit(limit).to_list(limit)
+            return [serialize_doc(d) for d in docs]
 
-        company_or = [
-            {"name": regex},
-            {"ticker": regex},
-            {"sector": regex},
-            {"thesis_summary": regex},
-        ]
-        company_query: dict = {"$or": company_or}
-        if not is_admin:
-            company_query["status"] = {"$in": ["covered", "watching"]}
-        companies_docs = await db.companies.find(company_query).limit(limit).to_list(limit)
-        companies = [serialize_doc(d) for d in companies_docs]
+        books, research, education, reports, companies = await asyncio.gather(
+            search_collection("books", ["title", "author", "description", "category"]),
+            search_collection("research_notes", ["title", "summary", "body", "tags"]),
+            search_collection("education_modules", ["title", "summary", "body", "track"]),
+            search_collection("monthly_reports", ["title", "summary", "body", "period"]),
+            search_companies(),
+        )
 
         total = len(books) + len(research) + len(education) + len(reports) + len(companies)
         return {

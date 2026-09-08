@@ -640,12 +640,8 @@ async def health():
         raise HTTPException(status_code=503, detail="service_unavailable")
     try:
         await db.command("ping")
-        if not _runtime_bootstrap_done:
-            await runtime_bootstrap()
     except Exception:
         logger.exception("health check failed")
-        raise HTTPException(status_code=503, detail="service_unavailable")
-    if _runtime_bootstrap_error:
         raise HTTPException(status_code=503, detail="service_unavailable")
     return {"status": "ok", "time": now_utc().isoformat()}
 
@@ -775,7 +771,6 @@ async def require_member(current_user: dict = Depends(get_current_user)) -> dict
 @api_router.post("/auth/login", response_model=AuthResponse)
 async def login(payload: LoginRequest, request: Request, response: Response):
     ensure_database_configured()
-    await runtime_bootstrap()
     email = payload.email.lower().strip()
     await check_api_rate_limit(request, "login", limit=20, window_seconds=900)
     await check_lockout(request, email)
@@ -924,8 +919,11 @@ async def update_profile(payload: ProfileUpdateIn, current_user: dict = Depends(
 # ---------------- Routes: member directory ----------------
 @api_router.get("/directory")
 async def member_directory(
+    response: Response,
     current_user: dict = Depends(require_admin),
     q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
 ):
     """Admin-only roster. Returns minimal contact info (name, email, phone)."""
     query: dict = {
@@ -944,10 +942,12 @@ async def member_directory(
     if q:
         regex = {"$regex": re.escape(q), "$options": "i"}
         query = {"$and": [query, {"$or": [{"name": regex}, {"email": regex}, {"phone": regex}]}]}
+    total = await db.users.count_documents(query)
     docs = await db.users.find(
         query,
         {"name": 1, "email": 1, "phone": 1, "role": 1},
-    ).sort("name", 1).limit(500).to_list(500)
+    ).sort("name", 1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    response.headers["X-Total-Count"] = str(total)
     return [
         {
             "id": str(d["_id"]),
@@ -1403,7 +1403,7 @@ async def _maybe_dispatch(bg: BackgroundTasks, *, content_type: str, before: Opt
 @api_router.get("/research")
 async def list_research(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
     status: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
@@ -1424,7 +1424,7 @@ async def list_research(
 
 
 @api_router.get("/research/{content_id}")
-async def get_research(content_id: str, current_user: dict = Depends(get_current_user)):
+async def get_research(content_id: str, current_user: dict = Depends(require_member)):
     return serialize_doc(await _get_or_404("research_notes", content_id, current_user))
 
 
@@ -1473,7 +1473,7 @@ def _serialize_education(doc: dict, *, locked: bool = False) -> dict:
 @api_router.post("/education/uploads/sign")
 async def sign_education_pdf_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
     filename = payload.filename.strip()
-    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+    if payload.content_type.lower().strip() != "application/pdf" or not filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Solo se aceptan archivos PDF.")
     path = f"education/{new_id()}.pdf"
     signed = await asyncio.to_thread(
@@ -1492,7 +1492,7 @@ async def sign_education_pdf_upload(payload: BookUploadSignIn, current_user: dic
 @api_router.get("/education")
 async def list_education(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
     status: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
@@ -1524,7 +1524,7 @@ async def list_education(
 
 
 @api_router.get("/education/{content_id}")
-async def get_education(content_id: str, current_user: dict = Depends(get_current_user)):
+async def get_education(content_id: str, current_user: dict = Depends(require_member)):
     lesson = await _get_or_404("education_modules", content_id, current_user)
     course_id = education_course_id(lesson)
     if current_user.get("role") != "admin" and await course_is_locked(db, current_user["id"], course_id):
@@ -1624,7 +1624,7 @@ async def sign_report_pdf_upload(payload: BookUploadSignIn, current_user: dict =
     filename = payload.filename.strip()
     if payload.size > PDF_MAX_BYTES:
         raise HTTPException(413, f"PDF exceeds {PDF_MAX_BYTES // (1024 * 1024)} MB limit")
-    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+    if payload.content_type.lower().strip() != "application/pdf" or not filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Solo se aceptan archivos PDF.")
     path = f"reports/{new_id()}.pdf"
     signed = await asyncio.to_thread(
@@ -1638,7 +1638,7 @@ async def sign_report_pdf_upload(payload: BookUploadSignIn, current_user: dict =
 @api_router.get("/reports")
 async def list_reports(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
     status: Optional[str] = None,
     year: Optional[str] = None,
     q: Optional[str] = None,
@@ -1656,7 +1656,7 @@ async def list_reports(
 
 
 @api_router.get("/reports/{content_id}")
-async def get_report(content_id: str, current_user: dict = Depends(get_current_user)):
+async def get_report(content_id: str, current_user: dict = Depends(require_member)):
     return serialize_doc(await _get_or_404("monthly_reports", content_id, current_user))
 
 
@@ -1710,7 +1710,7 @@ async def delete_report(content_id: str, current_user: dict = Depends(require_ad
 @api_router.get("/companies")
 async def list_companies(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
     status: Optional[str] = None,
     sector: Optional[str] = None,
     q: Optional[str] = None,
@@ -1737,7 +1737,7 @@ async def list_companies(
 
 
 @api_router.get("/companies/{company_id}")
-async def get_company(company_id: str, current_user: dict = Depends(get_current_user)):
+async def get_company(company_id: str, current_user: dict = Depends(require_member)):
     doc = await db.companies.find_one({"_id": company_id})
     if not doc:
         raise HTTPException(404, "Not found")
@@ -1816,7 +1816,7 @@ async def delete_company_memo(company_id: str, memo_id: str, current_user: dict 
 @api_router.post("/books/uploads/sign")
 async def sign_book_upload(payload: BookUploadSignIn, current_user: dict = Depends(require_admin)):
     filename = payload.filename.strip()
-    if payload.content_type.lower() != "application/pdf" and not filename.lower().endswith(".pdf"):
+    if payload.content_type.lower().strip() != "application/pdf" or not filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Solo se aceptan archivos PDF.")
     path = f"books/{new_id()}.pdf"
     signed = await asyncio.to_thread(_create_supabase_book_upload, path)
@@ -1843,7 +1843,7 @@ async def inspect_book_metadata(payload: BookMetadataIn, current_user: dict = De
 @api_router.get("/books")
 async def list_books(
     response: Response,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
     status: Optional[str] = None,
     category: Optional[str] = None,
     q: Optional[str] = None,
@@ -1861,7 +1861,7 @@ async def list_books(
 
 
 @api_router.get("/books/{content_id}")
-async def get_book(content_id: str, current_user: dict = Depends(get_current_user)):
+async def get_book(content_id: str, current_user: dict = Depends(require_member)):
     return serialize_doc(await _get_or_404("books", content_id, current_user))
 
 
@@ -1905,7 +1905,7 @@ async def open_book(content_id: str, current_user: dict = Depends(require_member
 
 # ---------------- Routes: member dashboard ----------------
 @api_router.get("/dashboard-summary")
-async def dashboard_summary(current_user: dict = Depends(get_current_user)):
+async def dashboard_summary(current_user: dict = Depends(require_member)):
     """Return only the small slices rendered above the fold."""
     content_query = {} if current_user.get("role") == "admin" else {"status": "published"}
     education_query = {
@@ -1963,17 +1963,31 @@ async def dashboard_summary(current_user: dict = Depends(get_current_user)):
 
 # ---------------- Routes: bookmarks ----------------
 @api_router.get("/bookmarks")
-async def list_bookmarks(current_user: dict = Depends(get_current_user)):
+async def list_bookmarks(current_user: dict = Depends(require_member)):
     bms = await db.bookmarks.find({"user_id": current_user["id"]}).sort("created_at", -1).limit(500).to_list(500)
+    grouped_ids: dict[str, set[str]] = {}
+    for bm in bms:
+        if bm.get("content_type") in CONTENT_COLLECTIONS:
+            grouped_ids.setdefault(bm["content_type"], set()).add(bm["content_id"])
+
+    async def fetch_group(content_type: str, content_ids: set[str]):
+        collection = CONTENT_COLLECTIONS[content_type]
+        query: dict = {"_id": {"$in": list(content_ids)}}
+        if current_user.get("role") != "admin" and content_type != "companies":
+            query["status"] = "published"
+        docs = await db[collection].find(query).to_list(len(content_ids))
+        return content_type, {str(doc["_id"]): doc for doc in docs}
+
+    groups = await asyncio.gather(*(
+        fetch_group(content_type, content_ids)
+        for content_type, content_ids in grouped_ids.items()
+    ))
+    content_by_type = dict(groups)
+
     result = []
     for bm in bms:
-        coll = CONTENT_COLLECTIONS.get(bm["content_type"])
-        if not coll:
-            continue
-        item = await db[coll].find_one({"_id": bm["content_id"]})
+        item = content_by_type.get(bm.get("content_type"), {}).get(bm.get("content_id"))
         if not item:
-            continue
-        if current_user.get("role") != "admin" and bm["content_type"] != "companies" and item.get("status") != "published":
             continue
         result.append({
             "bookmark_id": str(bm["_id"]),
@@ -1988,7 +2002,7 @@ async def list_bookmarks(current_user: dict = Depends(get_current_user)):
 async def check_bookmark(
     content_type: str = Query(..., pattern="^(research|education|reports|companies|books)$"),
     content_id: str = Query(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
 ):
     bm = await db.bookmarks.find_one({
         "user_id": current_user["id"],
@@ -1999,7 +2013,7 @@ async def check_bookmark(
 
 
 @api_router.post("/bookmarks")
-async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(get_current_user)):
+async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(require_member)):
     coll = CONTENT_COLLECTIONS[payload.content_type]
     item = await db[coll].find_one({"_id": payload.content_id})
     if not item:
@@ -2031,7 +2045,7 @@ async def add_bookmark(payload: BookmarkIn, current_user: dict = Depends(get_cur
 async def remove_bookmark(
     content_type: str = Query(..., pattern="^(research|education|reports|companies|books)$"),
     content_id: str = Query(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_member),
 ):
     await db.bookmarks.delete_one({
         "user_id": current_user["id"],
@@ -2057,6 +2071,10 @@ async def sign_content_image_upload(
     extension = extensions.get(content_type)
     if not extension:
         raise HTTPException(400, "Solo se aceptan imágenes JPG, PNG o WebP.")
+    filename_extension = payload.filename.strip().lower().rsplit(".", 1)[-1] if "." in payload.filename else ""
+    accepted_extensions = {"image/jpeg": {"jpg", "jpeg"}, "image/png": {"png"}, "image/webp": {"webp"}}
+    if filename_extension not in accepted_extensions[content_type]:
+        raise HTTPException(400, "La extensión de la imagen no coincide con su formato.")
     path = f"images/{new_id()}.{extension}"
     signed = await asyncio.to_thread(_create_supabase_image_upload, path)
     return {
@@ -2116,13 +2134,15 @@ async def upload_content_image(file: UploadFile = File(...), current_user: dict 
 
 @api_router.post("/uploads/report-pdf")
 async def upload_report_pdf(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
-    if file.content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
+    if file.content_type != "application/pdf" or not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are accepted")
     data = await file.read()
     if len(data) > PDF_MAX_BYTES:
         raise HTTPException(413, f"PDF exceeds {PDF_MAX_BYTES // (1024*1024)} MB limit")
     if not data:
         raise HTTPException(400, "Empty file")
+    if not data.startswith(b"%PDF-"):
+        raise HTTPException(400, "File contents do not match PDF format")
     file_id = new_id()
     path = f"{APP_NAME}/reports/{file_id}.pdf"
     try:
@@ -3136,7 +3156,12 @@ async def runtime_bootstrap():
             logger.exception("runtime bootstrap failed")
 
 
-async def _runtime_bootstrap():
+async def run_release_setup(*, include_admin_seed: bool = False, include_test_seed: bool = False):
+    """Apply idempotent indexes/migrations outside the request path.
+
+    Run through ``python -m scripts.release_setup`` during a controlled release.
+    Seeds are opt-in so an ordinary deploy never rewrites account credentials.
+    """
     ensure_database_configured()
     await db.users.create_index("email", unique=True)
     await db.research_notes.create_index([("status", 1), ("created_at", -1)])
@@ -3162,18 +3187,26 @@ async def _runtime_bootstrap():
     await publish_existing_education_as_fundamentos(db, now_utc)
     await ensure_quiz_engine(db, now_utc)
     await restore_fundamentos_demo_after_qa(db, now_utc)
-    await seed_admin()
-    await seed_test_member()
-    # Init storage but don't fail startup if down
-    try:
-        await asyncio.to_thread(_init_storage)
-    except Exception as e:
-        logger.warning("storage init at startup failed: %s", e)
+    if include_admin_seed:
+        await seed_admin()
+    if include_test_seed:
+        await seed_test_member()
+
+
+async def _runtime_bootstrap():
+    """Compatibility wrapper for explicitly enabled startup setup."""
+    await run_release_setup(
+        include_admin_seed=os.environ.get("SEED_ADMIN_ON_SETUP", "false").lower() == "true",
+        include_test_seed=os.environ.get("ENABLE_TEST_MEMBER_SEED", "false").lower() == "true",
+    )
 
 
 @app.on_event("startup")
 async def on_startup():
-    await runtime_bootstrap()
+    ensure_database_configured()
+    if os.environ.get("RUN_DB_SETUP_ON_STARTUP", "false").lower() == "true":
+        logger.warning("RUN_DB_SETUP_ON_STARTUP enabled; run release setup separately in production.")
+        await runtime_bootstrap()
 
 
 @app.on_event("shutdown")
@@ -3243,13 +3276,6 @@ async def ensure_bootstrap_middleware(request: Request, call_next):
         header_token = request.headers.get("x-csrf-token", "")
         if not cookie_token or not header_token or not secrets.compare_digest(cookie_token, header_token):
             return JSONResponse(status_code=403, content={"detail": "csrf_validation_failed"})
-    if request.url.path not in {"/api/health", "/api/", "/api/membership/config"}:
-        await runtime_bootstrap()
-        if _runtime_bootstrap_error and not _runtime_bootstrap_done:
-            return JSONResponse(
-                status_code=503,
-                content={"detail": "service_unavailable"},
-            )
     return await call_next(request)
 
 
@@ -3266,4 +3292,10 @@ app.add_middleware(
     allow_origins=configured_origins,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
+    expose_headers=[
+        "X-Total-Count",
+        "X-Member-Active-Count",
+        "X-Member-Inactive-Count",
+        "X-Member-Admin-Count",
+    ],
 )

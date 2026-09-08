@@ -10,6 +10,7 @@ import { LIBRARY_CATEGORIES } from "../lib/content";
 import { cachedApiGet, invalidateCachedApi, primeCachedApi } from "../lib/resourceCache";
 import { RequestError } from "../components/RequestError";
 import { BookOpen, Search } from "lucide-react";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export default function BooksLibrary() {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ export default function BooksLibrary() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState(searchParams.get("q") || "");
+  const debouncedQ = useDebouncedValue(q);
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -36,7 +38,7 @@ export default function BooksLibrary() {
     try {
       const params = { page: 1, page_size: 24 };
       if (category) params.category = category;
-      if (q) params.q = q;
+      if (debouncedQ) params.q = debouncedQ;
       if (isAdmin && statusFilter) params.status = statusFilter;
       const data = await cachedApiGet("/books", { params });
       setItems(data);
@@ -48,13 +50,13 @@ export default function BooksLibrary() {
     } finally {
       setLoading(false);
     }
-  }, [category, q, statusFilter, isAdmin]);
+  }, [category, debouncedQ, statusFilter, isAdmin]);
 
   const loadMore = async () => {
     const nextPage = page + 1;
     const params = { page: nextPage, page_size: 24 };
     if (category) params.category = category;
-    if (q) params.q = q;
+    if (debouncedQ) params.q = debouncedQ;
     if (isAdmin && statusFilter) params.status = statusFilter;
     setLoading(true);
     setError(null);

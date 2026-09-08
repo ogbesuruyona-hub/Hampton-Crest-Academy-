@@ -11,6 +11,7 @@ import { invalidateCachedApi } from "../lib/resourceCache";
 import { api } from "../lib/api";
 import { BarChart3, Search, ArrowUpRight } from "lucide-react";
 import { RequestError } from "../components/RequestError";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export default function CompanyAnalysis() {
   const pageSize = 30;
@@ -19,6 +20,7 @@ export default function CompanyAnalysis() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q);
   const [sector, setSector] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -31,7 +33,7 @@ export default function CompanyAnalysis() {
     setError(null);
     try {
       const params = { page, page_size: pageSize };
-      if (q) params.q = q;
+      if (debouncedQ) params.q = debouncedQ;
       if (sector) params.sector = sector;
       if (statusFilter) params.status = statusFilter;
       const { data, headers } = await api.get("/companies", { params });
@@ -42,7 +44,7 @@ export default function CompanyAnalysis() {
     } finally {
       setLoading(false);
     }
-  }, [q, sector, statusFilter, page]);
+  }, [debouncedQ, sector, statusFilter, page]);
 
   useEffect(() => {
     load();

@@ -12,7 +12,7 @@ from typing import Any
 
 import requests
 import yfinance as yf
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from yahooquery import Ticker as YahooQueryTicker
@@ -885,7 +885,10 @@ def register_valuation_routes(*, db, require_member):
         }
 
     @router.get("/history")
-    async def valuation_history(current_user: dict = Depends(require_member), limit: int = 20):
+    async def valuation_history(
+        current_user: dict = Depends(require_member),
+        limit: int = Query(default=20, ge=1, le=100),
+    ):
         docs = await (
             db.valuations.find({"user_id": current_user["id"]})
             .sort("created_at", -1)

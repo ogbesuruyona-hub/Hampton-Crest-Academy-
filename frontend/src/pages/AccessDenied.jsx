@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { ArrowUpRight, CreditCard, RefreshCw, ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localizeBillingInterval, withSpanishCheckoutLocale } from "../lib/paymentLinks";
+import { RequestError } from "../components/RequestError";
 
 const LOGO_URL = "/assets/hampton-crest-320.94f2cd23.webp";
 
@@ -13,10 +14,23 @@ export default function AccessDenied() {
   const [billingLoading, setBillingLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [configError, setConfigError] = useState(null);
+  const [configLoading, setConfigLoading] = useState(true);
 
-  useEffect(() => {
-    api.get("/membership/config").then(({ data }) => setConfig(data || {})).catch(() => {});
+  const loadConfig = useCallback(async () => {
+    setConfigLoading(true);
+    setConfigError(null);
+    try {
+      const { data } = await api.get("/membership/config");
+      setConfig(data || {});
+    } catch (loadError) {
+      setConfigError(loadError);
+    } finally {
+      setConfigLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadConfig(); }, [loadConfig]);
 
   const paymentLink = withSpanishCheckoutLocale(config.payment_link_url || "");
   const billingInterval = localizeBillingInterval(config.billing_interval || "");
@@ -74,13 +88,16 @@ export default function AccessDenied() {
             : "Hampton Crest Academy es un círculo privado reservado para miembros activos. Tu cuenta no tiene una suscripción activa o tu membresía expiró."}
         </p>
         {error && <p role="alert" className="mt-4 text-sm text-[#b33a3a]">{error}</p>}
+        {configError ? <div className="mt-6 text-left"><RequestError error={configError} onRetry={loadConfig} compact /></div> : null}
         <div className="mx-auto mt-8 max-w-2xl">
-          {!user?.stripe_customer_id && paymentLink ? (
+          {!configLoading && !configError && !user?.stripe_customer_id && paymentLink ? (
             <p className="mb-4 text-sm font-semibold tracking-wide text-[var(--hc-text)]">
               {config.price_display} · {billingInterval}
             </p>
           ) : null}
-          <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          {configLoading ? (
+            <div className="py-3 text-xs uppercase tracking-[0.14em] text-[var(--hc-text-muted)]">Cargando opciones de membresía…</div>
+          ) : !configError ? <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           {user?.stripe_customer_id ? (
             <button
               type="button"
@@ -131,8 +148,8 @@ export default function AccessDenied() {
           >
             Entrar con otra cuenta
           </Link>
-          </div>
-          {!user?.stripe_customer_id && paymentLink ? (
+          </div> : null}
+          {!configLoading && !configError && !user?.stripe_customer_id && paymentLink ? (
             <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed text-[var(--hc-text-muted)]">
               Renovación automática; cancela desde el portal. Consulta los <Link className="underline" to="/terminos">términos</Link>.
             </p>
