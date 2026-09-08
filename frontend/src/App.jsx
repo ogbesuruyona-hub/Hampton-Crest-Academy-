@@ -92,7 +92,7 @@ function App() {
               <Route path="/saved" element={withLoader(<SavedResources />)} />
               <Route path="/settings" element={withLoader(<Settings />)} />
               <Route path="/profile" element={withLoader(<MemberProfile />)} />
-              <Route path="/directory" element={withLoader(<MemberDirectory />)} />
+              <Route path="/directory" element={<ProtectedRoute requiredRole="admin">{withLoader(<MemberDirectory />)}</ProtectedRoute>} />
               <Route path="/search" element={withLoader(<SearchResults />)} />
               <Route path="/admin/members" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminMembers />)}</ProtectedRoute>} />
               <Route path="/admin/quizzes" element={<ProtectedRoute requiredRole="admin">{withLoader(<AdminQuizzes />)}</ProtectedRoute>} />

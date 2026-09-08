@@ -10,6 +10,7 @@ import { invalidateCachedApi } from "../lib/resourceCache";
 import { api } from "../lib/api";
 import { FileSearch, Search } from "lucide-react";
 import { RequestError } from "../components/RequestError";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export default function ResearchLibrary() {
   const pageSize = 24;
@@ -19,6 +20,7 @@ export default function ResearchLibrary() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q);
   const [statusFilter, setStatusFilter] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -32,7 +34,7 @@ export default function ResearchLibrary() {
     try {
       const params = { page, page_size: pageSize };
       if (category) params.category = category;
-      if (q) params.q = q;
+      if (debouncedQ) params.q = debouncedQ;
       if (isAdmin && statusFilter) params.status = statusFilter;
       const { data, headers } = await api.get("/research", { params });
       setItems((current) => (page === 1 ? data : [...current, ...data]));
@@ -42,7 +44,7 @@ export default function ResearchLibrary() {
     } finally {
       setLoading(false);
     }
-  }, [category, q, statusFilter, isAdmin, page]);
+  }, [category, debouncedQ, statusFilter, isAdmin, page]);
 
   useEffect(() => {
     load();

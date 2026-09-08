@@ -74,6 +74,13 @@ def _course_title(course_id: str) -> str:
     return course["title"] if course else course_id.replace("-", " ").title()
 
 
+def _validated_course_id(value: str) -> str:
+    course_id = slugify_course(value)
+    if not course_definition(course_id):
+        raise HTTPException(422, "Selecciona un curso válido.")
+    return course_id
+
+
 async def course_is_locked(db, user_id: str, course_id: str) -> bool:
     """A course is gated while any earlier active course evaluation remains unpassed."""
     course = course_definition(course_id)
@@ -637,9 +644,7 @@ def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
     @router.post("/admin/quizzes")
     async def create_admin_quiz(payload: QuizAdminIn, current_user: dict = Depends(require_admin)):
         _validate_admin_quiz(payload)
-        course_id = slugify_course(payload.course_id)
-        if not course_definition(course_id):
-            raise HTTPException(422, "Selecciona un curso válido.")
+        course_id = _validated_course_id(payload.course_id)
         quiz_id = new_id()
         now = now_utc()
         quiz = {
@@ -671,7 +676,7 @@ def register_quiz_routes(*, db, require_member, require_admin, now_utc, new_id):
         existing = await db.quizzes.find_one({"_id": quiz_id})
         if not existing:
             raise HTTPException(404, "Quiz no encontrado.")
-        course_id = slugify_course(payload.course_id)
+        course_id = _validated_course_id(payload.course_id)
         now = now_utc()
         update = {
             "course_id": course_id,

@@ -4,6 +4,10 @@ import { Panel } from "../components/Panel";
 import { EmptyState } from "../components/EmptyState";
 import { api } from "../lib/api";
 import { Users, Search, Mail, Phone, ShieldCheck } from "lucide-react";
+import { RequestError } from "../components/RequestError";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+
+const PAGE_SIZE = 25;
 
 const initialsOf = (name) =>
   (name || "HC")
@@ -35,29 +39,39 @@ export default function MemberDirectory() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const debouncedQ = useDebouncedValue(q);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await api.get("/directory", { params: q ? { q } : {} });
+      const params = { page, page_size: PAGE_SIZE };
+      if (debouncedQ) params.q = debouncedQ;
+      const { data, headers } = await api.get("/directory", { params });
       setMembers(data);
+      setTotal(Number(headers["x-total-count"] || data.length));
+    } catch (loadError) {
+      setError(loadError);
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, [debouncedQ, page]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const total = useMemo(() => members.length, [members]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
   return (
     <div data-testid="directory-page">
       <PageHeader
         overline="Academia · Directorio"
         title="Directorio de miembros"
-        description="Un directorio discreto de miembros de Hampton Crest. Úsalo para encontrar un nombre, escribir un correo o hacer una llamada."
+        description="Directorio administrativo de miembros de Hampton Crest para localizar datos de contacto autorizados."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -73,7 +87,7 @@ export default function MemberDirectory() {
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] p-5 sm:col-span-2">
           <div className="hc-overline">Confidencialidad</div>
           <div className="mt-2 text-xs text-[var(--hc-text-secondary)] tracking-tight leading-relaxed">
-            Los datos de contacto son visibles solo para miembros activos. Trátalos con la discreción que este círculo espera.
+            Los datos de contacto son visibles únicamente para administradores autorizados. Trátalos con la discreción que este círculo espera.
           </div>
         </div>
       </div>
@@ -87,7 +101,10 @@ export default function MemberDirectory() {
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
             placeholder="Buscar por nombre, email o teléfono..."
             data-testid="directory-search"
             className="w-full bg-[var(--hc-surface)] border border-[var(--hc-border)] text-sm text-[var(--hc-text)] pl-9 pr-3 py-2.5 focus:outline-none focus:border-[var(--hc-gold)]"
@@ -97,6 +114,8 @@ export default function MemberDirectory() {
 
       {loading ? (
         <div className="text-sm text-[var(--hc-text-muted)] py-12 text-center">Cargando...</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
       ) : members.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -158,6 +177,13 @@ export default function MemberDirectory() {
           </div>
         </Panel>
       )}
+      {!loading && !error && totalPages > 1 ? (
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="min-h-10 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Anterior</button>
+          <span className="text-xs text-[var(--hc-text-muted)]">Página {page} de {totalPages}</span>
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="min-h-10 border border-[var(--hc-border)] px-4 text-xs uppercase tracking-[0.14em] disabled:opacity-40">Siguiente</button>
+        </div>
+      ) : null}
     </div>
   );
 }

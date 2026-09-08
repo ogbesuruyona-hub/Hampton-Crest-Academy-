@@ -66,6 +66,8 @@ class FakeCollection:
                     continue
                 actual = document.get(key)
                 if isinstance(expected, dict):
+                    if "$in" in expected and actual not in expected["$in"]:
+                        return False
                     if "$ne" in expected and actual == expected["$ne"]:
                         return False
                     if "$exists" in expected and (key in document) != expected["$exists"]:
@@ -105,6 +107,19 @@ def test_dashboard_summary_is_bounded_and_aggregated(monkeypatch):
     assert result["latest_report"]["title"] == "report 1"
 
 
+def test_startup_does_not_run_database_setup_by_default(monkeypatch):
+    calls = []
+    monkeypatch.delenv("RUN_DB_SETUP_ON_STARTUP", raising=False)
+    monkeypatch.setattr(server, "ensure_database_configured", lambda: calls.append("configured"))
+
+    async def unexpected_setup():
+        raise AssertionError("release setup must not run in application startup")
+
+    monkeypatch.setattr(server, "runtime_bootstrap", unexpected_setup)
+    asyncio.run(server.on_startup())
+    assert calls == ["configured"]
+
+
 def test_foundations_includes_legacy_lessons_but_not_course_introduction():
     database = type("EducationDB", (), {
         "education_modules": FakeCollection([
@@ -139,6 +154,110 @@ def test_member_cannot_use_admin_dependency():
     with pytest.raises(HTTPException) as denied:
         asyncio.run(server.require_admin({"id": "member-1", "role": "member"}))
     assert denied.value.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "user,allowed",
+    [
+        ({"id": "expired", "role": "member", "membership_status": "expired"}, False),
+        ({"id": "active", "role": "member", "membership_status": "active"}, True),
+        ({"id": "admin", "role": "admin", "membership_status": "expired"}, True),
+    ],
+)
+def test_require_member_enforces_active_membership(user, allowed):
+    if allowed:
+        assert asyncio.run(server.require_member(user)) == user
+    else:
+        with pytest.raises(HTTPException) as denied:
+            asyncio.run(server.require_member(user))
+        assert denied.value.status_code == 403
+        assert denied.value.detail == "membership_inactive"
+
+
+def test_get_current_user_without_session_is_unauthorized(monkeypatch):
+    monkeypatch.setattr(server, "ensure_database_configured", lambda: None)
+    request = type("AnonymousRequest", (), {"cookies": {}})()
+    with pytest.raises(HTTPException) as denied:
+        asyncio.run(server.get_current_user(request=request, credentials=None))
+    assert denied.value.status_code == 401
+
+
+def test_every_premium_route_uses_require_member_dependency():
+    premium_routes = {
+        ("GET", "/api/research"), ("GET", "/api/research/{content_id}"),
+        ("GET", "/api/education"), ("GET", "/api/education/{content_id}"),
+        ("GET", "/api/reports"), ("GET", "/api/reports/{content_id}"),
+        ("GET", "/api/companies"), ("GET", "/api/companies/{company_id}"),
+        ("GET", "/api/books"), ("GET", "/api/books/{content_id}"),
+        ("GET", "/api/dashboard-summary"), ("GET", "/api/bookmarks"),
+        ("GET", "/api/bookmarks/check"), ("POST", "/api/bookmarks"),
+        ("DELETE", "/api/bookmarks"),
+    }
+    actual = {}
+    for route in server.app.routes:
+        for method in getattr(route, "methods", set()):
+            key = (method, getattr(route, "path", ""))
+            if key in premium_routes:
+                actual[key] = {dependency.call for dependency in route.dependant.dependencies}
+    assert set(actual) == premium_routes
+    assert all(server.require_member in dependencies for dependencies in actual.values())
+
+
+def test_bookmarks_are_loaded_in_batches_and_keep_order(monkeypatch):
+    class CountingCollection(FakeCollection):
+        def __init__(self, documents=()):
+            super().__init__(documents)
+            self.find_calls = 0
+
+        def find(self, query, projection=None):
+            self.find_calls += 1
+            return super().find(query, projection)
+
+    bookmarks = CountingCollection([
+        {"_id": "bm-1", "user_id": "member-1", "content_type": "books", "content_id": "book-2", "created_at": 2},
+        {"_id": "bm-2", "user_id": "member-1", "content_type": "books", "content_id": "book-1", "created_at": 1},
+        {"_id": "bm-3", "user_id": "member-1", "content_type": "research", "content_id": "research-1", "created_at": 0},
+    ])
+    books = CountingCollection([
+        {"_id": "book-1", "title": "One", "status": "published"},
+        {"_id": "book-2", "title": "Two", "status": "published"},
+    ])
+    research = CountingCollection([{"_id": "research-1", "title": "Research", "status": "published"}])
+    class BookmarkDB:
+        def __init__(self):
+            self.bookmarks = bookmarks
+            self.books = books
+            self.research_notes = research
+
+        def __getitem__(self, name):
+            return getattr(self, name)
+
+    fake_db = BookmarkDB()
+    monkeypatch.setattr(server, "db", fake_db)
+
+    result = asyncio.run(server.list_bookmarks(current_user={"id": "member-1", "role": "member"}))
+
+    assert [item["content"]["id"] for item in result] == ["book-2", "book-1", "research-1"]
+    assert books.find_calls == 1
+    assert research.find_calls == 1
+
+
+def test_directory_is_paginated_and_reports_total(monkeypatch):
+    users = FakeCollection([
+        {"_id": f"user-{index}", "name": f"Member {index:02d}", "email": f"m{index}@example.com", "role": "admin"}
+        for index in range(31)
+    ])
+    monkeypatch.setattr(server, "db", type("DirectoryDB", (), {"users": users})())
+    response = Response()
+    result = asyncio.run(server.member_directory(
+        response=response,
+        current_user={"id": "admin", "role": "admin"},
+        q=None,
+        page=2,
+        page_size=25,
+    ))
+    assert len(result) == 6
+    assert response.headers["x-total-count"] == "31"
 
 
 def test_member_summary_headers_are_global_not_page_local(monkeypatch):

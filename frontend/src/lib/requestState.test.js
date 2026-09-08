@@ -17,4 +17,14 @@ describe("request states", () => {
     expect(canAccessRole({ role: "member" }, "admin")).toBe(false);
     expect(canAccessRole({ role: "admin" }, "admin")).toBe(true);
   });
+
+  it.each([
+    ["AdminQuizzes 403", { response: { status: 403 } }, "forbidden"],
+    ["AdminQuizzes 500", { response: { status: 500 } }, "server"],
+    ["MemberDirectory red", new Error("offline"), "network"],
+    ["AccessDenied membership config 500", { response: { status: 503 } }, "server"],
+  ])("mantiene un estado de error explícito para %s", (_name, error, expected) => {
+    expect(resolveCollectionState({ loading: false, error, items: [] })).toBe(expected);
+    expect(classifyRequestError(error).kind).toBe(expected);
+  });
 });

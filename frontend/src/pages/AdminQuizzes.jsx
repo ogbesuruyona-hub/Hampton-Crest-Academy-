@@ -5,6 +5,7 @@ import { api, formatApiErrorDetail } from "../lib/api";
 import { COURSE_CATALOG } from "../lib/learningProgress";
 import { useAuth } from "../context/AuthContext";
 import { PageHeader } from "../components/PageHeader";
+import { RequestError } from "../components/RequestError";
 import { toast } from "sonner";
 
 const inputClass = "w-full min-w-0 border border-[var(--hc-border)] bg-white px-3 py-2.5 text-sm text-[var(--hc-text)] outline-none focus:border-[var(--hc-gold)]";
@@ -38,14 +39,17 @@ export default function AdminQuizzes() {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data } = await api.get("/admin/quizzes");
       setQuizzes(data);
       setForm((current) => current || (data[0] ? structuredClone(data[0]) : blankQuiz()));
     } catch (error) {
+      setError(error);
       toast.error(formatApiErrorDetail(error.response?.data?.detail) || error.message);
     } finally {
       setLoading(false);
@@ -127,8 +131,12 @@ export default function AdminQuizzes() {
         }
       />
 
-      {loading || !form ? (
+      {loading ? (
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)] py-14 text-center text-sm text-[var(--hc-text-muted)]">Cargando quizzes…</div>
+      ) : error ? (
+        <RequestError error={error} onRetry={load} />
+      ) : !form ? (
+        <RequestError error={new Error("No se pudo preparar el editor de quizzes.")} onRetry={load} />
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="min-w-0 border border-[var(--hc-border)] bg-[var(--hc-surface)] p-3">
