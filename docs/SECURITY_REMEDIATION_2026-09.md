@@ -4,6 +4,10 @@
 
 All content reads for research, education, reports, companies, books, dashboard summary and bookmarks use `require_member`. A valid session with inactive membership receives HTTP 403 with `membership_inactive`; a missing or invalid session receives 401. Authentication/profile, membership configuration, checkout recovery, Stripe webhooks and the access-denied flow intentionally remain available without active membership.
 
+## Administrative session assurance
+
+Administrative authorization requires both an administrator record with TOTP enabled and a signed access token carrying `aal=2`. That claim is issued only after successful TOTP or backup-code verification. Legacy tokens and sessions created before 2FA enrollment are treated as `aal=1` and cannot authorize `require_admin` routes. Completing 2FA enrollment rotates the cookie to an AAL2 session immediately.
+
 ## Upload boundary
 
 Private document upload signatures require both a `.pdf` filename and `application/pdf`. Legacy multipart PDF uploads additionally verify the `%PDF-` signature. Signed cover uploads require a matching JPG/JPEG, PNG or WebP extension and MIME type. Because the browser sends signed uploads directly to Supabase, content-byte verification after a signed upload remains a separate hardening item; document buckets remain private.

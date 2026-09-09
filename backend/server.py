@@ -166,10 +166,11 @@ def get_jwt_secret() -> str:
     return secret
 
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(user_id: str, email: str, *, aal: int = 1) -> str:
     return jwt.encode(
         {
             "sub": user_id, "email": email, "type": "access",
+            "aal": 2 if aal >= 2 else 1,
             "iat": now_utc(),
             "exp": now_utc() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES),
         },
@@ -278,7 +279,12 @@ async def get_current_user(
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         user = await refresh_membership_state(user)
-        return serialize_user(user)
+        current_user = serialize_user(user)
+        # Authentication assurance belongs to the signed session, not the user
+        # record. Tokens issued before this claim existed intentionally remain
+        # AAL1 and cannot authorize an administrative request.
+        current_user["_auth_aal"] = 2 if payload.get("aal") == 2 else 1
+        return current_user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -290,6 +296,8 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=403, detail="Admin role required")
     if not current_user.get("totp_enabled"):
         raise HTTPException(status_code=403, detail="admin_2fa_required")
+    if current_user.get("_auth_aal", 1) < 2:
+        raise HTTPException(status_code=403, detail="admin_2fa_verification_required")
     return current_user
 
 
@@ -806,7 +814,7 @@ async def two_fa_verify(payload: TwoFAVerify, response: Response, request: Reque
     if not _verify_totp_or_backup(user, payload.code):
         raise HTTPException(401, "Invalid 2FA code")
     await _consume_backup_code_if_used(decoded["sub"], payload.code)
-    token = create_access_token(str(user["_id"]), user["email"])
+    token = create_access_token(str(user["_id"]), user["email"], aal=2)
     set_auth_cookies(response, token)
     return AuthResponse(access_token=token, user=UserPublic(**serialize_user(user)))
 
@@ -846,7 +854,11 @@ async def two_fa_setup(current_user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/auth/2fa/verify-setup")
-async def two_fa_verify_setup(payload: TwoFAVerifySetup, current_user: dict = Depends(get_current_user)):
+async def two_fa_verify_setup(
+    payload: TwoFAVerifySetup,
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+):
     user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
     pending = (user or {}).get("totp_secret_pending")
     if not pending:
@@ -866,6 +878,10 @@ async def two_fa_verify_setup(payload: TwoFAVerifySetup, current_user: dict = De
             "$unset": {"totp_secret_pending": ""},
         },
     )
+    # This request proved possession of the second factor. Rotate the session
+    # immediately so an administrator is not left with an AAL1 token.
+    token = create_access_token(current_user["id"], current_user["email"], aal=2)
+    set_auth_cookies(response, token)
     return {"enabled": True, "backup_codes": backup_codes}
 
 

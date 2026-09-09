@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
+import { RequestError } from "../components/RequestError";
 import { api } from "../lib/api";
 import { CONTENT_TYPES, formatDate, formatPeriod } from "../lib/content";
 import { Search, ArrowUpRight } from "lucide-react";
@@ -75,20 +76,30 @@ export default function SearchResults() {
   const [input, setInput] = useState(q);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     setInput(q);
     if (!q) {
       setResults(null);
+      setError(null);
       return;
     }
+    const controller = new AbortController();
     setLoading(true);
+    setError(null);
     api
-      .get("/search", { params: { q } })
+      .get("/search", { params: { q }, signal: controller.signal })
       .then(({ data }) => setResults(data))
-      .catch(() => setResults({ total: 0, books: [], research: [], education: [], reports: [], companies: [] }))
-      .finally(() => setLoading(false));
-  }, [q]);
+      .catch((requestError) => {
+        if (requestError?.code !== "ERR_CANCELED") setError(requestError);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [q, reloadToken]);
 
   const submit = (e) => {
     e.preventDefault();
@@ -129,6 +140,8 @@ export default function SearchResults() {
         <div className="border border-[var(--hc-border)] bg-[var(--hc-surface)]/40 text-sm text-[var(--hc-text-muted)] py-12 text-center">
           Buscando en la academia...
         </div>
+      ) : error ? (
+        <RequestError error={error} onRetry={() => setReloadToken((value) => value + 1)} />
       ) : !results || results.total === 0 ? (
         <EmptyState
           icon={Search}
