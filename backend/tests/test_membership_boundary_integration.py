@@ -54,7 +54,9 @@ def identities():
         }
         yield headers
     finally:
-        database.bookmarks.delete_many({"user_id": {"$in": [str(user["_id"]) for user in users.values()]}})
+        user_ids = [str(user["_id"]) for user in users.values()]
+        database.bookmarks.delete_many({"user_id": {"$in": user_ids}})
+        database.course_progress.delete_many({"user_id": {"$in": user_ids}})
         database.users.delete_many({"test_marker": marker})
         client.close()
 
