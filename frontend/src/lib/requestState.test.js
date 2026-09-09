@@ -23,6 +23,10 @@ describe("request states", () => {
     ["AdminQuizzes 500", { response: { status: 500 } }, "server"],
     ["MemberDirectory red", new Error("offline"), "network"],
     ["AccessDenied membership config 500", { response: { status: 503 } }, "server"],
+    ["Search 401", { response: { status: 401 } }, "session"],
+    ["Search 403", { response: { status: 403 } }, "forbidden"],
+    ["Search 500", { response: { status: 500 } }, "server"],
+    ["Search red", new Error("offline"), "network"],
   ])("mantiene un estado de error explícito para %s", (_name, error, expected) => {
     expect(resolveCollectionState({ loading: false, error, items: [] })).toBe(expected);
     expect(classifyRequestError(error).kind).toBe(expected);

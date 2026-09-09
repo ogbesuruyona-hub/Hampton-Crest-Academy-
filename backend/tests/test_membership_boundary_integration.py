@@ -23,9 +23,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _token(user_id: ObjectId, email: str) -> str:
+def _token(user_id: ObjectId, email: str, *, aal: int = 1) -> str:
     return jwt.encode(
-        {"sub": str(user_id), "email": email, "type": "access", "iat": datetime.now(timezone.utc)},
+        {"sub": str(user_id), "email": email, "type": "access", "aal": aal, "iat": datetime.now(timezone.utc)},
         JWT_SECRET,
         algorithm="HS256",
     )
@@ -45,10 +45,14 @@ def identities():
         user["test_marker"] = marker
         database.users.insert_one(user)
     try:
-        yield {
-            name: {"Authorization": f"Bearer {_token(user['_id'], user['email'])}"}
+        headers = {
+            name: {"Authorization": f"Bearer {_token(user['_id'], user['email'], aal=2 if name == 'admin' else 1)}"}
             for name, user in users.items()
         }
+        headers["admin_aal1"] = {
+            "Authorization": f"Bearer {_token(users['admin']['_id'], users['admin']['email'], aal=1)}"
+        }
+        yield headers
     finally:
         database.bookmarks.delete_many({"user_id": {"$in": [str(user["_id"]) for user in users.values()]}})
         database.users.delete_many({"test_marker": marker})
@@ -120,3 +124,9 @@ def test_expired_member_cannot_mutate_bookmarks(identities):
 def test_admin_keeps_authorized_access(identities):
     assert requests.get(f"{BASE_URL}/api/dashboard-summary", headers=identities["admin"], timeout=10).status_code == 200
     assert requests.get(f"{BASE_URL}/api/directory", headers=identities["admin"], timeout=10).status_code == 200
+
+
+def test_admin_route_rejects_session_without_completed_two_factor(identities):
+    response = requests.get(f"{BASE_URL}/api/directory", headers=identities["admin_aal1"], timeout=10)
+    assert response.status_code == 403
+    assert response.json().get("detail") == "admin_2fa_verification_required"

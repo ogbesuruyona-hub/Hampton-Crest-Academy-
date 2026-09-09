@@ -156,6 +156,34 @@ def test_member_cannot_use_admin_dependency():
     assert denied.value.status_code == 403
 
 
+def test_admin_requires_a_session_that_completed_two_factor_authentication():
+    admin = {
+        "id": "admin-1",
+        "role": "admin",
+        "totp_enabled": True,
+        "_auth_aal": 1,
+    }
+    with pytest.raises(HTTPException) as denied:
+        asyncio.run(server.require_admin(admin))
+    assert denied.value.status_code == 403
+    assert denied.value.detail == "admin_2fa_verification_required"
+
+    elevated = {**admin, "_auth_aal": 2}
+    assert asyncio.run(server.require_admin(elevated)) == elevated
+
+
+def test_access_tokens_distinguish_default_and_two_factor_sessions(monkeypatch):
+    secret = "unit-test-secret-with-at-least-32-characters"
+    monkeypatch.setenv("JWT_SECRET", secret)
+    default_token = server.create_access_token("user-1", "member@example.com")
+    elevated_token = server.create_access_token("admin-1", "admin@example.com", aal=2)
+
+    default_claims = server.jwt.decode(default_token, secret, algorithms=[server.JWT_ALGORITHM])
+    elevated_claims = server.jwt.decode(elevated_token, secret, algorithms=[server.JWT_ALGORITHM])
+    assert default_claims["aal"] == 1
+    assert elevated_claims["aal"] == 2
+
+
 @pytest.mark.parametrize(
     "user,allowed",
     [
@@ -186,12 +214,27 @@ def test_every_premium_route_uses_require_member_dependency():
     premium_routes = {
         ("GET", "/api/research"), ("GET", "/api/research/{content_id}"),
         ("GET", "/api/education"), ("GET", "/api/education/{content_id}"),
+        ("GET", "/api/education/{content_id}/open"),
         ("GET", "/api/reports"), ("GET", "/api/reports/{content_id}"),
+        ("GET", "/api/reports/{content_id}/open"),
         ("GET", "/api/companies"), ("GET", "/api/companies/{company_id}"),
         ("GET", "/api/books"), ("GET", "/api/books/{content_id}"),
+        ("GET", "/api/books/{content_id}/open"),
         ("GET", "/api/dashboard-summary"), ("GET", "/api/bookmarks"),
         ("GET", "/api/bookmarks/check"), ("POST", "/api/bookmarks"),
         ("DELETE", "/api/bookmarks"),
+        ("GET", "/api/files/{path:path}"),
+        ("GET", "/api/search"),
+        ("POST", "/api/chat"), ("GET", "/api/chat/history"),
+        ("DELETE", "/api/chat/history"),
+        ("POST", "/api/valuation"), ("GET", "/api/valuation/history"),
+        ("GET", "/api/progress/courses"), ("POST", "/api/progress/lessons/sync"),
+        ("POST", "/api/progress/lessons/{lesson_id}"),
+        ("GET", "/api/courses/{course_id}/quiz-status"),
+        ("POST", "/api/quizzes/{quiz_id}/start"),
+        ("GET", "/api/quiz-attempts/{attempt_id}"),
+        ("POST", "/api/quiz-attempts/{attempt_id}/answer"),
+        ("POST", "/api/quiz-attempts/{attempt_id}/complete"),
     }
     actual = {}
     for route in server.app.routes:
@@ -201,6 +244,43 @@ def test_every_premium_route_uses_require_member_dependency():
                 actual[key] = {dependency.call for dependency in route.dependant.dependencies}
     assert set(actual) == premium_routes
     assert all(server.require_member in dependencies for dependencies in actual.values())
+
+
+def test_every_administrative_route_uses_require_admin_dependency():
+    admin_routes = {
+        ("GET", "/api/directory"),
+        ("POST", "/api/research"), ("PUT", "/api/research/{content_id}"),
+        ("DELETE", "/api/research/{content_id}"),
+        ("POST", "/api/education/uploads/sign"), ("POST", "/api/education"),
+        ("POST", "/api/education/modules"), ("PUT", "/api/education/{content_id}"),
+        ("DELETE", "/api/education/{content_id}"),
+        ("POST", "/api/reports/uploads/sign"), ("POST", "/api/reports"),
+        ("PUT", "/api/reports/{content_id}"), ("DELETE", "/api/reports/{content_id}"),
+        ("POST", "/api/companies"), ("PUT", "/api/companies/{company_id}"),
+        ("DELETE", "/api/companies/{company_id}"),
+        ("POST", "/api/companies/{company_id}/memos"),
+        ("DELETE", "/api/companies/{company_id}/memos/{memo_id}"),
+        ("POST", "/api/books/uploads/sign"), ("POST", "/api/books/metadata/inspect"),
+        ("POST", "/api/books"), ("PUT", "/api/books/{content_id}"),
+        ("DELETE", "/api/books/{content_id}"),
+        ("POST", "/api/uploads/image/sign"), ("POST", "/api/uploads/image"),
+        ("POST", "/api/uploads/report-pdf"),
+        ("GET", "/api/admin/members"), ("PUT", "/api/admin/members/{user_id}"),
+        ("POST", "/api/admin/members/{user_id}/revoke"),
+        ("POST", "/api/admin/members/{user_id}/resend-invite"),
+        ("POST", "/api/admin/members/{user_id}/invite-link"),
+        ("POST", "/api/admin/email/test"),
+        ("GET", "/api/admin/quizzes"), ("POST", "/api/admin/quizzes"),
+        ("PUT", "/api/admin/quizzes/{quiz_id}"),
+    }
+    actual = {}
+    for route in server.app.routes:
+        for method in getattr(route, "methods", set()):
+            key = (method, getattr(route, "path", ""))
+            if key in admin_routes:
+                actual[key] = {dependency.call for dependency in route.dependant.dependencies}
+    assert set(actual) == admin_routes
+    assert all(server.require_admin in dependencies for dependencies in actual.values())
 
 
 def test_bookmarks_are_loaded_in_batches_and_keep_order(monkeypatch):

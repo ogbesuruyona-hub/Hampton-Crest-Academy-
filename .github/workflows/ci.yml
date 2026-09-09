@@ -67,10 +67,14 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8765/api/health
-      - name: Membership boundary integration
+      - name: Membership and Quiz Engine HTTP integration
         env:
           MEMBERSHIP_TEST_BASE_URL: http://127.0.0.1:8765
           MEMBERSHIP_TEST_MONGO_URL: mongodb://127.0.0.1:27017
           MEMBERSHIP_TEST_DB_NAME: academy_ci
           MEMBERSHIP_TEST_JWT_SECRET: ci-only-secret-with-at-least-32-characters
-        run: pytest -q backend/tests/test_membership_boundary_integration.py
+          QUIZ_TEST_BASE_URL: http://127.0.0.1:8765
+          QUIZ_TEST_MONGO_URL: mongodb://127.0.0.1:27017
+          QUIZ_TEST_DB_NAME: academy_ci
+          QUIZ_TEST_JWT_SECRET: ci-only-secret-with-at-least-32-characters
+        run: pytest -q backend/tests/test_membership_boundary_integration.py backend/tests/test_quiz_http_integration.py
