@@ -234,12 +234,8 @@
     align-items: center;
 }
 .hc-topbar-brand-cluster {
-    margin-left: 0.5rem;
-}
-@media (min-width: 640px) {
-    .hc-topbar-brand-cluster {
-        margin-left: 1rem;
-    }
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 @keyframes hc-fade-in {
