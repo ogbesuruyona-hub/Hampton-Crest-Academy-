@@ -56,7 +56,7 @@ export const Topbar = ({ onOpenMobileSidebar }) => {
         </form>
 
         {/* Right cluster */}
-        <div className="flex items-center gap-2">
+        <div className="hc-topbar-brand-cluster flex items-center gap-2">
           <button
             className="hidden sm:flex items-center justify-center h-9 w-9 text-[var(--hc-text-secondary)] hover:text-[var(--hc-text)] hover:bg-[var(--hc-surface-elevated)] transition-colors"
             aria-label="Notificaciones"

@@ -5,6 +5,7 @@ import { API, formatApiErrorDetail } from "../lib/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { cachedApiGet, peekCachedApi } from "../lib/resourceCache";
+import BookCover from "../components/BookCover";
 
 const formatFileSize = (bytes) => {
   if (!bytes) return null;
@@ -76,20 +77,12 @@ export default function BookDetail() {
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-8">
         <div className="bg-[var(--hc-surface)] border border-[var(--hc-border)] aspect-[3/4] max-h-[320px] overflow-hidden">
-          {book.cover_url ? (
-            <img
-              src={book.cover_url}
-              alt={book.title}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center text-center px-4">
-              <span className="hc-overline text-[var(--hc-text-muted)]">Sin portada</span>
-            </div>
-          )}
+          <BookCover
+            book={book}
+            loading="eager"
+            fetchPriority="high"
+            imageClassName="object-contain p-2"
+          />
         </div>
 
         <div>

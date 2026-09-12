@@ -1170,6 +1170,57 @@ def _fetch_book_metadata_page(value: str) -> tuple[str, bytes, str]:
     raise ValueError("The source redirected too many times")
 
 
+def _fetch_public_cover_image(value: str) -> tuple[bytes, str]:
+    """Fetch one public raster cover without allowing private-network access."""
+    current_url = value
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; HamptonCrestAcademy/1.0; +https://academy.hamptoncrestcapital.com)",
+        "Accept": "image/avif,image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.1",
+    }
+    validators = {
+        "image/jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
+        "image/png": lambda data: data.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/webp": lambda data: data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+        "image/avif": lambda data: len(data) >= 12 and data[4:8] == b"ftyp" and b"avif" in data[8:32],
+    }
+    for _ in range(4):
+        current_url = _validate_public_metadata_url(current_url)
+        response = requests.get(
+            current_url,
+            headers=headers,
+            timeout=(5, 12),
+            stream=True,
+            allow_redirects=False,
+        )
+        if response.status_code in {301, 302, 303, 307, 308}:
+            location = response.headers.get("Location")
+            response.close()
+            if not location:
+                raise ValueError("The cover returned an invalid redirect")
+            current_url = urljoin(current_url, location)
+            continue
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        validator = validators.get(content_type)
+        if not validator:
+            response.close()
+            raise ValueError("The cover URL did not return a supported image")
+        chunks = []
+        size = 0
+        for chunk in response.iter_content(64 * 1024):
+            size += len(chunk)
+            if size > IMAGE_MAX_BYTES:
+                response.close()
+                raise ValueError("The cover image is too large")
+            chunks.append(chunk)
+        response.close()
+        data = b"".join(chunks)
+        if not data or not validator(data):
+            raise ValueError("The cover contents do not match its image format")
+        return data, content_type
+    raise ValueError("The cover redirected too many times")
+
+
 def _json_ld_candidates(value):
     if isinstance(value, list):
         for item in value:
@@ -1879,6 +1930,24 @@ async def list_books(
 @api_router.get("/books/{content_id}")
 async def get_book(content_id: str, current_user: dict = Depends(require_member)):
     return serialize_doc(await _get_or_404("books", content_id, current_user))
+
+
+@api_router.get("/books/{content_id}/cover")
+async def get_book_cover(content_id: str, current_user: dict = Depends(require_member)):
+    book = await _get_or_404("books", content_id, current_user)
+    cover_url = (book.get("cover_url") or "").strip()
+    if not cover_url:
+        raise HTTPException(404, "Este libro no tiene portada disponible.")
+    try:
+        data, content_type = await asyncio.to_thread(_fetch_public_cover_image, cover_url)
+    except (ValueError, requests.RequestException) as exc:
+        logger.info("book cover unavailable for book_id=%s: %s", content_id, type(exc).__name__)
+        raise HTTPException(404, "La portada de este libro no está disponible.") from exc
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @api_router.post("/books")

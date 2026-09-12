@@ -216,6 +216,32 @@
     font-size: 0.5rem;
 }
 
+/* One shared spacing rule keeps the clickable brand clear of edges and dividers. */
+.hc-sidebar-brand {
+    display: flex;
+    align-items: center;
+    min-height: 5.875rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--hc-border);
+}
+.hc-sidebar-brand--collapsed {
+    justify-content: center;
+    padding-inline: 0.875rem;
+}
+.hc-sidebar-brand__home {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+}
+.hc-topbar-brand-cluster {
+    margin-left: 0.5rem;
+}
+@media (min-width: 640px) {
+    .hc-topbar-brand-cluster {
+        margin-left: 1rem;
+    }
+}
+
 @keyframes hc-fade-in {
     from {
         opacity: 0;

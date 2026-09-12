@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import {
   LayoutGrid,
   BookOpen,
@@ -43,18 +43,8 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
   return (
     <div className="flex flex-col h-full" data-testid="sidebar-content">
       {/* Brand */}
-      <div
-        className={`flex items-center ${
-          collapsed ? "justify-center px-2" : "px-5"
-        } py-5 border-b border-[var(--hc-border)]`}
-      >
-        {collapsed ? (
-          <div className="h-11 w-11 flex items-center justify-center overflow-hidden bg-[var(--hc-ink)] border border-[var(--hc-gold)]/30">
-            <BrandCrest compact testId="sidebar-logo" />
-          </div>
-        ) : (
-          <BrandLockup large tone="ink" testId="sidebar-logo" />
-        )}
+      <div className={`hc-sidebar-brand ${collapsed ? "hc-sidebar-brand--collapsed" : ""}`}>
+        <BrandHomeLink collapsed={collapsed} onClick={onItemClick} />
       </div>
 
       {/* Section label */}
@@ -152,6 +142,24 @@ export const SidebarContent = ({ collapsed = false, onItemClick }) => {
     </div>
   );
 };
+
+export const BrandHomeLink = ({ collapsed = false, onClick }) => (
+  <Link
+    to="/dashboard"
+    onClick={onClick}
+    aria-label="Ir al inicio de Hampton Crest Academy"
+    data-testid="sidebar-home-link"
+    className="hc-sidebar-brand__home focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--hc-gold)]"
+  >
+    {collapsed ? (
+      <span className="flex h-11 w-11 items-center justify-center overflow-hidden border border-[var(--hc-gold)]/30 bg-[var(--hc-ink)]">
+        <BrandCrest compact testId="sidebar-logo" />
+      </span>
+    ) : (
+      <BrandLockup large tone="ink" testId="sidebar-logo" />
+    )}
+  </Link>
+);
 
 export const DesktopSidebar = ({ collapsed, onToggle }) => {
   return (

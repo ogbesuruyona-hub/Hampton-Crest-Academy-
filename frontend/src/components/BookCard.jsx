@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, ArrowUpRight, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpRight, Pencil, Trash2 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { BookmarkButton } from "./BookmarkButton";
 import { api, formatApiErrorDetail } from "../lib/api";
 import { toast } from "sonner";
 import { primeCachedApi } from "../lib/resourceCache";
+import BookCover from "./BookCover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,26 +71,11 @@ export const BookCard = ({ book, showStatus = false, isAdmin = false, onEdit, on
         className="relative aspect-[3/4] h-auto w-full overflow-hidden border-b border-[var(--hc-border)] bg-[var(--hc-bg)] sm:aspect-auto sm:h-[185px] xl:h-[200px]"
         data-testid={`book-cover-${book.id}`}
       >
-        {book.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt={book.title}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-contain p-1 sm:p-3 transition-transform duration-500 group-hover:scale-[1.025]"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-1 text-center sm:gap-3 sm:px-4">
-            <BookOpen
-              className="h-5 w-5 text-[var(--hc-text-muted)] sm:h-8 sm:w-8"
-              strokeWidth={1.25}
-            />
-            <div className="hidden text-[var(--hc-text-muted)] sm:block hc-overline">Sin portada</div>
-          </div>
-        )}
+        <BookCover
+          book={book}
+          compact
+          imageClassName="object-contain p-1 sm:p-3 group-hover:scale-[1.025] transition-transform duration-500"
+        />
 
         {showStatus && book.status === "draft" && (
           <div className="absolute left-2 top-2 hidden sm:block">

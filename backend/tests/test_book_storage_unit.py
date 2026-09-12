@@ -34,6 +34,9 @@ class FakeResponse:
     def json(self):
         return self.payload
 
+    def close(self):
+        return None
+
 
 def test_book_source_requires_upload_or_external_link():
     with pytest.raises(HTTPException) as exc:
@@ -164,3 +167,36 @@ def test_signed_cover_upload_rejects_mime_extension_mismatch():
         import asyncio
         asyncio.run(server.sign_content_image_upload(mismatched, current_user={"id": "admin", "role": "admin"}))
     assert rejected.value.status_code == 400
+
+
+def test_external_cover_fetch_accepts_a_real_raster_image(monkeypatch):
+    image = b"\xff\xd8\xff" + b"cover"
+
+    class ImageResponse(FakeResponse):
+        status_code = 200
+        headers = {"Content-Type": "image/jpeg"}
+
+        def iter_content(self, _size):
+            yield image
+
+    monkeypatch.setattr(server, "_validate_public_metadata_url", lambda value: value)
+    monkeypatch.setattr(server.requests, "get", lambda *_args, **_kwargs: ImageResponse({}))
+
+    data, content_type = server._fetch_public_cover_image("https://images.example/cover.jpg")
+    assert data == image
+    assert content_type == "image/jpeg"
+
+
+def test_external_cover_fetch_rejects_html_instead_of_serving_it_as_an_image(monkeypatch):
+    class HtmlResponse(FakeResponse):
+        status_code = 200
+        headers = {"Content-Type": "text/html"}
+
+        def iter_content(self, _size):
+            yield b"<html>not a cover</html>"
+
+    monkeypatch.setattr(server, "_validate_public_metadata_url", lambda value: value)
+    monkeypatch.setattr(server.requests, "get", lambda *_args, **_kwargs: HtmlResponse({}))
+
+    with pytest.raises(ValueError, match="supported image"):
+        server._fetch_public_cover_image("https://drive.example/book")
